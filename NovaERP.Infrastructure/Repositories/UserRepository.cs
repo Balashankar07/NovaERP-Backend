@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Domain.Entities;
 using NovaERP.Infrastructure.Persistence.Context;
@@ -17,8 +17,18 @@ public class UserRepository
     {
         return await _dbSet
             .Include(x => x.Company)
-            .Include(x => x.Role)
+            .Include(x => x.UserRoles)
+                .ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(x => x.Email == email);
+    }
+
+    public override async Task<User?> GetByIdAsync(Guid id)
+    {
+        return await _dbSet
+            .Include(x => x.Company)
+            .Include(x => x.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(x => x.Id == id);
     }
 
     public override async Task<NovaERP.Application.Common.Models.PagedResult<NovaERP.Domain.Entities.User>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)

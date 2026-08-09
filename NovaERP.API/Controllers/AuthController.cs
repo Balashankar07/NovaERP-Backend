@@ -1,5 +1,5 @@
 using NovaERP.Application.Common.Models;
-﻿using MediatR;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NovaERP.Application.Authentication.Commands.Login;
@@ -13,13 +13,16 @@ public class AuthController : ControllerBase
 {
     private readonly IMediator _mediator;
     private readonly ICurrentUserService _currentUser;
+    private readonly ICurrentUserPermissionService _permissionService;
 
     public AuthController(
         IMediator mediator,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        ICurrentUserPermissionService permissionService)
     {
         _mediator = mediator;
         _currentUser = currentUser;
+        _permissionService = permissionService;
     }
 
     [HttpPost("login")]
@@ -32,16 +35,20 @@ public class AuthController : ControllerBase
 
     [Authorize]
     [HttpGet("me")]
-    public IActionResult Me()
+    public async Task<IActionResult> Me()
     {
-        return Ok(new
+        var permissions = await _permissionService.GetUserPermissionsAsync();
+
+        var data = new
         {
             _currentUser.IsAuthenticated,
             _currentUser.UserId,
             _currentUser.Email,
             _currentUser.Role,
             _currentUser.CompanyId,
-            _currentUser.BranchId
-        });
+            _currentUser.BranchId,
+            Permissions = permissions
+        };
+        return Ok(ApiResponse.SuccessResponse("Current user retrieved successfully.", data));
     }
 }

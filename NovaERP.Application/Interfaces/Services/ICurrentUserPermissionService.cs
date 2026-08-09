@@ -12,4 +12,9 @@ public interface ICurrentUserPermissionService
     /// The permission name to check (e.g. "Users.Create").
     /// </param>
     Task<bool> HasPermissionAsync(string permissionName);
+
+    /// <summary>
+    /// Returns a list of all permission names assigned to the current user's role.
+    /// </summary>
+    Task<List<string>> GetUserPermissionsAsync();
 }

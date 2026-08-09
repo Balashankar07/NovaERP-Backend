@@ -87,6 +87,7 @@ public class BOMService : IBOMService
             Version = dto.Version,
             Description = dto.Description,
             IsActive = dto.IsActive,
+            CreatedAt = DateTime.UtcNow,
             BOMItems = dto.Items.Select(i => new BOMItem
             {
                 RawMaterialProductId = i.RawMaterialProductId,

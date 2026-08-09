@@ -221,8 +221,11 @@ public static class DbSeeder
                 Phone = "+91 9999999999",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
                 CompanyId = company.Id,
-                RoleId = superAdminRole.Id,
-                IsActive = true
+                IsActive = true,
+                UserRoles = new List<UserRole>
+                {
+                    new UserRole { RoleId = superAdminRole.Id }
+                }
             };
 
             await context.Users.AddAsync(admin);
@@ -245,8 +248,11 @@ public static class DbSeeder
                 Phone = "+91 8888888888",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Employee@123"),
                 CompanyId = company.Id,
-                RoleId = employeeRole.Id,
-                IsActive = true
+                IsActive = true,
+                UserRoles = new List<UserRole>
+                {
+                    new UserRole { RoleId = employeeRole.Id }
+                }
             };
 
             await context.Users.AddAsync(emp);
@@ -276,6 +282,45 @@ public static class DbSeeder
             if (newRolePermissions.Any())
             {
                 await context.RolePermissions.AddRangeAsync(newRolePermissions);
+                await context.SaveChangesAsync();
+            }
+        }
+
+        // ==========================
+        // Seed Employee Role Permissions (Basic Read-Only Access)
+        // ==========================
+        var employeeRoleObj = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Employee");
+        if (employeeRoleObj != null)
+        {
+            var employeeAllowedPermissions = new[]
+            {
+                "Permissions.Products.View",
+                "Permissions.ProductCategories.View",
+                "Permissions.Brands.View",
+                "Permissions.Units.View",
+                "Permissions.Suppliers.View"
+            };
+
+            var employeePermissions = await context.Permissions
+                .Where(p => employeeAllowedPermissions.Contains(p.Name))
+                .ToListAsync();
+
+            var existingEmployeeRolePermissions = await context.RolePermissions
+                .Where(rp => rp.RoleId == employeeRoleObj.Id)
+                .Select(rp => rp.PermissionId)
+                .ToListAsync();
+
+            var newEmployeeRolePermissions = employeePermissions
+                .Where(p => !existingEmployeeRolePermissions.Contains(p.Id))
+                .Select(p => new RolePermission
+                {
+                    RoleId = employeeRoleObj.Id,
+                    PermissionId = p.Id
+                }).ToList();
+
+            if (newEmployeeRolePermissions.Any())
+            {
+                await context.RolePermissions.AddRangeAsync(newEmployeeRolePermissions);
                 await context.SaveChangesAsync();
             }
         }

@@ -3,6 +3,7 @@ using System.Text.Json;
 
 using FluentValidation;
 using NovaERP.Application.Common.Exceptions;
+using NovaERP.Application.Common.Models;
 
 namespace NovaERP.API.Middleware;
 
@@ -33,81 +34,50 @@ public class ExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
 
-        var response = new ErrorResponse();
+        var response = new ApiResponse<object>
+        {
+            Success = false,
+            Data = null
+        };
 
         switch (exception)
         {
             case ValidationException validationException:
-
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-
-                response.StatusCode = 400;
-                response.Success = false;
                 response.Message = "Validation Failed";
                 response.Errors = validationException.Errors
                     .Select(x => x.ErrorMessage)
                     .ToList();
-
                 break;
 
             case UnauthorizedAccessException:
-
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-
-                response.StatusCode = 401;
-                response.Success = false;
-                response.Message = "Unauthorized";
-
+                response.Message = exception.Message;
                 break;
 
             case BadRequestException badRequestEx:
                 context.Response.StatusCode = StatusCodes.Status400BadRequest;
-                response.StatusCode = 400;
-                response.Success = false;
                 response.Message = badRequestEx.Message;
                 break;
 
             case ConflictException conflictEx:
                 context.Response.StatusCode = StatusCodes.Status409Conflict;
-                response.StatusCode = 409;
-                response.Success = false;
                 response.Message = conflictEx.Message;
                 break;
 
             case KeyNotFoundException:
-
                 context.Response.StatusCode = StatusCodes.Status404NotFound;
-
-                response.StatusCode = 404;
-                response.Success = false;
                 response.Message = "Resource Not Found";
-
                 break;
 
             default:
-
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-
-                response.StatusCode = 500;
-                response.Success = false;
                 response.Message = "Internal Server Error";
-
                 break;
         }
 
-        var json = JsonSerializer.Serialize(response);
+        var json = JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
         await context.Response.WriteAsync(json);
     }
-}
-
-public class ErrorResponse
-{
-    public bool Success { get; set; }
-
-    public int StatusCode { get; set; }
-
-    public string Message { get; set; } = string.Empty;
-
-    public List<string>? Errors { get; set; }
 }

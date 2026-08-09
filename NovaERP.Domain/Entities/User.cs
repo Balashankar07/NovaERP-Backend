@@ -1,4 +1,4 @@
-﻿using NovaERP.Domain.Common;
+using NovaERP.Domain.Common;
 
 namespace NovaERP.Domain.Entities;
 
@@ -17,12 +17,10 @@ public class User : AuditableEntity
     // Required Foreign Keys
     public Guid CompanyId { get; set; }
 
-    public Guid RoleId { get; set; }
-
     public bool IsActive { get; set; } = true;
 
     // Navigation Properties
     public Company Company { get; set; } = null!;
 
-    public Role Role { get; set; } = null!;
+    public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }

@@ -34,8 +34,8 @@ public class BOMRepository : IBOMRepository
             bool isDesc = sortOrder?.Equals("desc", StringComparison.OrdinalIgnoreCase) ?? false;
             query = sortBy.ToLower() switch
             {
-                "version" => isDesc ? query.OrderByDescending(x => x.Version) : query.OrderBy(x => x.Version),
-                "createdat" => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
+                "version" => isDesc ? query.OrderByDescending(x => x.Version).ThenBy(x => x.Id) : query.OrderBy(x => x.Version).ThenBy(x => x.Id),
+                "createdat" => isDesc ? query.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id) : query.OrderBy(x => x.CreatedAt).ThenBy(x => x.Id),
                 _ => isDesc ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
             };
         }

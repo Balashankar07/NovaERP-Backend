@@ -1,4 +1,4 @@
-﻿namespace NovaERP.Application.Features.Users.DTOs;
+namespace NovaERP.Application.Features.Users.DTOs;
 
 public class UserDto
 {
@@ -14,7 +14,7 @@ public class UserDto
 
     public Guid CompanyId { get; set; }
 
-    public Guid RoleId { get; set; }
+    public ICollection<Guid> RoleIds { get; set; } = new List<Guid>();
 
     public bool IsActive { get; set; }
 }

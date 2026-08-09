@@ -11,7 +11,7 @@ namespace NovaERP.Domain.Entities
         public bool IsActive { get; set; } = true;
 
         // Navigation Property
-        public ICollection<User> Users { get; set; } = new List<User>();
+        public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
         public ICollection<RolePermission> RolePermissions { get; set; } = new List<RolePermission>();
 
     }

@@ -40,7 +40,6 @@ public class CurrentUserPermissionService : ICurrentUserPermissionService
             return false;
         }
 
-        // 1. Resolve the user to get their RoleId
         var user = await _unitOfWork.Users.GetByIdAsync(userId);
 
         if (user is null)
@@ -49,32 +48,82 @@ public class CurrentUserPermissionService : ICurrentUserPermissionService
             return false;
         }
 
-        var roleId = user.RoleId;
+        var roleIds = user.UserRoles?.Select(ur => ur.RoleId).ToList() ?? new List<Guid>();
 
-        // 2. Load all RolePermissions for that role
+        if (!roleIds.Any())
+        {
+            _logger.LogDebug("HasPermissionAsync: User {UserId} has no roles assigned.", userId);
+            return false;
+        }
+
         var allRolePermissions = await _unitOfWork.RolePermissions.GetAllAsync(1, int.MaxValue);
         var permissionIds = allRolePermissions.Items
-            .Where(rp => rp.RoleId == roleId)
+            .Where(rp => roleIds.Contains(rp.RoleId))
             .Select(rp => rp.PermissionId)
             .ToHashSet();
 
         if (permissionIds.Count == 0)
         {
             _logger.LogDebug(
-                "HasPermissionAsync: Role {RoleId} has no permissions assigned.", roleId);
+                "HasPermissionAsync: Roles {RoleIds} have no permissions assigned.", string.Join(',', roleIds));
             return false;
         }
 
-        // 3. Load all permissions and check by name
         var allPermissions = await _unitOfWork.Permissions.GetAllAsync(1, int.MaxValue);
         var hasPermission = allPermissions.Items
             .Any(p => permissionIds.Contains(p.Id)
                    && string.Equals(p.Name, permissionName, StringComparison.OrdinalIgnoreCase));
 
         _logger.LogDebug(
-            "HasPermissionAsync: User {UserId} / Role {RoleId} / Permission '{Permission}' → {Result}",
-            userId, roleId, permissionName, hasPermission);
+            "HasPermissionAsync: User {UserId} / Roles {RoleIds} / Permission '{Permission}' -> {Result}",
+            userId, string.Join(',', roleIds), permissionName, hasPermission);
 
         return hasPermission;
+    }
+
+    public async Task<List<string>> GetUserPermissionsAsync()
+    {
+        if (!_currentUserService.IsAuthenticated)
+        {
+            return new List<string>();
+        }
+
+        var userId = _currentUserService.UserId;
+        if (userId == Guid.Empty)
+        {
+            return new List<string>();
+        }
+
+        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        if (user is null)
+        {
+            return new List<string>();
+        }
+
+        var roleIds = user.UserRoles?.Select(ur => ur.RoleId).ToList() ?? new List<Guid>();
+
+        if (!roleIds.Any())
+        {
+            return new List<string>();
+        }
+
+        var allRolePermissions = await _unitOfWork.RolePermissions.GetAllAsync(1, int.MaxValue);
+        var permissionIds = allRolePermissions.Items
+            .Where(rp => roleIds.Contains(rp.RoleId))
+            .Select(rp => rp.PermissionId)
+            .ToHashSet();
+
+        if (permissionIds.Count == 0)
+        {
+            return new List<string>();
+        }
+
+        var allPermissions = await _unitOfWork.Permissions.GetAllAsync(1, int.MaxValue);
+        var userPermissions = allPermissions.Items
+            .Where(p => permissionIds.Contains(p.Id))
+            .Select(p => p.Name)
+            .ToList();
+
+        return userPermissions;
     }
 }

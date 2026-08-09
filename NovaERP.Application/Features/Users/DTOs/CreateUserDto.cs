@@ -1,4 +1,4 @@
-﻿namespace NovaERP.Application.Features.Users.DTOs;
+namespace NovaERP.Application.Features.Users.DTOs;
 
 public class CreateUserDto
 {
@@ -14,5 +14,5 @@ public class CreateUserDto
 
     public Guid CompanyId { get; set; }
 
-    public Guid RoleId { get; set; }
+    public ICollection<Guid> RoleIds { get; set; } = new List<Guid>();
 }

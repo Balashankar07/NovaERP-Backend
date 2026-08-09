@@ -19,7 +19,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet]
-    [HasPermission("Dashboard.View")]
+    [HasPermission("Permissions.Dashboard.View")]
     public async Task<IActionResult> GetSummary()
     {
         var summary = await _dashboardService.GetSummaryAsync();

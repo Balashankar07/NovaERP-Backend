@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using NovaERP.Domain.Entities;
 
@@ -22,9 +22,6 @@ namespace NovaERP.Infrastructure.Persistence.Configurations
             builder.Property(x => x.IsActive)
                 .HasDefaultValue(true);
 
-            builder.HasMany(x => x.Users)
-                .WithOne(x => x.Role)
-                .HasForeignKey(x => x.RoleId);
         }
     }
 }

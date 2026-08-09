@@ -1,6 +1,8 @@
 using NovaERP.Application.Common.Models;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 using NovaERP.Application.Features.Users.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
@@ -30,16 +32,16 @@ public class UserService : IUserService
         return new PagedResult<UserDto>
         {
             Items = pagedResult.Items.Select(u => new UserDto
-        {
-            Id = u.Id,
-            FirstName = u.FirstName,
-            LastName = u.LastName,
-            Email = u.Email,
-            Phone = u.Phone,
-            CompanyId = u.CompanyId,
-            RoleId = u.RoleId,
-            IsActive = u.IsActive
-        }),
+            {
+                Id = u.Id,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Email = u.Email,
+                Phone = u.Phone,
+                CompanyId = u.CompanyId,
+                RoleIds = u.UserRoles?.Select(ur => ur.RoleId).ToList() ?? new List<Guid>(),
+                IsActive = u.IsActive
+            }),
             TotalCount = pagedResult.TotalCount,
             PageNumber = pagedResult.PageNumber,
             PageSize = pagedResult.PageSize
@@ -61,7 +63,7 @@ public class UserService : IUserService
             Email = user.Email,
             Phone = user.Phone,
             CompanyId = user.CompanyId,
-            RoleId = user.RoleId,
+            RoleIds = user.UserRoles?.Select(ur => ur.RoleId).ToList() ?? new List<Guid>(),
             IsActive = user.IsActive
         };
     }
@@ -76,14 +78,14 @@ public class UserService : IUserService
             Phone = dto.Phone,
             PasswordHash = _passwordHasher.HashPassword(dto.Password),
             CompanyId = dto.CompanyId,
-            RoleId = dto.RoleId,
+            UserRoles = dto.RoleIds?.Select(id => new UserRole { RoleId = id }).ToList() ?? new List<UserRole>(),
             IsActive = true
         };
 
         await _unitOfWork.Users.AddAsync(user);
         await _unitOfWork.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("Create", "User", user.Id.ToString(), newValues: $"Email: {user.Email}, RoleId: {user.RoleId}");
+        await _auditLogger.LogAsync("Create", "User", user.Id.ToString(), newValues: $"Email: {user.Email}, RoleIds: {string.Join(',', dto.RoleIds ?? new List<Guid>())}");
 
         return new UserDto
         {
@@ -93,7 +95,7 @@ public class UserService : IUserService
             Email = user.Email,
             Phone = user.Phone,
             CompanyId = user.CompanyId,
-            RoleId = user.RoleId,
+            RoleIds = dto.RoleIds ?? new List<Guid>(),
             IsActive = user.IsActive
         };
     }
@@ -109,7 +111,17 @@ public class UserService : IUserService
         user.LastName = dto.LastName;
         user.Phone = dto.Phone;
         user.CompanyId = dto.CompanyId;
-        user.RoleId = dto.RoleId;
+        
+        user.UserRoles ??= new List<UserRole>();
+        user.UserRoles.Clear();
+        if (dto.RoleIds != null)
+        {
+            foreach (var roleId in dto.RoleIds)
+            {
+                user.UserRoles.Add(new UserRole { RoleId = roleId });
+            }
+        }
+        
         user.IsActive = dto.IsActive;
         user.UpdatedAt = DateTime.UtcNow;
 

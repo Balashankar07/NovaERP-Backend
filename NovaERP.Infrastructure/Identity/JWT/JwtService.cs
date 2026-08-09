@@ -34,12 +34,23 @@ public class JwtService : IJwtService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
             new(ClaimTypes.Email, user.Email),
-            new(ClaimTypes.Role, user.Role.Name),
-
             // JWT Standard Claims
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        var roleNames = new List<string>();
+        if (user.UserRoles != null)
+        {
+            foreach (var ur in user.UserRoles)
+            {
+                if (ur.Role != null)
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, ur.Role.Name));
+                    roleNames.Add(ur.Role.Name);
+                }
+            }
+        }
 
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
@@ -63,7 +74,7 @@ public class JwtService : IJwtService
             AccessToken = new JwtSecurityTokenHandler().WriteToken(token),
             ExpiresAt = expires,
             UserName = $"{user.FirstName} {user.LastName}",
-            Role = user.Role.Name
+            Role = string.Join(", ", roleNames)
         };
     }
 }
