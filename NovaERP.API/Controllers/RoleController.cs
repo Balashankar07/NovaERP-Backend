@@ -20,14 +20,14 @@ public class RoleController : ControllerBase
     }
 
     [HttpGet]
-    [HasPermission("Roles.View")]
+    [HasPermission("Permissions.Roles.View")]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null)
     {
         return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", await _roleService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder)));
     }
 
     [HttpGet("{id}")]
-    [HasPermission("Roles.View")]
+    [HasPermission("Permissions.Roles.View")]
     public async Task<IActionResult> Get(Guid id)
     {
         var role = await _roleService.GetByIdAsync(id);
@@ -39,7 +39,7 @@ public class RoleController : ControllerBase
     }
 
     [HttpPost]
-    [HasPermission("Roles.Create")]
+    [HasPermission("Permissions.Roles.Create")]
     public async Task<IActionResult> Create(CreateRoleDto dto)
     {
         var role = await _roleService.CreateAsync(dto);
@@ -51,7 +51,7 @@ public class RoleController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [HasPermission("Roles.Update")]
+    [HasPermission("Permissions.Roles.Edit")]
     public async Task<IActionResult> Update(Guid id, UpdateRoleDto dto)
     {
         await _roleService.UpdateAsync(id, dto);
@@ -60,7 +60,7 @@ public class RoleController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [HasPermission("Roles.Delete")]
+    [HasPermission("Permissions.Roles.Delete")]
     public async Task<IActionResult> Delete(Guid id)
     {
         await _roleService.DeleteAsync(id);

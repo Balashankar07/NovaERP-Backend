@@ -81,6 +81,14 @@ public class RoleService : IRoleService
         if (role == null)
             throw new Exception("Role not found.");
 
+        if (role.Name == "Super Admin")
+        {
+            if (!dto.IsActive)
+                throw new InvalidOperationException("Cannot deactivate the Super Admin role.");
+            if (dto.Name != "Super Admin")
+                throw new InvalidOperationException("Cannot rename the Super Admin role.");
+        }
+
         role.Name = dto.Name;
         role.Description = dto.Description;
         role.IsActive = dto.IsActive;
@@ -99,6 +107,9 @@ public class RoleService : IRoleService
 
         if (role == null)
             throw new Exception("Role not found.");
+
+        if (role.Name == "Super Admin")
+            throw new InvalidOperationException("Cannot delete the Super Admin role.");
 
         _unitOfWork.Roles.Delete(role);
 

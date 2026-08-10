@@ -107,6 +107,9 @@ public class UserService : IUserService
         if (user == null)
             throw new ArgumentException("User not found.");
 
+        if (user.Email == "admin@novaerp.com" && !dto.IsActive)
+            throw new InvalidOperationException("Cannot deactivate the Super Admin user.");
+
         user.FirstName = dto.FirstName;
         user.LastName = dto.LastName;
         user.Phone = dto.Phone;
@@ -137,6 +140,9 @@ public class UserService : IUserService
 
         if (user == null)
             throw new ArgumentException("User not found.");
+
+        if (user.Email == "admin@novaerp.com")
+            throw new InvalidOperationException("Cannot delete the Super Admin user.");
 
         _unitOfWork.Users.Delete(user);
         await _unitOfWork.SaveChangesAsync();

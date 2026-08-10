@@ -20,14 +20,6 @@ public class JwtService : IJwtService
 
     public LoginResponseDto GenerateToken(User user)
     {
-        Console.WriteLine("================================");
-        Console.WriteLine("JWT GENERATION SETTINGS");
-        Console.WriteLine($"Issuer   : {_jwtSettings.Issuer}");
-        Console.WriteLine($"Audience : {_jwtSettings.Audience}");
-        Console.WriteLine($"Secret   : {_jwtSettings.SecretKey}");
-        Console.WriteLine($"Expiry   : {_jwtSettings.ExpiryMinutes}");
-        Console.WriteLine("================================");
-
         var claims = new List<Claim>
         {
             // User Claims

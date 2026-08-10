@@ -20,7 +20,7 @@ public class PermissionsController : ControllerBase
     }
 
     [HttpGet]
-    [HasPermission("Permissions.View")]
+    [HasPermission("Permissions.Roles.View")]
     public async Task<IActionResult> GetAllPermissions([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null)
     {
         var permissions = await _permissionService.GetAllPermissionsAsync(pageNumber, pageSize, search, sortBy, sortOrder);
@@ -28,7 +28,7 @@ public class PermissionsController : ControllerBase
     }
 
     [HttpGet("role/{roleId}")]
-    [HasPermission("Permissions.View")]
+    [HasPermission("Permissions.Roles.View")]
     public async Task<IActionResult> GetRolePermissions(Guid roleId)
     {
         var permissions = await _permissionService.GetRolePermissionsAsync(roleId);
@@ -36,7 +36,7 @@ public class PermissionsController : ControllerBase
     }
 
     [HttpPost("role/{roleId}")]
-    [HasPermission("Permissions.Assign")]
+    [HasPermission("Permissions.Roles.Edit")]
     public async Task<IActionResult> AssignPermissionsToRole(Guid roleId, [FromBody] RolePermissionDto dto)
     {
         if (roleId != dto.RoleId)

@@ -97,9 +97,6 @@ public class Program
             Log.Information("Enabling Serilog Request Logging...");
             app.UseSerilogRequestLogging();
 
-            Log.Information("Enabling HTTPS Redirection...");
-            app.UseHttpsRedirection();
-
             Log.Information("Enabling CORS...");
             app.UseCorsPolicies();
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.OpenApi;
 using Microsoft.OpenApi.Models;
 
@@ -28,7 +28,7 @@ public static class SwaggerExtensions
                 BearerFormat = "JWT",
                 In = ParameterLocation.Header,
                 Description =
-                    "Enter JWT Token.\n\nExample:\nBearer eyJhbGciOiJIUzI1NiIs..."
+                    "Enter JWT Token.\n\nExample:\neyJhbGciOiJIUzI1NiIs..."
             });
 
             options.AddSecurityRequirement(new OpenApiSecurityRequirement

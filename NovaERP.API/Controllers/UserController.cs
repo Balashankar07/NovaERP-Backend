@@ -20,14 +20,14 @@ public class UserController : ControllerBase
     }
 
     [HttpGet]
-    [HasPermission("Users.View")]
+    [HasPermission("Permissions.Users.View")]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null)
     {
         return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", await _userService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder)));
     }
 
     [HttpGet("{id:guid}")]
-    [HasPermission("Users.View")]
+    [HasPermission("Permissions.Users.View")]
     public async Task<IActionResult> Get(Guid id)
     {
         var user = await _userService.GetByIdAsync(id);
@@ -39,7 +39,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPost]
-    [HasPermission("Users.Create")]
+    [HasPermission("Permissions.Users.Create")]
     public async Task<IActionResult> Create(CreateUserDto dto)
     {
         var user = await _userService.CreateAsync(dto);
@@ -51,7 +51,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [HasPermission("Users.Update")]
+    [HasPermission("Permissions.Users.Edit")]
     public async Task<IActionResult> Update(Guid id, UpdateUserDto dto)
     {
         await _userService.UpdateAsync(id, dto);
@@ -60,7 +60,7 @@ public class UserController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [HasPermission("Users.Delete")]
+    [HasPermission("Permissions.Users.Delete")]
     public async Task<IActionResult> Delete(Guid id)
     {
         await _userService.DeleteAsync(id);

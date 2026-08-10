@@ -18,14 +18,6 @@ public static class AuthenticationExtensions
         var jwtSettings = jwtSection.Get<JwtSettings>()
             ?? throw new InvalidOperationException("JWT configuration is missing.");
 
-        Console.WriteLine("================================");
-        Console.WriteLine("JWT VALIDATION");
-        Console.WriteLine($"Issuer   : {jwtSettings.Issuer}");
-        Console.WriteLine($"Audience : {jwtSettings.Audience}");
-        Console.WriteLine($"Secret   : {jwtSettings.SecretKey}");
-        Console.WriteLine($"Expiry   : {jwtSettings.ExpiryMinutes}");
-        Console.WriteLine("================================");
-
         services.AddAuthentication(options =>
         {
             options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
