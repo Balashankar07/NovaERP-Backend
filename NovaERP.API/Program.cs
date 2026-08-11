@@ -91,14 +91,14 @@ public class Program
             }
 
             // Middleware
-            Log.Information("Registering Global Exception Handler...");
-            app.UseGlobalExceptionHandler();
-
             Log.Information("Enabling Serilog Request Logging...");
             app.UseSerilogRequestLogging();
 
             Log.Information("Enabling CORS...");
             app.UseCorsPolicies();
+
+            Log.Information("Registering Global Exception Handler...");
+            app.UseGlobalExceptionHandler();
 
             Log.Information("Enabling Authentication...");
             app.UseAuthentication();

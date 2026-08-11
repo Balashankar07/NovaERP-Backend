@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MediatR;
 
 using NovaERP.Application.Features.Users.Services;
 using NovaERP.Application.Interfaces;
@@ -8,6 +9,7 @@ using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Application.Services;
 
+using NovaERP.Infrastructure.Authentication;
 using NovaERP.Infrastructure.Identity.JWT;
 using NovaERP.Infrastructure.Identity.Security;
 using NovaERP.Infrastructure.Persistence.Context;
@@ -28,6 +30,13 @@ public static class InfrastructureServiceRegistration
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(
                 configuration.GetConnectionString("DefaultConnection")));
+
+        // Register Infrastructure MediatR handlers (e.g. GoogleSignInCommandHandler)
+        // These handlers live in Infrastructure because they depend on Infrastructure packages.
+        services.AddMediatR(cfg =>
+        {
+            cfg.RegisterServicesFromAssemblyContaining<GoogleSignInCommandHandler>();
+        });
 
         // Repository Registration
         services.AddScoped<IUnitOfWork, UnitOfWork>();

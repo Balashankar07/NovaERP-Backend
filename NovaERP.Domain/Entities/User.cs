@@ -19,6 +19,12 @@ public class User : AuditableEntity
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// Google OpenID Connect stable subject identifier ("sub" claim).
+    /// Null until the user links their Google account via the profile page.
+    /// </summary>
+    public string? GoogleSubjectId { get; set; }
+
     // Navigation Properties
     public Company Company { get; set; } = null!;
 

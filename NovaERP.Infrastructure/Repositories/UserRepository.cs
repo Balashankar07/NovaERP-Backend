@@ -22,6 +22,15 @@ public class UserRepository
             .FirstOrDefaultAsync(x => x.Email == email);
     }
 
+    public async Task<User?> GetByGoogleSubjectIdAsync(string googleSubjectId)
+    {
+        return await _dbSet
+            .Include(x => x.Company)
+            .Include(x => x.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .FirstOrDefaultAsync(x => x.GoogleSubjectId == googleSubjectId);
+    }
+
     public override async Task<User?> GetByIdAsync(Guid id)
     {
         return await _dbSet

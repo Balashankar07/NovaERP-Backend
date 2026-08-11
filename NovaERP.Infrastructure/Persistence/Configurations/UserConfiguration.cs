@@ -43,6 +43,15 @@ namespace NovaERP.Infrastructure.Persistence.Configurations
                 .HasForeignKey(x => x.CompanyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Google Identity
+            builder.Property(x => x.GoogleSubjectId)
+                .HasMaxLength(256)
+                .IsRequired(false);
+
+            // Unique partial index — only unique when not null, allowing multiple null values
+            builder.HasIndex(x => x.GoogleSubjectId)
+                .IsUnique()
+                .HasFilter("\"GoogleSubjectId\" IS NOT NULL");
         }
     }
 }
