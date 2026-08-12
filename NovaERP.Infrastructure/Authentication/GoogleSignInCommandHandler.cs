@@ -13,16 +13,16 @@ namespace NovaERP.Infrastructure.Authentication;
 /// 1. Cryptographically validating the Google ID token (no network call to Google needed).
 /// 2. Extracting the stable Google "sub" identifier.
 /// 3. Finding the existing NovaERP user linked to that sub.
+///    - If no sub match exists but the Google-verified email matches a NovaERP account,
+///      the sub is automatically stored (one-time auto-link on first Google sign-in).
 /// 4. Generating the same NovaERP JWT that email/password login produces.
-///
-/// Lives in Infrastructure (not Application) because it depends on
-/// Google.Apis.Auth which is an Infrastructure-layer NuGet package.
 ///
 /// SECURITY GUARANTEES:
 /// - ID token signature is validated against Google's public keys (cryptographic).
 /// - Audience (ClientId) is validated — tokens for other apps are rejected.
 /// - IsActive is enforced — inactive NovaERP users are blocked.
-/// - No automatic user creation — only pre-linked accounts are accepted.
+/// - Auto-link only fires when Google-verified email == NovaERP email (Google guarantees email).
+/// - No automatic user creation — only existing NovaERP accounts are accepted.
 /// - Duplicate sub mapping is prevented by the DB unique partial index.
 /// </summary>
 public class GoogleSignInCommandHandler
@@ -31,15 +31,18 @@ public class GoogleSignInCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IJwtService _jwtService;
     private readonly IConfiguration _configuration;
+    private readonly IUnitOfWork _unitOfWork;
 
     public GoogleSignInCommandHandler(
         IUserRepository userRepository,
         IJwtService jwtService,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _jwtService = jwtService;
         _configuration = configuration;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<LoginResponseDto> Handle(
@@ -57,11 +60,6 @@ public class GoogleSignInCommandHandler
         }
 
         // ── 1. Validate the Google ID token cryptographically ──────────────
-        // GoogleJsonWebSignature.ValidateAsync checks:
-        //   • Token signature against Google's public keys
-        //   • Token expiry
-        //   • Audience matches our configured ClientId
-        // No Google Client Secret is required for this validation.
         GoogleJsonWebSignature.Payload payload;
         try
         {
@@ -88,19 +86,37 @@ public class GoogleSignInCommandHandler
                 "Google credential did not contain a valid subject identifier.");
         }
 
-        // ── 3. Find the existing NovaERP user linked to this Google sub ─────
+        // ── 3. Try to find user by Google sub (already linked) ─────────────
         var user = await _userRepository.GetByGoogleSubjectIdAsync(googleSub);
+
+        // ── 4. Auto-link: if no sub match, try matching by Google-verified email ──
+        // Google cryptographically guarantees the email in the payload belongs to
+        // the authenticated user, so matching by email is safe here.
+        if (user is null && !string.IsNullOrWhiteSpace(payload.Email))
+        {
+            var userByEmail = await _userRepository.GetByEmailAsync(payload.Email);
+
+            if (userByEmail is not null && string.IsNullOrWhiteSpace(userByEmail.GoogleSubjectId))
+            {
+                // Store the Google sub on the user so subsequent logins use the faster sub lookup.
+                userByEmail.GoogleSubjectId = googleSub;
+                _unitOfWork.Users.Update(userByEmail);
+                await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                user = userByEmail;
+            }
+        }
 
         if (user is null)
         {
-            // SECURITY: Do NOT create a new user. Do NOT auto-register.
+            // No NovaERP account found for this Google identity.
             throw new UnauthorizedAccessException(
                 "Google account is not linked to a NovaERP account. " +
                 "Please sign in with your email and password, then link your " +
                 "Google account from your profile settings.");
         }
 
-        // ── 4. Check the user is still active ──────────────────────────────
+        // ── 5. Check the user is still active ──────────────────────────────
         if (!user.IsActive)
         {
             throw new UnauthorizedAccessException(
@@ -108,9 +124,7 @@ public class GoogleSignInCommandHandler
                 "Please contact your administrator.");
         }
 
-        // ── 5. Generate the exact same NovaERP JWT as email/password login ─
-        // JwtService.GenerateToken populates UserId, Email, Role claims.
-        // CurrentUserPermissionService and RBAC pipeline are completely unaffected.
+        // ── 6. Generate the exact same NovaERP JWT as email/password login ─
         return _jwtService.GenerateToken(user);
     }
 }

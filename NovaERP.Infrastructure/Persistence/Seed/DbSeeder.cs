@@ -217,7 +217,7 @@ public static class DbSeeder
             {
                 FirstName = "System",
                 LastName = "Administrator",
-                Email = "admin@novaerp.com",
+                Email = "balashankar07@gmail.com",
                 Phone = "+91 9999999999",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
                 CompanyId = company.Id,
@@ -235,7 +235,7 @@ public static class DbSeeder
         // ==========================
         // Seed Employee User (for negative RBAC testing)
         // ==========================
-        if (!await context.Users.AnyAsync(u => u.Email == "employee@novaerp.com"))
+        if (!await context.Users.AnyAsync(u => u.Email == "balashankarspillai2027@mca.ajce.in"))
         {
             var company = await context.Companies.FirstAsync();
             var employeeRole = await context.Roles.FirstAsync(r => r.Name == "Employee");
@@ -244,7 +244,7 @@ public static class DbSeeder
             {
                 FirstName = "Test",
                 LastName = "Employee",
-                Email = "employee@novaerp.com",
+                Email = "balashankarspillai2027@mca.ajce.in",
                 Phone = "+91 8888888888",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("Employee@123"),
                 CompanyId = company.Id,
