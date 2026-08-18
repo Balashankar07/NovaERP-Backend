@@ -1,0 +1,205 @@
+{
+  "timestamp": "2026-08-16T07:07:07.032Z",
+  "baseline": {
+    "products": "38",
+    "fg": "5",
+    "comps": "33",
+    "boms": "5",
+    "bomitems": "49",
+    "suppliers": "22",
+    "active_sup": "22",
+    "sp": "1",
+    "prs": "21",
+    "pritems": "21",
+    "pos": "17",
+    "poitems": "17",
+    "grs": "7",
+    "gritems": "7",
+    "inv": "10",
+    "pp": "12",
+    "preqs": "108"
+  },
+  "prStatuses": [
+    {
+      "Status": 0,
+      "c": "6"
+    },
+    {
+      "Status": 4,
+      "c": "5"
+    },
+    {
+      "Status": 5,
+      "c": "5"
+    },
+    {
+      "Status": 6,
+      "c": "5"
+    }
+  ],
+  "poStatuses": [
+    {
+      "Status": 0,
+      "c": "11"
+    },
+    {
+      "Status": 2,
+      "c": "2"
+    },
+    {
+      "Status": 5,
+      "c": "4"
+    }
+  ],
+  "ppStatuses": [
+    {
+      "Status": 1,
+      "c": "10"
+    },
+    {
+      "Status": 2,
+      "c": "2"
+    }
+  ],
+  "scorecard": [
+    {
+      "area": "Database Connection",
+      "r": "PASS",
+      "e": "NovaERPDB connected",
+      "sym": "PASS"
+    },
+    {
+      "area": "API Connectivity",
+      "r": "PASS",
+      "e": "HTTP 401 unauthenticated (confirmed)",
+      "sym": "PASS"
+    },
+    {
+      "area": "Authentication",
+      "r": "PASS",
+      "e": "JWT obtained balashankar07@gmail.com",
+      "sym": "PASS"
+    },
+    {
+      "area": "RBAC",
+      "r": "PASS",
+      "e": "7 roles, 116 permissions, 121 role-permissions",
+      "sym": "PASS"
+    },
+    {
+      "area": "Product Management",
+      "r": "PASS",
+      "e": "38 products (5 FG, 33 components)",
+      "sym": "PASS"
+    },
+    {
+      "area": "Identifier Integrity",
+      "r": "PASS",
+      "e": "No duplicates: PN=0 SKU=0 Code=0",
+      "sym": "PASS"
+    },
+    {
+      "area": "BOM",
+      "r": "PASS",
+      "e": "5 BOMs, 49 BOMItems — correct",
+      "sym": "PASS"
+    },
+    {
+      "area": "Production Requirement Calculation",
+      "r": "PASS",
+      "e": "All 108 requirements correctly calculated",
+      "sym": "PASS"
+    },
+    {
+      "area": "Shortage Detection",
+      "r": "PASS",
+      "e": "99 shortage records in database",
+      "sym": "PASS"
+    },
+    {
+      "area": "Production Release Blocking",
+      "r": "NOT VERIFIED",
+      "e": "No draft plan with shortage available",
+      "sym": "NV  "
+    },
+    {
+      "area": "Supplier Management",
+      "r": "PASS",
+      "e": "22 suppliers, no violations (FG SP:0, multi-pref:0)",
+      "sym": "PASS"
+    },
+    {
+      "area": "SupplierProduct Component-Only Rule",
+      "r": "PARTIAL",
+      "e": "HTTP 404",
+      "sym": "WARN"
+    },
+    {
+      "area": "Purchase Request",
+      "r": "PASS",
+      "e": "21 PRs, 0 over-conversion violations",
+      "sym": "PASS"
+    },
+    {
+      "area": "PR Approval Lifecycle",
+      "r": "PASS",
+      "e": "Status progression verified: Draft(6)->Approved(5)->PartialConv(5)->FullConv(5)",
+      "sym": "PASS"
+    },
+    {
+      "area": "Purchase Order",
+      "r": "PASS",
+      "e": "17 POs: 0 MOQ violations, 0 invalid SP links",
+      "sym": "PASS"
+    },
+    {
+      "area": "MOQ Enforcement",
+      "r": "PASS",
+      "e": "Below-MOQ PO rejected HTTP 400",
+      "sym": "PASS"
+    },
+    {
+      "area": "PO Supplier Validation",
+      "r": "PASS",
+      "e": "Unauthorized supplier rejected HTTP 400",
+      "sym": "PASS"
+    },
+    {
+      "area": "Goods Receipt",
+      "r": "PASS",
+      "e": "7 GRs: 0 unlinked inventory, 0 over-received",
+      "sym": "PASS"
+    },
+    {
+      "area": "Inventory Update",
+      "r": "PASS",
+      "e": "10 records, 0 negative",
+      "sym": "PASS"
+    },
+    {
+      "area": "Inventory -> Production",
+      "r": "PASS",
+      "e": "Production requirements exist (108) and shortage logic working (99 shortages)",
+      "sym": "PASS"
+    },
+    {
+      "area": "Procurement Dashboard",
+      "r": "PASS",
+      "e": "KPIs consistent with database",
+      "sym": "PASS"
+    },
+    {
+      "area": "Database Integrity",
+      "r": "PASS",
+      "e": "FK:0 NullIds:0 OrphanPRI:0 OrphanPOI:0 OrphanGRI:0",
+      "sym": "PASS"
+    }
+  ],
+  "summary": {
+    "pass": 20,
+    "fail": 0,
+    "partial": 1,
+    "notVerified": 1,
+    "total": 22
+  }
+}

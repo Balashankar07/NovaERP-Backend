@@ -11,11 +11,13 @@ public class InventoryService : IInventoryService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly IInventoryMovementService _inventoryMovementService;
 
-    public InventoryService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public InventoryService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _inventoryMovementService = inventoryMovementService;
     }
 
     public async Task<PagedResult<InventoryDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -65,77 +67,18 @@ public class InventoryService : IInventoryService
             PageSize = result.PageSize
         };
     }
-
-    public async Task ProcessGoodsReceiptAsync(Guid grnId, Guid? currentUserId)
+    public async Task<PagedResult<GlobalInventoryTransactionDto>> GetAllTransactionsAsync(int pageNumber = 1, int pageSize = 20, string? search = null, string? transactionType = null, Guid? warehouseId = null, Guid? productId = null, DateTime? startDate = null, DateTime? endDate = null)
     {
-        var grn = await _unitOfWork.GoodsReceipts.GetGoodsReceiptWithItemsAsync(grnId);
-        if (grn == null)
-            throw new Exception($"GRN with ID {grnId} not found.");
-
-        // Receive goods into the default warehouse (GRN does not carry a target warehouse/location)
-        var warehouseId = await GetDefaultWarehouseIdAsync();
-
-        foreach (var item in grn.Items)
+        var result = await _unitOfWork.InventoryTransactions.GetAllTransactionsAsync(pageNumber, pageSize, search, transactionType, warehouseId, productId, startDate, endDate);
+        return new PagedResult<GlobalInventoryTransactionDto>
         {
-            decimal receivedQty = item.ReceivedQuantity - item.RejectedQuantity;
-            if (receivedQty <= 0) continue;
-
-            var inventory = await _unitOfWork.Inventories.GetByProductAndLocationAsync(item.ProductId, warehouseId, null);
-
-            if (inventory == null)
-            {
-                // Create new inventory record
-                inventory = new Inventory
-                {
-                    ProductId = item.ProductId,
-                    WarehouseId = warehouseId,
-                    WarehouseLocationId = null,
-                    QuantityOnHand = receivedQty,
-                    QuantityReserved = 0,
-                    QuantityAvailable = receivedQty,
-                    LastStockUpdate = DateTime.UtcNow,
-                    IsActive = true
-                };
-
-                await _unitOfWork.Inventories.AddAsync(inventory);
-                await _unitOfWork.SaveChangesAsync();
-
-                await _auditLogger.LogAsync("Create", "Inventory", inventory.Id.ToString(),
-                    newValues: $"ProductId: {item.ProductId}, WarehouseId: {warehouseId}, QuantityOnHand: {receivedQty}");
-            }
-            else
-            {
-                var oldQty = inventory.QuantityOnHand;
-                inventory.QuantityOnHand += receivedQty;
-                inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved;
-                inventory.LastStockUpdate = DateTime.UtcNow;
-
-                _unitOfWork.Inventories.Update(inventory);
-                await _unitOfWork.SaveChangesAsync();
-
-                await _auditLogger.LogAsync("Update", "Inventory", inventory.Id.ToString(),
-                    oldValues: $"QuantityOnHand: {oldQty}",
-                    newValues: $"QuantityOnHand: {inventory.QuantityOnHand}");
-            }
-
-            // Append-only inventory transaction
-            var transaction = new InventoryTransaction
-            {
-                InventoryId = inventory.Id,
-                TransactionType = InventoryTransactionType.GoodsReceipt,
-                ReferenceType = InventoryReferenceType.GoodsReceipt,
-                ReferenceId = grnId,
-                Quantity = receivedQty,
-                BalanceAfter = inventory.QuantityOnHand,
-                Remarks = $"Received from GRN: {grn.GRNNumber}",
-                CreatedBy = currentUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _unitOfWork.InventoryTransactions.AddTransactionAsync(transaction);
-            await _unitOfWork.SaveChangesAsync();
-        }
+            Items = result.Items.Select(MapGlobalTransactionToDto).ToList(),
+            TotalCount = result.TotalCount,
+            PageNumber = result.PageNumber,
+            PageSize = result.PageSize
+        };
     }
+
 
     private async Task<Guid> GetDefaultWarehouseIdAsync()
     {
@@ -157,38 +100,15 @@ public class InventoryService : IInventoryService
         {
             if (item.Quantity <= 0) continue;
 
-            var inventory = await _unitOfWork.Inventories.GetByProductAndLocationAsync(item.ProductId, warehouseId, null);
-
-            if (inventory == null || inventory.QuantityAvailable < item.Quantity)
-                throw new Exception($"Insufficient inventory for Product ID {item.ProductId}. Required: {item.Quantity}, Available: {inventory?.QuantityAvailable ?? 0}");
-
-            var oldQty = inventory.QuantityOnHand;
-            inventory.QuantityOnHand -= item.Quantity;
-            inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved;
-            inventory.LastStockUpdate = DateTime.UtcNow;
-
-            _unitOfWork.Inventories.Update(inventory);
-            await _unitOfWork.SaveChangesAsync();
-
-            await _auditLogger.LogAsync("Update", "Inventory", inventory.Id.ToString(),
-                oldValues: $"QuantityOnHand: {oldQty}",
-                newValues: $"QuantityOnHand: {inventory.QuantityOnHand}");
-
-            var transaction = new InventoryTransaction
-            {
-                InventoryId = inventory.Id,
-                TransactionType = InventoryTransactionType.SalesIssue,
-                ReferenceType = InventoryReferenceType.SalesOrder,
-                ReferenceId = shipmentId,
-                Quantity = -item.Quantity,
-                BalanceAfter = inventory.QuantityOnHand,
-                Remarks = $"Dispatched for Shipment: {shipment.TrackingNumber}",
-                CreatedBy = currentUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _unitOfWork.InventoryTransactions.AddTransactionAsync(transaction);
-            await _unitOfWork.SaveChangesAsync();
+            await _inventoryMovementService.IssueAsync(
+                item.ProductId,
+                warehouseId,
+                null,
+                item.Quantity,
+                InventoryReferenceType.SalesOrder,
+                shipmentId,
+                $"Dispatched for Shipment: {shipment.TrackingNumber}",
+                currentUserId);
         }
     }
 
@@ -225,6 +145,27 @@ public class InventoryService : IInventoryService
         BalanceAfter = t.BalanceAfter,
         Remarks = t.Remarks,
         CreatedBy = t.CreatedBy,
+        CreatedAt = t.CreatedAt
+    };
+    private static GlobalInventoryTransactionDto MapGlobalTransactionToDto(InventoryTransaction t) => new()
+    {
+        Id = t.Id,
+        InventoryId = t.InventoryId,
+        ProductId = t.Inventory?.ProductId ?? Guid.Empty,
+        ProductCode = t.Inventory?.Product?.ProductCode ?? string.Empty,
+        ProductName = t.Inventory?.Product?.Name ?? string.Empty,
+        WarehouseId = t.Inventory?.WarehouseId ?? Guid.Empty,
+        WarehouseName = t.Inventory?.Warehouse?.WarehouseName ?? string.Empty,
+        WarehouseLocationId = t.Inventory?.WarehouseLocationId,
+        LocationName = t.Inventory?.WarehouseLocation?.LocationName,
+        TransactionType = t.TransactionType.ToString(),
+        ReferenceType = t.ReferenceType.ToString(),
+        ReferenceId = t.ReferenceId,
+        Quantity = t.Quantity,
+        BalanceAfter = t.BalanceAfter,
+        Remarks = t.Remarks,
+        CreatedBy = t.CreatedBy,
+        CreatedByName = string.Empty, // Will be fetched separately if needed or left empty
         CreatedAt = t.CreatedAt
     };
 }

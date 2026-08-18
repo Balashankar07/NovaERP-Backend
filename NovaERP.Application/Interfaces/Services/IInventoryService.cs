@@ -11,12 +11,7 @@ public interface IInventoryService
     Task<List<InventoryDto>> GetByProductIdAsync(Guid productId);
     Task<PagedResult<InventoryDto>> GetByWarehouseIdAsync(Guid warehouseId, int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null);
     Task<PagedResult<InventoryTransactionDto>> GetTransactionsAsync(Guid inventoryId, int pageNumber = 1, int pageSize = 10);
-
-    /// <summary>
-    /// Called by GoodsReceiptService when a GRN is completed.
-    /// Creates or updates inventory records and appends transactions.
-    /// </summary>
-    Task ProcessGoodsReceiptAsync(Guid grnId, Guid? currentUserId);
+    Task<PagedResult<GlobalInventoryTransactionDto>> GetAllTransactionsAsync(int pageNumber = 1, int pageSize = 20, string? search = null, string? transactionType = null, Guid? warehouseId = null, Guid? productId = null, DateTime? startDate = null, DateTime? endDate = null);
 
     /// <summary>
     /// Called by ShipmentService when a Shipment is dispatched.

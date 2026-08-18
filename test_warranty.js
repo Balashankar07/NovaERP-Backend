@@ -50,7 +50,7 @@ async function runTests() {
 
     // 1. Login
     console.log('\nLogging in...');
-    let res = await makeRequest('POST', '/Auth/login', { email: 'admin@novaerp.com', password: 'Admin@123' });
+    let res = await makeRequest('POST', '/Auth/login', { email: 'balashankar07@gmail.com', password: 'Admin@123' });
     assert(res.status === 200, 'Super Admin Login successful');
     token = res.data.data.accessToken;
 

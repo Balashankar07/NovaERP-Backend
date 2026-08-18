@@ -12,11 +12,13 @@ public class ProductionExecutionService : IProductionExecutionService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly IInventoryMovementService _inventoryMovementService;
 
-    public ProductionExecutionService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public ProductionExecutionService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _inventoryMovementService = inventoryMovementService;
     }
 
     public async Task<PagedResult<ProductionExecutionDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -132,75 +134,57 @@ public class ProductionExecutionService : IProductionExecutionService
 
     public async Task<ProductionExecutionDto> ConsumeMaterialsAsync(Guid id, Guid? currentUserId)
     {
-        var execution = await _unitOfWork.ProductionExecutions.GetByIdAsync(id);
-        if (execution == null)
-            throw new KeyNotFoundException($"ProductionExecution {id} not found");
+        try 
+        {
+            var execution = await _unitOfWork.ProductionExecutions.GetByIdAsync(id);
+            if (execution == null)
+                throw new KeyNotFoundException($"ProductionExecution {id} not found");
 
-        if (execution.Status != ProductionExecutionStatus.Started)
-            throw new BadRequestException("Only Started executions can consume materials.");
+            if (execution.Status != ProductionExecutionStatus.Started)
+                throw new BadRequestException("Materials can only be consumed for Started executions.");
 
-        if (execution.MaterialConsumptions.Any())
-            throw new BadRequestException("Materials have already been consumed for this execution.");
-
-        var order = await _unitOfWork.ProductionOrders.GetByIdAsync(execution.ProductionOrderId);
+        var order = await _unitOfWork.ProductionOrders.GetWithRequirementsAsync(execution.ProductionOrderId);
         if (order == null) throw new KeyNotFoundException("Associated Production Order not found");
 
-        var bom = await _unitOfWork.BOMs.GetActiveByProductIdAsync(order.ProductId);
-        if (bom == null)
-            throw new BadRequestException($"No active BOM found for Product {order.ProductId}.");
+        var reservations = await _unitOfWork.InventoryReservations.GetActiveByProductionOrderIdAsync(order.Id);
 
-        var executionQuantity = order.PlannedQuantity; // Basis for consumption
+        if (!reservations.Any())
+            throw new BadRequestException("No active inventory reservations found for this Production Order.");
 
-        foreach (var item in bom.BOMItems)
+        foreach (var reservation in reservations)
         {
-            var requiredQty = item.Quantity * executionQuantity;
-            var inventories = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
+            var consumeQty = reservation.QuantityReserved - reservation.QuantityConsumed;
+            if (consumeQty <= 0) continue;
+
+            await _inventoryMovementService.IssueAsync(
+                reservation.ProductId,
+                reservation.WarehouseId,
+                reservation.WarehouseLocationId,
+                consumeQty,
+                InventoryReferenceType.Production,
+                execution.Id,
+                $"Consumed from reservation for Execution {execution.ExecutionNumber}",
+                currentUserId,
+                reservation.Id);
+
+            var requirement = order.Requirements.FirstOrDefault(r => r.Id == reservation.ProductionOrderRequirementId);
             
-            var totalAvailable = inventories.Sum(x => x.QuantityAvailable);
-            if (totalAvailable < requiredQty)
-                throw new BadRequestException($"Insufficient inventory for Product {item.RawMaterialProduct?.Name}. Required: {requiredQty}, Available: {totalAvailable}");
-
-            decimal remainingToConsume = requiredQty;
-            foreach (var inv in inventories)
+            var consumption = new MaterialConsumption
             {
-                if (remainingToConsume <= 0) break;
-                if (inv.QuantityAvailable <= 0) continue;
-
-                var consumeQty = Math.Min(inv.QuantityAvailable, remainingToConsume);
-                
-                var consumption = new MaterialConsumption
-                {
-                    ProductionExecutionId = execution.Id,
-                    ProductId = item.RawMaterialProductId,
-                    InventoryId = inv.Id,
-                    RequiredQuantity = requiredQty,
-                    ConsumedQuantity = consumeQty,
-                    VarianceQuantity = 0,
-                    CreatedBy = currentUserId,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.MaterialConsumptions.AddAsync(consumption);
-
-                inv.QuantityAvailable -= consumeQty;
-                inv.QuantityOnHand -= consumeQty;
-                inv.LastStockUpdate = DateTime.UtcNow;
-                _unitOfWork.Inventories.Update(inv);
-
-                var transaction = new InventoryTransaction
-                {
-                    InventoryId = inv.Id,
-                    TransactionType = InventoryTransactionType.ProductionIssue,
-                    ReferenceType = InventoryReferenceType.Production,
-                    ReferenceId = execution.Id,
-                    Quantity = -consumeQty, // Negative for issue
-                    BalanceAfter = inv.QuantityOnHand,
-                    Remarks = $"Consumed for Execution {execution.ExecutionNumber}",
-                    CreatedBy = currentUserId,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _unitOfWork.InventoryTransactions.AddAsync(transaction);
-
-                remainingToConsume -= consumeQty;
+                ProductionExecutionId = execution.Id,
+                ProductId = reservation.ProductId,
+                InventoryId = reservation.InventoryId,
+                RequiredQuantity = requirement?.RequiredQuantity ?? 0,
+                ConsumedQuantity = consumeQty,
+                VarianceQuantity = 0,
+                CreatedBy = currentUserId,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _unitOfWork.MaterialConsumptions.AddAsync(consumption);
+            
+            if (requirement != null)
+            {
+                requirement.ConsumedQuantity += consumeQty;
             }
         }
 
@@ -209,9 +193,12 @@ public class ProductionExecutionService : IProductionExecutionService
         _unitOfWork.ProductionExecutions.Update(execution);
         
         await _unitOfWork.SaveChangesAsync();
-        await _auditLogger.LogAsync("Consume", "ProductionExecution", execution.Id.ToString(), newValues: "Materials consumed");
+        await _auditLogger.LogAsync("Consume", "ProductionExecution", execution.Id.ToString(), newValues: "Materials consumed from reservations");
 
         return MapToDto(execution);
+        } catch (Exception ex) {
+            throw new BadRequestException("CONSUME EXCEPTION: " + ex.Message + "\n" + ex.StackTrace);
+        }
     }
 
     public async Task<ProductionExecutionDto> CompleteAsync(Guid id, CompleteProductionExecutionDto dto, Guid? currentUserId)
@@ -237,55 +224,22 @@ public class ProductionExecutionService : IProductionExecutionService
         execution.UpdatedAt = DateTime.UtcNow;
 
         // Increase finished goods inventory
-        // We will just add to the default warehouse or the first available warehouse.
         var warehouse = await _unitOfWork.Warehouses.GetDefaultWarehouseAsync();
         if (warehouse == null)
             throw new BadRequestException("No warehouse found to store finished goods.");
 
-        var fgInventory = await _unitOfWork.Inventories.GetByProductAndLocationAsync(order.ProductId, warehouse.Id, null);
-        if (fgInventory == null)
+        if (dto.ProducedQuantity > 0)
         {
-            fgInventory = new Inventory
-            {
-                ProductId = order.ProductId,
-                WarehouseId = warehouse.Id,
-                QuantityOnHand = dto.ProducedQuantity,
-                QuantityAvailable = dto.ProducedQuantity,
-                LastStockUpdate = DateTime.UtcNow,
-                CreatedBy = currentUserId,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _unitOfWork.Inventories.AddAsync(fgInventory);
+            await _inventoryMovementService.ReceiveAsync(
+                order.ProductId,
+                warehouse.Id,
+                null,
+                dto.ProducedQuantity,
+                InventoryReferenceType.Production,
+                execution.Id,
+                $"Produced from Execution {execution.ExecutionNumber}",
+                currentUserId);
         }
-        else
-        {
-            fgInventory.QuantityOnHand += dto.ProducedQuantity;
-            fgInventory.QuantityAvailable += dto.ProducedQuantity;
-            fgInventory.LastStockUpdate = DateTime.UtcNow;
-            _unitOfWork.Inventories.Update(fgInventory);
-        }
-
-        // We must ensure the inventory is saved so it has an ID before adding transaction if it was newly created
-        if (fgInventory.Id == Guid.Empty)
-        {
-             // Wait, if it's new, EF Core will generate the ID on SaveChanges.
-             // But we need the ID for the transaction. Let's just generate a Guid.
-             fgInventory.Id = Guid.NewGuid();
-        }
-
-        var transaction = new InventoryTransaction
-        {
-            InventoryId = fgInventory.Id,
-            TransactionType = InventoryTransactionType.ProductionReceipt,
-            ReferenceType = InventoryReferenceType.Production,
-            ReferenceId = execution.Id,
-            Quantity = dto.ProducedQuantity,
-            BalanceAfter = fgInventory.QuantityOnHand,
-            Remarks = $"Produced from Execution {execution.ExecutionNumber}",
-            CreatedBy = currentUserId,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _unitOfWork.InventoryTransactions.AddAsync(transaction);
 
         order.CompletedQuantity += dto.ProducedQuantity;
         order.RejectedQuantity += dto.RejectedQuantity;

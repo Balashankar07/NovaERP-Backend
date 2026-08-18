@@ -12,6 +12,15 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.HasKey(x => x.Id);
 
+        // System identifiers — backend-generated, unique
+        builder.Property(x => x.ProductNumber)
+            .HasColumnName("ProductNumber")
+            .HasMaxLength(50)
+            .IsRequired();
+
+        builder.HasIndex(x => x.ProductNumber)
+            .IsUnique();
+
         builder.Property(x => x.ProductCode)
             .HasMaxLength(50)
             .IsRequired();
@@ -33,6 +42,11 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.Description)
             .HasMaxLength(1000);
 
+        // ProductType — stored as int in "Type" column (DB convention already applied)
+        builder.Property(x => x.Type)
+            .HasColumnName("Type")
+            .IsRequired();
+
         builder.Property(x => x.CostPrice)
             .HasColumnType("decimal(18,2)");
 
@@ -44,5 +58,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         builder.Property(x => x.ImageUrl)
             .HasMaxLength(500);
+
+        builder.Property(x => x.Specifications)
+            .HasColumnName("Specifications")
+            .HasMaxLength(4000);
     }
 }

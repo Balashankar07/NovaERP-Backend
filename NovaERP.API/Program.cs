@@ -96,6 +96,9 @@ public class Program
 
             Log.Information("Enabling CORS...");
             app.UseCorsPolicies();
+            
+            Log.Information("Enabling Static Files...");
+            app.UseStaticFiles();
 
             Log.Information("Registering Global Exception Handler...");
             app.UseGlobalExceptionHandler();

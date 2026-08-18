@@ -50,7 +50,7 @@ async function runTests() {
     console.log('=== Production Execution Verification ===\n');
     try {
         // 1. Login
-        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'admin@novaerp.com', password: 'Admin@123' });
+        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'balashankar07@gmail.com', password: 'Admin@123' });
         if (loginRes.status !== 200) throw new Error('Login failed');
         token = loginRes.data.data.accessToken;
         console.log('✅ Authenticated successfully.');
@@ -70,26 +70,26 @@ async function runTests() {
         // Raw Materials
         let rm1Res = await makeRequest('POST', '/Products', { 
             productCode: 'PCB-' + now, sku: 'PCB-' + now, name: 'PCB', description: 'PCB', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 10, sellingPrice: 20, isRawMaterial: true, isFinishedGood: false, isActive: true 
+            costPrice: 10, sellingPrice: 20, productType: 2, isActive: true 
         });
         let rm1Id = rm1Res.data.data.id;
 
         let rm2Res = await makeRequest('POST', '/Products', { 
             productCode: 'SPK-' + now, sku: 'SPK-' + now, name: 'Speaker', description: 'Speaker', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 5, sellingPrice: 10, isRawMaterial: true, isFinishedGood: false, isActive: true 
+            costPrice: 5, sellingPrice: 10, productType: 2, isActive: true 
         });
         let rm2Id = rm2Res.data.data.id;
 
         let rm3Res = await makeRequest('POST', '/Products', { 
             productCode: 'SCR-' + now, sku: 'SCR-' + now, name: 'Screw', description: 'Screw', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 1, sellingPrice: 2, isRawMaterial: true, isFinishedGood: false, isActive: true 
+            costPrice: 1, sellingPrice: 2, productType: 2, isActive: true 
         });
         let rm3Id = rm3Res.data.data.id;
 
         // Finished Goods
         let fgRes = await makeRequest('POST', '/Products', { 
             productCode: 'RADIO-' + now, sku: 'RADIO-' + now, name: 'Radio', description: 'Radio FG', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 50, sellingPrice: 100, isRawMaterial: false, isFinishedGood: true, isActive: true 
+            costPrice: 50, sellingPrice: 100, productType: 1, isActive: true 
         });
         let fgId = fgRes.data.data.id;
 

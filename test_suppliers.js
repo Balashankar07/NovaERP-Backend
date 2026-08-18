@@ -1,6 +1,6 @@
 const http = require('http');
 
-const API_URL = 'http://localhost:5232/api';
+const API_URL = 'http://localhost:5233/api';
 let token = '';
 let employeeToken = '';
 
@@ -50,7 +50,7 @@ async function runTests() {
         // 1. Login as Super Admin
         console.log('Logging in as Super Admin...');
         const loginRes = await request('/Auth/login', 'POST', {
-            email: 'admin@novaerp.com',
+            email: 'balashankar07@gmail.com',
             password: 'Admin@123'
         });
         if (loginRes.status !== 200 || !loginRes.data.data.accessToken) {
@@ -68,7 +68,9 @@ async function runTests() {
         } else {
             let employeeRole = rolesRes.data.data.items.find(r => r.name === 'Employee');
             if (employeeRole) {
-                // Create user
+                // Get company
+                const companyRes = await request('/Company');
+                const companyId = companyRes.data.data.items[0].id;
                 const createUserRes = await request('/User', 'POST', {
                     firstName: 'Test',
                     lastName: 'Employee',
@@ -76,7 +78,7 @@ async function runTests() {
                     phone: '1234567890',
                     password: 'Employee@123',
                     roleId: employeeRole.id,
-                    companyId: loginRes.data.data.user.companyId
+                    companyId: companyId
                 });
                 
                 console.log('Logging in as Employee...');

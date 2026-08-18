@@ -5,7 +5,7 @@ namespace NovaERP.Application.Interfaces.Services;
 
 public interface IRoleService
 {
-    Task<PagedResult<RoleDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null);
+    Task<PagedResult<RoleDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null, bool? isOperationallyReady = null);
 
     Task<RoleDto?> GetByIdAsync(Guid id);
 

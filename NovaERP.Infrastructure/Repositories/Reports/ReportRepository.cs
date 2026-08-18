@@ -49,6 +49,34 @@ public class ReportRepository : IReportRepository
         var openWarrantyClaims = await _context.WarrantyClaims
             .CountAsync(wc => wc.Status == NovaERP.Domain.Enums.WarrantyClaimStatus.Pending || wc.Status == NovaERP.Domain.Enums.WarrantyClaimStatus.UnderReview, cancellationToken);
 
+        var sixMonthsAgo = DateTime.UtcNow.AddMonths(-6);
+        var recentProduction = await _context.ProductionOrders
+            .Where(po => po.Status == NovaERP.Domain.Enums.ProductionOrderStatus.Completed && po.UpdatedAt >= sixMonthsAgo)
+            .Select(po => new { po.UpdatedAt, po.PlannedQuantity })
+            .ToListAsync(cancellationToken);
+
+        var monthlyData = recentProduction
+            .GroupBy(po => new { po.UpdatedAt!.Value.Year, po.UpdatedAt!.Value.Month })
+            .Select(g => new ProductionChartDto
+            {
+                Name = new DateTime(g.Key.Year, g.Key.Month, 1).ToString("MMM"),
+                Units = (int)g.Sum(po => po.PlannedQuantity)
+            })
+            .OrderBy(x => DateTime.ParseExact(x.Name, "MMM", System.Globalization.CultureInfo.InvariantCulture).Month)
+            .ToList();
+
+        // Ensure we have months even if no data
+        var allMonths = Enumerable.Range(0, 6)
+            .Select(i => DateTime.UtcNow.AddMonths(-5 + i))
+            .Select(d => d.ToString("MMM"))
+            .ToList();
+
+        var finalMonthlyData = allMonths.Select(m => new ProductionChartDto
+        {
+            Name = m,
+            Units = monthlyData.FirstOrDefault(md => md.Name == m)?.Units ?? 0
+        }).ToList();
+
         return new DashboardSummaryDto
         {
             TotalProducts = totalProducts,
@@ -61,7 +89,213 @@ public class ReportRepository : IReportRepository
             SalesThisMonth = salesThisMonth,
             ShipmentsPending = shipmentsPending,
             ActiveWarranties = activeWarranties,
-            OpenWarrantyClaims = openWarrantyClaims
+            OpenWarrantyClaims = openWarrantyClaims,
+            MonthlyProduction = finalMonthlyData
+        };
+    }
+
+    public async Task<InventorySummaryDto> GetInventorySummaryAsync(Guid companyId, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var totalProducts = await _context.Inventories.Select(i => i.ProductId).Distinct().CountAsync(cancellationToken);
+        
+        var totalOnHand = await _context.Inventories.SumAsync(i => i.QuantityOnHand, cancellationToken);
+        var totalReserved = await _context.Inventories.SumAsync(i => i.QuantityReserved, cancellationToken);
+        var totalAvailable = await _context.Inventories.SumAsync(i => i.QuantityAvailable, cancellationToken);
+        
+        var lowStock = await _context.Inventories.CountAsync(i => i.QuantityAvailable <= i.Product!.ReorderLevel && i.QuantityAvailable > 0, cancellationToken);
+        var outOfStock = await _context.Inventories.CountAsync(i => i.QuantityAvailable <= 0, cancellationToken);
+        
+        var warehouses = await _context.Warehouses.CountAsync(w => w.IsActive, cancellationToken);
+        
+        var recentMovements = await _context.InventoryTransactions
+            .Where(t => t.CreatedAt >= now.AddDays(-7))
+            .CountAsync(cancellationToken);
+
+        return new InventorySummaryDto
+        {
+            TotalProductsInStock = totalProducts,
+            TotalOnHandQuantity = totalOnHand,
+            TotalReservedQuantity = totalReserved,
+            TotalAvailableQuantity = totalAvailable,
+            LowStockItems = lowStock,
+            OutOfStockItems = outOfStock,
+            WarehouseCount = warehouses,
+            RecentMovementCount = recentMovements
+        };
+    }
+
+    public async Task<ProcurementSummaryDto> GetProcurementSummaryAsync(Guid companyId, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var pendingPurchaseRequests = await _context.PurchaseRequests
+            .CountAsync(pr => pr.Status == NovaERP.Domain.Enums.PurchaseRequestStatus.Draft || 
+                              pr.Status == NovaERP.Domain.Enums.PurchaseRequestStatus.Submitted ||
+                              pr.Status == NovaERP.Domain.Enums.PurchaseRequestStatus.PartiallyConverted, cancellationToken);
+
+        var awaitingApproval = await _context.PurchaseRequests
+            .CountAsync(pr => pr.Status == NovaERP.Domain.Enums.PurchaseRequestStatus.PendingApproval, cancellationToken);
+
+        var openPurchaseOrders = await _context.PurchaseOrders
+            .CountAsync(po => po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Draft || 
+                              po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.PendingApproval || 
+                              po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Approved, cancellationToken);
+
+        var pendingReceipts = await _context.PurchaseOrders
+            .Where(po => po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Approved)
+            .CountAsync(po => po.Items.Sum(i => i.Quantity) > 
+                (_context.GoodsReceiptItems.Where(gri => gri.GoodsReceipt!.PurchaseOrderId == po.Id).Sum(gri => (decimal?)gri.ReceivedQuantity) ?? 0m), cancellationToken);
+
+        var overdueReceipts = await _context.PurchaseOrders
+            .Where(po => po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Approved && po.ExpectedDeliveryDate.Date < now.Date)
+            .CountAsync(po => po.Items.Sum(i => i.Quantity) > 
+                (_context.GoodsReceiptItems.Where(gri => gri.GoodsReceipt!.PurchaseOrderId == po.Id).Sum(gri => (decimal?)gri.ReceivedQuantity) ?? 0m), cancellationToken);
+
+        var totalProcurementValue = await _context.PurchaseOrders
+            .Where(po => po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Draft || 
+                         po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.PendingApproval || 
+                         po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Approved)
+            .SumAsync(po => po.TotalAmount, cancellationToken);
+
+        var needsAttention = new List<ProcurementAttentionItemDto>();
+
+        var overduePOs = await _context.PurchaseOrders
+            .Where(po => po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Approved && po.ExpectedDeliveryDate.Date < now.Date)
+            .Where(po => po.Items.Sum(i => i.Quantity) > 
+                (_context.GoodsReceiptItems.Where(gri => gri.GoodsReceipt!.PurchaseOrderId == po.Id).Sum(gri => (decimal?)gri.ReceivedQuantity) ?? 0m))
+            .OrderBy(po => po.ExpectedDeliveryDate)
+            .Take(5)
+            .Select(po => new ProcurementAttentionItemDto
+            {
+                Reference = po.PONumber,
+                Type = "Purchase Order",
+                Priority = "Urgent",
+                Description = po.Supplier != null ? po.Supplier.SupplierName : "Supplier",
+                Status = "Overdue",
+                DueDate = po.ExpectedDeliveryDate,
+                ReferenceId = po.Id,
+                ActionType = "View"
+            })
+            .ToListAsync(cancellationToken);
+
+        var approvalPRs = await _context.PurchaseRequests
+            .Where(pr => pr.Status == NovaERP.Domain.Enums.PurchaseRequestStatus.PendingApproval)
+            .OrderBy(pr => pr.CreatedAt)
+            .Take(5)
+            .Select(pr => new ProcurementAttentionItemDto
+            {
+                Reference = pr.RequestNumber,
+                Type = "Purchase Request",
+                Priority = "High",
+                Description = "Awaiting Approval",
+                Status = "Pending",
+                DueDate = pr.RequiredByDate,
+                ReferenceId = pr.Id,
+                ActionType = "Approve"
+            })
+            .ToListAsync(cancellationToken);
+
+        var inventoryAlerts = await _context.Inventories
+            .Where(i => i.QuantityOnHand < i.Product!.ReorderLevel)
+            .OrderBy(i => i.QuantityOnHand)
+            .Take(5)
+            .Select(i => new ProcurementAttentionItemDto
+            {
+                Reference = i.Product!.ProductCode,
+                Type = "Inventory Alert",
+                Priority = "Medium",
+                Description = "Below Reorder Level",
+                Status = "Low Stock",
+                DueDate = null,
+                ReferenceId = i.Id,
+                ActionType = "View"
+            })
+            .ToListAsync(cancellationToken);
+
+        var productionShortages = await _context.ProductionRequirements
+            .Where(pr => pr.ShortageQuantity > 0 && pr.ProductionPlan.Status != NovaERP.Domain.Enums.ProductionPlanStatus.Cancelled && pr.ProductionPlan.Status != NovaERP.Domain.Enums.ProductionPlanStatus.Completed)
+            .OrderByDescending(pr => pr.ShortageQuantity)
+            .Take(5)
+            .Select(pr => new ProcurementAttentionItemDto
+            {
+                Reference = pr.Product.ProductCode,
+                Type = "Production Shortage",
+                Priority = "High",
+                Description = "Production Material Shortage",
+                Status = "Shortage",
+                DueDate = pr.ProductionPlan.PlannedStartDate,
+                ReferenceId = pr.Id,
+                ActionType = "View"
+            })
+            .ToListAsync(cancellationToken);
+
+        needsAttention.AddRange(overduePOs);
+        needsAttention.AddRange(approvalPRs);
+        needsAttention.AddRange(inventoryAlerts);
+        needsAttention.AddRange(productionShortages);
+
+        var upcomingReceipts = await _context.PurchaseOrders
+            .Where(po => po.Status == NovaERP.Domain.Enums.PurchaseOrderStatus.Approved)
+            .Where(po => po.Items.Sum(i => i.Quantity) > 
+                (_context.GoodsReceiptItems.Where(gri => gri.GoodsReceipt!.PurchaseOrderId == po.Id).Sum(gri => (decimal?)gri.ReceivedQuantity) ?? 0m))
+            .OrderBy(po => po.ExpectedDeliveryDate)
+            .Take(5)
+            .Select(po => new ProcurementUpcomingReceiptDto
+            {
+                ReferenceId = po.Id,
+                PONumber = po.PONumber,
+                SupplierName = po.Supplier != null ? po.Supplier.SupplierName : "",
+                ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                TotalValue = po.TotalAmount,
+                Status = po.ExpectedDeliveryDate.Date < now.Date ? "Overdue" : (po.ExpectedDeliveryDate.Date == now.Date ? "Due Today" : "Due Soon"),
+                OutstandingQuantity = po.Items.Sum(i => i.Quantity) - (_context.GoodsReceiptItems.Where(gri => gri.GoodsReceipt!.PurchaseOrderId == po.Id).Sum(gri => (decimal?)gri.ReceivedQuantity) ?? 0m)
+            })
+            .ToListAsync(cancellationToken);
+
+        var recentRequests = await _context.PurchaseRequests
+            .OrderByDescending(pr => pr.RequestDate)
+            .Take(5)
+            .Select(pr => new ProcurementRecentRequestDto
+            {
+                ReferenceId = pr.Id,
+                RequestNumber = pr.RequestNumber,
+                Source = pr.Source.ToString(),
+                Priority = pr.Priority.ToString(),
+                Status = pr.Status.ToString(),
+                RequiredByDate = pr.RequiredByDate,
+                CreatedAt = pr.RequestDate
+            })
+            .ToListAsync(cancellationToken);
+
+        var recentOrders = await _context.PurchaseOrders
+            .OrderByDescending(po => po.OrderDate)
+            .Take(5)
+            .Select(po => new ProcurementRecentOrderDto
+            {
+                ReferenceId = po.Id,
+                PONumber = po.PONumber,
+                SupplierName = po.Supplier != null ? po.Supplier.SupplierName : "",
+                Status = po.Status.ToString(),
+                ExpectedDeliveryDate = po.ExpectedDeliveryDate,
+                TotalAmount = po.TotalAmount,
+                CreatedAt = po.OrderDate
+            })
+            .ToListAsync(cancellationToken);
+
+        return new ProcurementSummaryDto
+        {
+            PendingPurchaseRequests = pendingPurchaseRequests,
+            AwaitingApproval = awaitingApproval,
+            OpenPurchaseOrders = openPurchaseOrders,
+            PendingReceipts = pendingReceipts,
+            OverdueReceipts = overdueReceipts,
+            TotalProcurementValue = totalProcurementValue,
+            NeedsAttention = needsAttention,
+            UpcomingReceipts = upcomingReceipts,
+            RecentRequests = recentRequests,
+            RecentOrders = recentOrders
         };
     }
 

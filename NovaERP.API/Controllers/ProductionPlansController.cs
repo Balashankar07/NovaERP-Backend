@@ -86,12 +86,20 @@ public class ProductionPlansController : ControllerBase
         return Ok(new ApiResponse<object>(true, "Production Plan deleted successfully.", null));
     }
 
-    /// <summary>POST /api/ProductionPlans/{id}/release — Release a plan.</summary>
     [HttpPost("{id:guid}/release")]
     [HasPermission("Permissions.ProductionPlans.Release")]
     public async Task<IActionResult> Release(Guid id)
     {
         var result = await _productionPlanService.ReleaseAsync(id, _currentUserService.UserId);
         return Ok(new ApiResponse<object>(true, "Production Plan released successfully.", result));
+    }
+
+    /// <summary>POST /api/ProductionPlans/{id}/generate-pr — Generate PR for shortages.</summary>
+    [HttpPost("{id:guid}/generate-pr")]
+    [HasPermission("Permissions.ProductionPlans.Update")]
+    public async Task<IActionResult> GeneratePR(Guid id)
+    {
+        var result = await _productionPlanService.GeneratePurchaseRequestAsync(id, _currentUserService.UserId);
+        return Ok(new ApiResponse<object>(true, "Purchase Request generated successfully.", result));
     }
 }

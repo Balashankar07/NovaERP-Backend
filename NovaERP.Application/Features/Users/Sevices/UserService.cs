@@ -7,6 +7,7 @@ using NovaERP.Application.Features.Users.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
+using NovaERP.Application.Common.Helpers;
 
 namespace NovaERP.Application.Features.Users.Services;
 
@@ -31,17 +32,7 @@ public class UserService : IUserService
         var pagedResult = await _unitOfWork.Users.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder);
         return new PagedResult<UserDto>
         {
-            Items = pagedResult.Items.Select(u => new UserDto
-            {
-                Id = u.Id,
-                FirstName = u.FirstName,
-                LastName = u.LastName,
-                Email = u.Email,
-                Phone = u.Phone,
-                CompanyId = u.CompanyId,
-                RoleIds = u.UserRoles?.Select(ur => ur.RoleId).ToList() ?? new List<Guid>(),
-                IsActive = u.IsActive
-            }),
+            Items = pagedResult.Items.Select(u => MapToDto(u)),
             TotalCount = pagedResult.TotalCount,
             PageNumber = pagedResult.PageNumber,
             PageSize = pagedResult.PageSize
@@ -55,28 +46,71 @@ public class UserService : IUserService
         if (user == null)
             return null;
 
+        return MapToDto(user);
+    }
+
+    private UserDto MapToDto(User u)
+    {
         return new UserDto
         {
-            Id = user.Id,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            Email = user.Email,
-            Phone = user.Phone,
-            CompanyId = user.CompanyId,
-            RoleIds = user.UserRoles?.Select(ur => ur.RoleId).ToList() ?? new List<Guid>(),
-            IsActive = user.IsActive
+            Id = u.Id,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            Email = u.Email,
+            Phone = u.Phone,
+            CompanyId = u.CompanyId,
+            RoleIds = u.UserRoles?.Select(ur => ur.RoleId).ToList() ?? new List<Guid>(),
+            IsActive = u.IsActive,
+            GoogleSubjectLinked = !string.IsNullOrWhiteSpace(u.GoogleSubjectId),
+            AssignedRoles = u.UserRoles?.Select(ur => 
+            {
+                var roleName = ur.Role?.Name ?? "Unknown";
+                var readiness = RoleReadinessEvaluator.Evaluate(roleName);
+                return new UserAssignedRoleDto
+                {
+                    RoleId = ur.RoleId,
+                    RoleName = roleName,
+                    IsOperationallyReady = readiness.IsOperationallyReady,
+                    ReadinessReason = readiness.ReadinessReason,
+                    DashboardRoute = readiness.DashboardRoute
+                };
+            }).ToList() ?? new List<UserAssignedRoleDto>()
         };
     }
 
     public async Task<UserDto> CreateAsync(CreateUserDto dto)
     {
+        var normalizedEmail = dto.Email.Trim().ToLowerInvariant();
+
+        var existingUser = await _unitOfWork.Users.GetByEmailAsync(normalizedEmail);
+        if (existingUser != null)
+            throw new InvalidOperationException("A user with this email already exists.");
+
+        if (dto.RoleIds != null && dto.RoleIds.Any())
+        {
+            foreach (var roleId in dto.RoleIds)
+            {
+                var role = await _unitOfWork.Roles.GetByIdAsync(roleId);
+                if (role == null || !role.IsActive)
+                    throw new ArgumentException($"Role with ID {roleId} is invalid or inactive.");
+
+                var readiness = RoleReadinessEvaluator.Evaluate(role.Name);
+                if (!readiness.IsOperationallyReady)
+                {
+                    throw new InvalidOperationException($"Role '{role.Name}' is not yet operational and cannot be assigned to new users. Reason: {readiness.ReadinessReason}");
+                }
+            }
+        }
+
         var user = new User
         {
             FirstName = dto.FirstName,
             LastName = dto.LastName,
-            Email = dto.Email,
+            Email = normalizedEmail,
             Phone = dto.Phone,
-            PasswordHash = _passwordHasher.HashPassword(dto.Password),
+            // Password is no longer actively used since Google auth is enforced,
+            // but we hash whatever is provided (or a random string) to satisfy DB constraints.
+            PasswordHash = _passwordHasher.HashPassword(string.IsNullOrWhiteSpace(dto.Password) ? Guid.NewGuid().ToString() : dto.Password),
             CompanyId = dto.CompanyId,
             UserRoles = dto.RoleIds?.Select(id => new UserRole { RoleId = id }).ToList() ?? new List<UserRole>(),
             IsActive = true
@@ -87,17 +121,8 @@ public class UserService : IUserService
 
         await _auditLogger.LogAsync("Create", "User", user.Id.ToString(), newValues: $"Email: {user.Email}, RoleIds: {string.Join(',', dto.RoleIds ?? new List<Guid>())}");
 
-        return new UserDto
-        {
-            Id = user.Id,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            Email = user.Email,
-            Phone = user.Phone,
-            CompanyId = user.CompanyId,
-            RoleIds = dto.RoleIds ?? new List<Guid>(),
-            IsActive = user.IsActive
-        };
+        // Fetch back to get full navigation properties if needed, or map locally
+        return MapToDto(user);
     }
 
     public async Task UpdateAsync(Guid id, UpdateUserDto dto)
@@ -107,7 +132,7 @@ public class UserService : IUserService
         if (user == null)
             throw new ArgumentException("User not found.");
 
-        if (user.Email == "balashankar07@gmail.com" && !dto.IsActive)
+        if (user.Email.ToLowerInvariant() == "balashankar07@gmail.com" && !dto.IsActive)
             throw new InvalidOperationException("Cannot deactivate the Super Admin user.");
 
         user.FirstName = dto.FirstName;
@@ -116,16 +141,39 @@ public class UserService : IUserService
         user.CompanyId = dto.CompanyId;
         
         user.UserRoles ??= new List<UserRole>();
+        
+        // Find existing role assignments to allow keeping non-operational roles
+        var existingRoleIds = user.UserRoles.Select(ur => ur.RoleId).ToHashSet();
+        
         user.UserRoles.Clear();
         if (dto.RoleIds != null)
         {
             foreach (var roleId in dto.RoleIds)
             {
+                // Only validate readiness if it's a NEWly assigned role
+                if (!existingRoleIds.Contains(roleId))
+                {
+                    var role = await _unitOfWork.Roles.GetByIdAsync(roleId);
+                    if (role == null || !role.IsActive)
+                        throw new ArgumentException($"Role with ID {roleId} is invalid or inactive.");
+
+                    var readiness = RoleReadinessEvaluator.Evaluate(role.Name);
+                    if (!readiness.IsOperationallyReady)
+                    {
+                        throw new InvalidOperationException($"Role '{role.Name}' is not yet operational and cannot be newly assigned. Reason: {readiness.ReadinessReason}");
+                    }
+                }
+                
                 user.UserRoles.Add(new UserRole { RoleId = roleId });
             }
         }
         
         user.IsActive = dto.IsActive;
+        if (dto.GoogleSubjectId != null)
+        {
+            user.GoogleSubjectId = dto.GoogleSubjectId;
+        }
+        
         user.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Users.Update(user);
@@ -141,7 +189,7 @@ public class UserService : IUserService
         if (user == null)
             throw new ArgumentException("User not found.");
 
-        if (user.Email == "balashankar07@gmail.com")
+        if (user.Email.ToLowerInvariant() == "balashankar07@gmail.com")
             throw new InvalidOperationException("Cannot delete the Super Admin user.");
 
         _unitOfWork.Users.Delete(user);

@@ -23,5 +23,12 @@ public class GoodsReceipt : AuditableEntity
     
     public bool IsActive { get; set; } = true;
     
+    // Warehouse Routing
+    public Guid? WarehouseId { get; set; }
+    public Warehouse? Warehouse { get; set; }
+    
+    public Guid? WarehouseLocationId { get; set; }
+    public WarehouseLocation? WarehouseLocation { get; set; }
+    
     public ICollection<GoodsReceiptItem> Items { get; set; } = new List<GoodsReceiptItem>();
 }

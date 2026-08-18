@@ -38,4 +38,7 @@ public class Inventory : AuditableEntity
 
     // Navigation
     public ICollection<InventoryTransaction> Transactions { get; set; } = new List<InventoryTransaction>();
+
+    // Concurrency Token (mapped to PostgreSQL xmin)
+    public uint Version { get; set; }
 }

@@ -24,7 +24,9 @@ public class UnitOfWork : IUnitOfWork
     public IBOMRepository BOMs { get; private set; }
     public IBOMItemRepository BOMItems { get; private set; }
     public ISupplierRepository Suppliers { get; private set; }
+    public ISupplierProductRepository SupplierProducts { get; private set; }
     public IPurchaseOrderRepository PurchaseOrders { get; private set; }
+    public IPurchaseRequestRepository PurchaseRequests { get; private set; }
     public IGoodsReceiptRepository GoodsReceipts { get; private set; }
     public IWarehouseRepository Warehouses { get; private set; }
     public IWarehouseLocationRepository WarehouseLocations { get; private set; }
@@ -32,7 +34,9 @@ public class UnitOfWork : IUnitOfWork
     public IInventoryTransactionRepository InventoryTransactions { get; private set; }
     public IProductionPlanRepository ProductionPlans { get; private set; }
     public IProductionOrderRepository ProductionOrders { get; private set; }
+    public IProductionOrderRequirementRepository ProductionOrderRequirements { get; private set; }
     public IProductionExecutionRepository ProductionExecutions { get; private set; }
+    public IInventoryReservationRepository InventoryReservations { get; private set; }
     public IMaterialConsumptionRepository MaterialConsumptions { get; private set; }
     public IQualityInspectionRepository QualityInspections { get; private set; }
     public ISalesOrderRepository SalesOrders { get; private set; }
@@ -72,7 +76,9 @@ public class UnitOfWork : IUnitOfWork
         BOMs = new BOMRepository(_context);
         BOMItems = new BOMItemRepository(_context);
         Suppliers = new SupplierRepository(_context);
+        SupplierProducts = new SupplierProductRepository(_context);
         PurchaseOrders = new PurchaseOrderRepository(_context);
+        PurchaseRequests = new PurchaseRequestRepository(_context);
         GoodsReceipts = new GoodsReceiptRepository(_context);
         Warehouses = new WarehouseRepository(_context);
         WarehouseLocations = new WarehouseLocationRepository(_context);
@@ -80,7 +86,9 @@ public class UnitOfWork : IUnitOfWork
         InventoryTransactions = new InventoryTransactionRepository(_context);
         ProductionPlans = new ProductionPlanRepository(_context);
         ProductionOrders = productionOrderRepository;
+        ProductionOrderRequirements = new ProductionOrderRequirementRepository(_context);
         ProductionExecutions = new ProductionExecutionRepository(_context);
+        InventoryReservations = new InventoryReservationRepository(_context);
         MaterialConsumptions = new MaterialConsumptionRepository(_context);
         QualityInspections = new QualityInspectionRepository(_context);
         SalesOrders = new SalesOrderRepository(_context);

@@ -54,7 +54,9 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IBOMRepository, BOMRepository>();
         services.AddScoped<IBOMItemRepository, BOMItemRepository>();
         services.AddScoped<ISupplierRepository, SupplierRepository>();
+        services.AddScoped<ISupplierProductRepository, SupplierProductRepository>();
         services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
+        services.AddScoped<IPurchaseRequestRepository, PurchaseRequestRepository>();
         services.AddScoped<IProductionOrderRepository, ProductionOrderRepository>();
         services.AddScoped<IProductionExecutionRepository, ProductionExecutionRepository>();
         services.AddScoped<IMaterialConsumptionRepository, MaterialConsumptionRepository>();
@@ -77,14 +79,21 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IProductCategoryService, ProductCategoryService>();
         services.AddScoped<IBrandService, BrandService>();
         services.AddScoped<IUnitService, UnitService>();
-        services.AddScoped<IProductService, ProductService>();
+        services.AddScoped<IProductService, ProductService>(sp =>
+            new ProductService(
+                sp.GetRequiredService<IUnitOfWork>(),
+                sp.GetRequiredService<IAuditLogger>(),
+                sp.GetRequiredService<AppDbContext>()));
         services.AddScoped<IBOMService, BOMService>();
         services.AddScoped<ISupplierService, SupplierService>();
+        services.AddScoped<ISupplierProductService, SupplierProductService>();
         services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+        services.AddScoped<IPurchaseRequestService, PurchaseRequestService>();
         services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
         services.AddScoped<IWarehouseService, WarehouseService>();
         services.AddScoped<IWarehouseLocationService, WarehouseLocationService>();
         services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<IInventoryMovementService, InventoryMovementService>();
         services.AddScoped<IProductionPlanService, ProductionPlanService>();
         services.AddScoped<IProductionOrderService, ProductionOrderService>();
         services.AddScoped<IProductionExecutionService, ProductionExecutionService>();

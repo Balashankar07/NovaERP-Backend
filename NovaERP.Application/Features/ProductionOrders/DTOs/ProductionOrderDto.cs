@@ -31,4 +31,6 @@ public class ProductionOrderDto
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public Guid? CreatedBy { get; set; }
+
+    public List<ProductionOrderRequirementDto> Materials { get; set; } = new();
 }

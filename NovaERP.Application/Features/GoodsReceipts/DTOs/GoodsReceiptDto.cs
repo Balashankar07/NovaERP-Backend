@@ -12,6 +12,8 @@ public class GoodsReceiptDto
     public string Status { get; set; } = string.Empty;
     public string? Remarks { get; set; }
     public Guid? ReceivedBy { get; set; }
+    public Guid? WarehouseId { get; set; }
+    public Guid? WarehouseLocationId { get; set; }
     public bool IsActive { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }

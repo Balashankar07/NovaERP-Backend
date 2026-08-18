@@ -42,13 +42,15 @@ public static class DbSeeder
         {
             var roles = new List<Role>
             {
-                new() { Name = "Super Admin" },
-                new() { Name = "CEO" },
-                new() { Name = "HR Manager" },
-                new() { Name = "Finance Manager" },
-                new() { Name = "Inventory Manager" },
+                new() { Name = "System Administrator" },
+                new() { Name = "Production Manager" },
+                new() { Name = "Procurement Manager" },
+                new() { Name = "Warehouse Manager" },
+                new() { Name = "Quality Engineer" },
                 new() { Name = "Sales Manager" },
-                new() { Name = "Employee" }
+                new() { Name = "Finance Manager" },
+                new() { Name = "Warranty Executive" },
+                new() { Name = "Distributor" }
             };
 
             await context.Roles.AddRangeAsync(roles);
@@ -211,7 +213,7 @@ public static class DbSeeder
             var company = await context.Companies.FirstAsync();
 
             var superAdminRole = await context.Roles
-                .FirstAsync(r => r.Name == "Super Admin");
+                .FirstAsync(r => r.Name == "System Administrator");
 
             var admin = new User
             {
@@ -260,9 +262,9 @@ public static class DbSeeder
         }
 
         // ==========================
-        // Seed Super Admin Role Permissions
+        // Seed System Administrator Role Permissions
         // ==========================
-        var superAdmin = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Super Admin");
+        var superAdmin = await context.Roles.FirstOrDefaultAsync(r => r.Name == "System Administrator");
         if (superAdmin != null)
         {
             var allPermissions = await context.Permissions.ToListAsync();

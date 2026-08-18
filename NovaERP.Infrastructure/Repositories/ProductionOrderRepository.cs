@@ -68,4 +68,11 @@ public class ProductionOrderRepository : Repository<ProductionOrder>, IProductio
             PageSize = pageSize
         };
     }
+
+    public async Task<ProductionOrder?> GetWithRequirementsAsync(Guid id)
+    {
+        return await _dbSet
+            .Include(x => x.Requirements)
+            .FirstOrDefaultAsync(x => x.Id == id);
+    }
 }

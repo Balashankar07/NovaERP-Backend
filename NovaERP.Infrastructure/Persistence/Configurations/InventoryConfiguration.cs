@@ -59,5 +59,11 @@ public class InventoryConfiguration : IEntityTypeConfiguration<Inventory>
                .WithOne(x => x.Inventory)
                .HasForeignKey(x => x.InventoryId)
                .OnDelete(DeleteBehavior.Restrict);
+
+        // Concurrency token mapped to PostgreSQL hidden xmin column
+        builder.Property(x => x.Version)
+               .IsRowVersion()
+               .HasColumnName("xmin")
+               .HasColumnType("xid");
     }
 }

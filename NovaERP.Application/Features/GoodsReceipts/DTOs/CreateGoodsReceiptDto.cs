@@ -7,6 +7,9 @@ public class CreateGoodsReceiptDto
     [Required]
     public Guid PurchaseOrderId { get; set; }
     
+    public Guid? WarehouseId { get; set; }
+    public Guid? WarehouseLocationId { get; set; }
+    
     public string? Remarks { get; set; }
     
     [Required]

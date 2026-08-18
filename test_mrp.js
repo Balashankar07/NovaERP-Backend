@@ -43,7 +43,7 @@ async function runTests() {
     console.log('=== Enterprise MRP Verification ===\\n');
     try {
         // 1. Login
-        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'admin@novaerp.com', password: 'Admin@123' });
+        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'balashankar07@gmail.com', password: 'Admin@123' });
         if (loginRes.status !== 200) throw new Error('Login failed');
         token = loginRes.data.data.accessToken;
         console.log('✅ Authenticated successfully.');
@@ -63,26 +63,26 @@ async function runTests() {
         // Raw Materials
         let rm1Res = await makeRequest('POST', '/Products', { 
             productCode: 'RM1-' + now, sku: 'SKU-RM1-' + now, name: 'RM Shortage', description: 'RM1', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 10, sellingPrice: 20, isRawMaterial: true, isFinishedGood: false, isActive: true 
+            costPrice: 10, sellingPrice: 20, productType: 2, isActive: true 
         });
         let rm1Id = rm1Res.data.data.id;
 
         let rm2Res = await makeRequest('POST', '/Products', { 
             productCode: 'RM2-' + now, sku: 'SKU-RM2-' + now, name: 'RM Surplus', description: 'RM2', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 5, sellingPrice: 10, isRawMaterial: true, isFinishedGood: false, isActive: true 
+            costPrice: 5, sellingPrice: 10, productType: 2, isActive: true 
         });
         let rm2Id = rm2Res.data.data.id;
 
         // Finished Goods
         let fgWithBomRes = await makeRequest('POST', '/Products', { 
             productCode: 'FG-BOM-' + now, sku: 'SKU-FG-BOM-' + now, name: 'FG With BOM', description: 'FG1', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 50, sellingPrice: 100, isRawMaterial: false, isFinishedGood: true, isActive: true 
+            costPrice: 50, sellingPrice: 100, productType: 1, isActive: true 
         });
         let fgWithBomId = fgWithBomRes.data.data.id;
 
         let fgWithoutBomRes = await makeRequest('POST', '/Products', { 
             productCode: 'FG-NOBOM-' + now, sku: 'SKU-FG-NOBOM-' + now, name: 'FG No BOM', description: 'FG2', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 50, sellingPrice: 100, isRawMaterial: false, isFinishedGood: true, isActive: true 
+            costPrice: 50, sellingPrice: 100, productType: 1, isActive: true 
         });
         let fgWithoutBomId = fgWithoutBomRes.data.data.id;
 

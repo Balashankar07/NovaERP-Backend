@@ -49,7 +49,7 @@ async function runTests() {
     console.log('=== Shipment Module Verification ===\n');
     try {
         // Login as admin
-        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'admin@novaerp.com', password: 'Admin@123' });
+        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'balashankar07@gmail.com', password: 'Admin@123' });
         if (loginRes.status !== 200) throw new Error('Admin Login failed');
         token = loginRes.data.data.accessToken;
 
@@ -72,7 +72,7 @@ async function runTests() {
 
         let productRes = await makeRequest('POST', '/Products', { 
             productCode: 'FG-' + now, sku: 'SKU-' + now, name: 'Finished Good', description: 'FG', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 50, sellingPrice: 100, isRawMaterial: false, isFinishedGood: true, isActive: true 
+            costPrice: 50, sellingPrice: 100, productType: 1, isActive: true 
         });
         let productId = productRes.data.data.id;
 

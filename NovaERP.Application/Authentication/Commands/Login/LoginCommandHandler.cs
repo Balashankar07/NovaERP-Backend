@@ -1,4 +1,4 @@
-﻿using MediatR;
+using MediatR;
 using NovaERP.Application.Authentication.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
@@ -32,6 +32,9 @@ public class LoginCommandHandler
 
         if (user is null)
             throw new UnauthorizedAccessException("Invalid email or password.");
+
+        if (!user.IsActive)
+            throw new UnauthorizedAccessException("Your NovaERP account has been deactivated. Please contact your administrator.");
 
         // Verify Password
         bool validPassword =

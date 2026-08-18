@@ -21,9 +21,9 @@ public class RoleController : ControllerBase
 
     [HttpGet]
     [HasPermission("Permissions.Roles.View")]
-    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null)
+    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null, [FromQuery] bool? isOperationallyReady = null)
     {
-        return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", await _roleService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder)));
+        return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", await _roleService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder, isOperationallyReady)));
     }
 
     [HttpGet("{id}")]

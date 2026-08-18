@@ -5,26 +5,10 @@ using NovaERP.Application.Authentication.Commands.GoogleSignIn;
 using NovaERP.Application.Authentication.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
+using NovaERP.Application.Common.Helpers;
 
 namespace NovaERP.Infrastructure.Authentication;
 
-/// <summary>
-/// Handles Google Sign-In by:
-/// 1. Cryptographically validating the Google ID token (no network call to Google needed).
-/// 2. Extracting the stable Google "sub" identifier.
-/// 3. Finding the existing NovaERP user linked to that sub.
-///    - If no sub match exists but the Google-verified email matches a NovaERP account,
-///      the sub is automatically stored (one-time auto-link on first Google sign-in).
-/// 4. Generating the same NovaERP JWT that email/password login produces.
-///
-/// SECURITY GUARANTEES:
-/// - ID token signature is validated against Google's public keys (cryptographic).
-/// - Audience (ClientId) is validated — tokens for other apps are rejected.
-/// - IsActive is enforced — inactive NovaERP users are blocked.
-/// - Auto-link only fires when Google-verified email == NovaERP email (Google guarantees email).
-/// - No automatic user creation — only existing NovaERP accounts are accepted.
-/// - Duplicate sub mapping is prevented by the DB unique partial index.
-/// </summary>
 public class GoogleSignInCommandHandler
     : IRequestHandler<GoogleSignInCommand, LoginResponseDto>
 {
@@ -77,7 +61,6 @@ public class GoogleSignInCommandHandler
                 "Google credential validation failed. The token is invalid or expired.", ex);
         }
 
-        // ── 2. Extract the stable Google subject identifier ─────────────────
         var googleSub = payload.Subject;
 
         if (string.IsNullOrWhiteSpace(googleSub))
@@ -86,42 +69,74 @@ public class GoogleSignInCommandHandler
                 "Google credential did not contain a valid subject identifier.");
         }
 
-        // ── 3. Try to find user by Google sub (already linked) ─────────────
+        // ── 2. Try to find user by Google sub (already linked) ─────────────
         var user = await _userRepository.GetByGoogleSubjectIdAsync(googleSub);
 
-        // ── 4. Auto-link: if no sub match, try matching by Google-verified email ──
-        // Google cryptographically guarantees the email in the payload belongs to
-        // the authenticated user, so matching by email is safe here.
+        // ── 3. Auto-link strictly by exact normalized email match ───────────
         if (user is null && !string.IsNullOrWhiteSpace(payload.Email))
         {
-            var userByEmail = await _userRepository.GetByEmailAsync(payload.Email);
+            var normalizedEmail = payload.Email.Trim().ToLowerInvariant();
+            var userByEmail = await _userRepository.GetByEmailAsync(normalizedEmail);
 
-            if (userByEmail is not null && string.IsNullOrWhiteSpace(userByEmail.GoogleSubjectId))
+            if (userByEmail is not null)
             {
-                // Store the Google sub on the user so subsequent logins use the faster sub lookup.
-                userByEmail.GoogleSubjectId = googleSub;
-                _unitOfWork.Users.Update(userByEmail);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
+                // If user exists but is linked to a DIFFERENT sub, reject.
+                // Do not allow account takeover.
+                if (!string.IsNullOrWhiteSpace(userByEmail.GoogleSubjectId) && userByEmail.GoogleSubjectId != googleSub)
+                {
+                    throw new UnauthorizedAccessException(
+                        "This email is already linked to a different Google account. " +
+                        "Please sign in with the original Google account used for this email.");
+                }
 
-                user = userByEmail;
+                if (string.IsNullOrWhiteSpace(userByEmail.GoogleSubjectId))
+                {
+                    // Store the Google sub on the user so subsequent logins use the faster sub lookup.
+                    userByEmail.GoogleSubjectId = googleSub;
+                    _unitOfWork.Users.Update(userByEmail);
+                    await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+                    user = userByEmail;
+                }
             }
         }
 
         if (user is null)
         {
-            // No NovaERP account found for this Google identity.
             throw new UnauthorizedAccessException(
-                "Google account is not linked to a NovaERP account. " +
-                "Please sign in with your email and password, then link your " +
-                "Google account from your profile settings.");
+                "Google account is not provisioned in NovaERP. " +
+                "Only the System Administrator can provision new users.");
         }
 
-        // ── 5. Check the user is still active ──────────────────────────────
+        // ── 4. Check the user is still active ──────────────────────────────
         if (!user.IsActive)
         {
             throw new UnauthorizedAccessException(
                 "Your NovaERP account has been deactivated. " +
                 "Please contact your administrator.");
+        }
+
+        // ── 5. Enforce Operational Role Readiness ──────────────────────────
+        // A user MUST have at least ONE operationally ready role to log in via Google.
+        bool hasOperationalRole = false;
+        if (user.UserRoles != null && user.UserRoles.Any())
+        {
+            foreach (var ur in user.UserRoles)
+            {
+                var roleName = ur.Role?.Name ?? "";
+                if (RoleReadinessEvaluator.Evaluate(roleName).IsOperationallyReady)
+                {
+                    hasOperationalRole = true;
+                    break;
+                }
+            }
+        }
+
+        if (!hasOperationalRole)
+        {
+            throw new UnauthorizedAccessException(
+                "Your assigned roles are not yet operational. " +
+                "You cannot access the ERP system at this time.");
         }
 
         // ── 6. Generate the exact same NovaERP JWT as email/password login ─

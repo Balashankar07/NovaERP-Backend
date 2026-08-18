@@ -70,11 +70,19 @@ public class ExceptionMiddleware
                 response.Message = "Resource Not Found";
                 break;
 
+            case MaterialShortageException shortageEx:
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = shortageEx.Message;
+                response.Data = new { shortages = shortageEx.Shortages };
+                break;
+
             default:
                 context.Response.StatusCode = StatusCodes.Status500InternalServerError;
                 response.Message = "Internal Server Error";
                 break;
         }
+
+        Console.WriteLine($"[Global Exception] {exception.ToString()}");
 
         var json = JsonSerializer.Serialize(response, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 

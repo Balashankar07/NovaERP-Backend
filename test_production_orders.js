@@ -1,6 +1,6 @@
 const http = require('http');
 
-const API_URL = 'http://localhost:5232/api';
+const API_URL = 'http://localhost:5233/api';
 let token = '';
 
 async function makeRequest(method, endpoint, body = null) {
@@ -43,7 +43,7 @@ async function runTests() {
     console.log('=== Production Orders Verification ===\n');
     try {
         // 1. Login
-        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'admin@novaerp.com', password: 'Admin@123' });
+        let loginRes = await makeRequest('POST', '/Auth/login', { email: 'balashankar07@gmail.com', password: 'Admin@123' });
         if (loginRes.status !== 200) throw new Error('Login failed');
         token = loginRes.data.data.accessToken;
         console.log('✅ Authenticated successfully.');
@@ -63,14 +63,18 @@ async function runTests() {
         // Raw Materials
         let rm1Res = await makeRequest('POST', '/Products', { 
             productCode: 'RM1-' + now, sku: 'SKU-RM1-' + now, name: 'RM Shortage', description: 'RM1', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 10, sellingPrice: 20, isRawMaterial: true, isFinishedGood: false, isActive: true 
+            costPrice: 10, sellingPrice: 20, productType: 2, isActive: true 
         });
+        if (!rm1Res.data.data) {
+            console.error('Failed to create RM1:', rm1Res.data);
+            process.exit(1);
+        }
         let rm1Id = rm1Res.data.data.id;
 
         // Finished Goods
         let fgWithBomRes = await makeRequest('POST', '/Products', { 
             productCode: 'FG-BOM-' + now, sku: 'SKU-FG-BOM-' + now, name: 'FG With BOM', description: 'FG1', categoryId: catId, brandId: brandId, unitId: unitId,
-            costPrice: 50, sellingPrice: 100, isRawMaterial: false, isFinishedGood: true, isActive: true 
+            costPrice: 50, sellingPrice: 100, productType: 1, isActive: true 
         });
         let fgWithBomId = fgWithBomRes.data.data.id;
 
@@ -96,11 +100,17 @@ async function runTests() {
         assert(orderResDraftPlan.status === 400, 'Cannot create Production Order for Draft Plan');
 
         console.log('\n--- Scenario 2: Create Production Order for Released Plan ---');
-        await makeRequest('POST', `/ProductionPlans/${planId}/release`);
+        let planReleaseRes = await makeRequest('POST', `/ProductionPlans/${planId}/release`);
+        if (planReleaseRes.status !== 200) {
+            console.error('Failed to release plan:', planReleaseRes.data);
+        }
         
         let orderRes = await makeRequest('POST', '/ProductionOrders', {
             productionPlanId: planId, plannedQuantity: 50, plannedStartDate: new Date().toISOString(), plannedEndDate: new Date().toISOString(), priority: 2, workCenter: 'WC-01'
         });
+        if (orderRes.status !== 201) {
+            console.error('Failed to create Production Order:', orderRes.status, orderRes.data);
+        }
         assert(orderRes.status === 201, 'Production Order created successfully.');
         let orderId = orderRes.data.data.id;
 

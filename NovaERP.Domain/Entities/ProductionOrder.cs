@@ -14,6 +14,8 @@ public class ProductionOrder : AuditableEntity
     public Product Product { get; set; } = null!;
 
     public ICollection<ProductionExecution> ProductionExecutions { get; set; } = new List<ProductionExecution>();
+    public ICollection<ProductionOrderRequirement> Requirements { get; set; } = new List<ProductionOrderRequirement>();
+    public ICollection<InventoryReservation> Reservations { get; set; } = new List<InventoryReservation>();
 
     public decimal PlannedQuantity { get; set; }
     public decimal StartedQuantity { get; set; }

@@ -29,8 +29,10 @@ public interface IUnitOfWork
     IBOMItemRepository BOMItems { get; }
 
     ISupplierRepository Suppliers { get; }
+    ISupplierProductRepository SupplierProducts { get; }
 
     IPurchaseOrderRepository PurchaseOrders { get; }
+    IPurchaseRequestRepository PurchaseRequests { get; }
 
     IGoodsReceiptRepository GoodsReceipts { get; }
     
@@ -41,7 +43,9 @@ public interface IUnitOfWork
     IInventoryTransactionRepository InventoryTransactions { get; }
     IProductionPlanRepository ProductionPlans { get; }
     IProductionOrderRepository ProductionOrders { get; }
+    IProductionOrderRequirementRepository ProductionOrderRequirements { get; }
     IProductionExecutionRepository ProductionExecutions { get; }
+    IInventoryReservationRepository InventoryReservations { get; }
     IMaterialConsumptionRepository MaterialConsumptions { get; }
     IQualityInspectionRepository QualityInspections { get; }
     ISalesOrderRepository SalesOrders { get; }

@@ -26,6 +26,22 @@ public class ReportsController : ControllerBase
         return Ok(ApiResponse.SuccessResponse("Success", summary));
     }
 
+    [HttpGet("procurement")]
+    [Authorize(Policy = "Permissions.PurchaseOrders.View")]
+    public async Task<ActionResult<ApiResponse<ProcurementSummaryDto>>> GetProcurementSummary(CancellationToken cancellationToken)
+    {
+        var summary = await _reportService.GetProcurementSummaryAsync(cancellationToken);
+        return Ok(ApiResponse.SuccessResponse("Success", summary));
+    }
+
+    [HttpGet("inventory/summary")]
+    [Authorize(Policy = "Permissions.Inventory.View")]
+    public async Task<ActionResult<ApiResponse<InventorySummaryDto>>> GetInventorySummary(CancellationToken cancellationToken)
+    {
+        var summary = await _reportService.GetInventorySummaryAsync(cancellationToken);
+        return Ok(ApiResponse.SuccessResponse("Success", summary));
+    }
+
     [HttpGet("inventory")]
     [Authorize(Policy = "Permissions.Reports.Inventory")]
     public async Task<ActionResult<ApiResponse<PagedResult<InventoryReportDto>>>> GetInventoryReport(

@@ -48,7 +48,7 @@ async function runTests() {
         // 1. Login
         console.log('Logging in...');
         const loginRes = await request('/Auth/login', 'POST', {
-            email: 'admin@novaerp.com',
+            email: 'balashankar07@gmail.com',
             password: 'Admin@123'
         });
         if (loginRes.status !== 200 || !loginRes.data.data.accessToken) {

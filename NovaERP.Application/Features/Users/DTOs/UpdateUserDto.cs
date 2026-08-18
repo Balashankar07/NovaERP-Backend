@@ -11,6 +11,7 @@ public class UpdateUserDto
     public Guid CompanyId { get; set; }
 
     public ICollection<Guid> RoleIds { get; set; } = new List<Guid>();
-
     public bool IsActive { get; set; }
+
+    public string? GoogleSubjectId { get; set; }
 }

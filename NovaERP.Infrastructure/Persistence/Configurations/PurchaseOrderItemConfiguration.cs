@@ -14,5 +14,10 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
                .WithMany()
                .HasForeignKey(x => x.ProductId)
                .OnDelete(DeleteBehavior.Restrict);
+               
+        builder.HasOne(x => x.PurchaseRequestItem)
+               .WithMany()
+               .HasForeignKey(x => x.PurchaseRequestItemId)
+               .OnDelete(DeleteBehavior.SetNull);
     }
 }

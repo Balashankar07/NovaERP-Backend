@@ -22,6 +22,16 @@ public class ReportService : IReportService
         return await _repository.GetDashboardSummaryAsync(_currentUserService.CompanyId, cancellationToken);
     }
 
+    public async Task<InventorySummaryDto> GetInventorySummaryAsync(CancellationToken cancellationToken)
+    {
+        return await _repository.GetInventorySummaryAsync(_currentUserService.CompanyId, cancellationToken);
+    }
+
+    public async Task<ProcurementSummaryDto> GetProcurementSummaryAsync(CancellationToken cancellationToken)
+    {
+        return await _repository.GetProcurementSummaryAsync(_currentUserService.CompanyId, cancellationToken);
+    }
+
     public async Task<PagedResult<InventoryReportDto>> GetInventoryReportAsync(int pageNumber, int pageSize, string? searchTerm, string? sortBy, bool sortDescending, CancellationToken cancellationToken)
     {
         var query = _repository.GetInventoryReportQuery(_currentUserService.CompanyId);

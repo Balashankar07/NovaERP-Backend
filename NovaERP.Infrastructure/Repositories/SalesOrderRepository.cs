@@ -13,7 +13,7 @@ public class SalesOrderRepository : Repository<SalesOrder>, ISalesOrderRepositor
     {
     }
 
-    public async Task<PagedResult<SalesOrder>> GetSalesOrdersPagedAsync(int pageNumber, int pageSize, string? search, string? sortBy, string? sortOrder)
+    public async Task<PagedResult<SalesOrder>> GetSalesOrdersPagedAsync(int pageNumber, int pageSize, string? search, string? sortBy, string? sortOrder, Guid? currentUserId = null, bool isDistributor = false)
     {
         var query = _context.SalesOrders
             .Include(so => so.Distributor)
@@ -24,6 +24,11 @@ public class SalesOrderRepository : Repository<SalesOrder>, ISalesOrderRepositor
             query = query.Where(so => 
                 so.OrderNumber.Contains(search) || 
                 (so.Distributor != null && so.Distributor.CompanyName.Contains(search)));
+        }
+
+        if (isDistributor && currentUserId.HasValue)
+        {
+            query = query.Where(so => so.CreatedBy == currentUserId.Value);
         }
 
         query = sortBy?.ToLower() switch
@@ -41,13 +46,20 @@ public class SalesOrderRepository : Repository<SalesOrder>, ISalesOrderRepositor
         return new PagedResult<SalesOrder> { Items = items, TotalCount = totalCount, PageNumber = pageNumber, PageSize = pageSize };
     }
 
-    public async Task<SalesOrder?> GetSalesOrderWithDetailsAsync(Guid id)
+    public async Task<SalesOrder?> GetSalesOrderWithDetailsAsync(Guid id, Guid? currentUserId = null, bool isDistributor = false)
     {
-        return await _context.SalesOrders
+        var query = _context.SalesOrders
             .Include(so => so.Distributor)
             .Include(so => so.SalesOrderItems)
             .ThenInclude(soi => soi.Product)
-            .FirstOrDefaultAsync(so => so.Id == id);
+            .AsQueryable();
+
+        if (isDistributor && currentUserId.HasValue)
+        {
+            query = query.Where(so => so.CreatedBy == currentUserId.Value);
+        }
+
+        return await query.FirstOrDefaultAsync(so => so.Id == id);
     }
 
     public async Task<string> GenerateOrderNumberAsync()

@@ -26,8 +26,12 @@ namespace NovaERP.Infrastructure.Persistence.Context
         public DbSet<BOM> BOMs { get; set; } = null!;
         public DbSet<BOMItem> BOMItems { get; set; } = null!;
         public DbSet<Supplier> Suppliers { get; set; } = null!;
+        public DbSet<SupplierProduct> SupplierProducts { get; set; } = null!;
         public DbSet<PurchaseOrder> PurchaseOrders { get; set; } = null!;
         public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; } = null!;
+        
+        public DbSet<PurchaseRequest> PurchaseRequests { get; set; } = null!;
+        public DbSet<PurchaseRequestItem> PurchaseRequestItems { get; set; } = null!;
         public DbSet<GoodsReceipt> GoodsReceipts { get; set; } = null!;
         public DbSet<GoodsReceiptItem> GoodsReceiptItems { get; set; } = null!;
         public DbSet<Warehouse> Warehouses { get; set; } = null!;
@@ -37,6 +41,8 @@ namespace NovaERP.Infrastructure.Persistence.Context
         public DbSet<ProductionPlan> ProductionPlans { get; set; } = null!;
         public DbSet<ProductionRequirement> ProductionRequirements { get; set; } = null!;
         public DbSet<ProductionOrder> ProductionOrders { get; set; } = null!;
+        public DbSet<ProductionOrderRequirement> ProductionOrderRequirements { get; set; } = null!;
+        public DbSet<InventoryReservation> InventoryReservations { get; set; } = null!;
         public DbSet<ProductionExecution> ProductionExecutions { get; set; } = null!;
         public DbSet<MaterialConsumption> MaterialConsumptions { get; set; } = null!;
         public DbSet<QualityInspection> QualityInspections { get; set; } = null!;

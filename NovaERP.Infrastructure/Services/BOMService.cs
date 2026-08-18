@@ -81,6 +81,21 @@ public class BOMService : IBOMService
 
     public async Task<BOMDto> CreateAsync(CreateBOMDto dto)
     {
+        var targetProduct = await _unitOfWork.Products.GetByIdAsync(dto.ProductId);
+        if (targetProduct == null || targetProduct.Type != NovaERP.Domain.Enums.ProductType.FinishedGood)
+        {
+            throw new Exception("A BOM can only be created for an existing Finished Good product.");
+        }
+
+        foreach (var item in dto.Items)
+        {
+            var componentProduct = await _unitOfWork.Products.GetByIdAsync(item.RawMaterialProductId);
+            if (componentProduct == null || componentProduct.Type != NovaERP.Domain.Enums.ProductType.Component)
+            {
+                throw new Exception($"BOM Item '{item.RawMaterialProductId}' must be a valid Component.");
+            }
+        }
+
         var bom = new BOM
         {
             ProductId = dto.ProductId,
@@ -111,6 +126,21 @@ public class BOMService : IBOMService
     {
         var bom = await _unitOfWork.BOMs.GetByIdAsync(id);
         if (bom == null) return null;
+
+        var targetProduct = await _unitOfWork.Products.GetByIdAsync(bom.ProductId);
+        if (targetProduct == null || targetProduct.Type != NovaERP.Domain.Enums.ProductType.FinishedGood)
+        {
+            throw new Exception("A BOM must belong to a Finished Good product.");
+        }
+
+        foreach (var item in dto.Items)
+        {
+            var componentProduct = await _unitOfWork.Products.GetByIdAsync(item.RawMaterialProductId);
+            if (componentProduct == null || componentProduct.Type != NovaERP.Domain.Enums.ProductType.Component)
+            {
+                throw new Exception($"BOM Item '{item.RawMaterialProductId}' must be a valid Component.");
+            }
+        }
 
         var oldBom = new BOM
         {

@@ -13,16 +13,19 @@ public class SalesOrderService : ISalesOrderService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly ICurrentUserService _currentUserService;
 
-    public SalesOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public SalesOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, ICurrentUserService currentUserService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _currentUserService = currentUserService;
     }
 
     public async Task<PagedResult<SalesOrderDto>> GetSalesOrdersAsync(int pageNumber, int pageSize, string? search, string? sortBy, string? sortOrder)
     {
-        var result = await _unitOfWork.SalesOrders.GetSalesOrdersPagedAsync(pageNumber, pageSize, search, sortBy, sortOrder);
+        bool isDistributor = _currentUserService.Role?.Contains("Distributor", StringComparison.OrdinalIgnoreCase) ?? false;
+        var result = await _unitOfWork.SalesOrders.GetSalesOrdersPagedAsync(pageNumber, pageSize, search, sortBy, sortOrder, _currentUserService.UserId, isDistributor);
 
         var dtos = result.Items.Select(MapToDto).ToList();
 
@@ -31,7 +34,8 @@ public class SalesOrderService : ISalesOrderService
 
     public async Task<SalesOrderDto> GetSalesOrderByIdAsync(Guid id)
     {
-        var order = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(id);
+        bool isDistributor = _currentUserService.Role?.Contains("Distributor", StringComparison.OrdinalIgnoreCase) ?? false;
+        var order = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(id, _currentUserService.UserId, isDistributor);
         if (order == null)
             throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
 
@@ -93,7 +97,8 @@ public class SalesOrderService : ISalesOrderService
 
     public async Task<SalesOrderDto> UpdateAsync(Guid id, UpdateSalesOrderDto dto, Guid? currentUserId)
     {
-        var order = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(id);
+        bool isDistributor = _currentUserService.Role?.Contains("Distributor", StringComparison.OrdinalIgnoreCase) ?? false;
+        var order = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(id, currentUserId, isDistributor);
         if (order == null)
             throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
 

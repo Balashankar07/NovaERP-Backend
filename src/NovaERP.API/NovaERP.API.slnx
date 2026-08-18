@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="../../NovaERP.Application/NovaERP.Application.csproj" />
+  <Project Path="../../NovaERP.Domain/NovaERP.Domain.csproj" />
+  <Project Path="../../NovaERP.Infrastructure/NovaERP.Infrastructure.csproj" />
+  <Project Path="../../NovaERP.Shared/NovaERP.Shared.csproj" />
+  <Project Path="../../NovaERP.API/NovaERP.API.csproj" />
+</Solution>

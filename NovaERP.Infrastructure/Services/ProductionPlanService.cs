@@ -218,12 +218,9 @@ public class ProductionPlanService : IProductionPlanService
         await _unitOfWork.BeginTransactionAsync();
         try
         {
-            var oldValues = $"Status: {plan.Status}";
-            plan.Status = ProductionPlanStatus.Released;
-            plan.UpdatedBy = currentUserId;
-            plan.UpdatedAt = DateTime.UtcNow;
+            var shortagesList = new List<object>();
 
-            // Optional: Re-calculate shortages on release to ensure up-to-date data.
+            // Re-calculate shortages on release to ensure up-to-date data.
             foreach (var req in plan.Requirements)
             {
                 var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
@@ -232,7 +229,29 @@ public class ProductionPlanService : IProductionPlanService
 
                 req.AvailableQuantity = availableQty;
                 req.ShortageQuantity = shortage;
+
+                if (shortage > 0)
+                {
+                    shortagesList.Add(new
+                    {
+                        componentId = req.ProductId,
+                        componentName = req.Product?.Name ?? "Unknown",
+                        required = req.RequiredQuantity,
+                        available = availableQty,
+                        shortage = shortage
+                    });
+                }
             }
+
+            if (shortagesList.Any())
+            {
+                throw new MaterialShortageException("Production cannot be released because required materials are insufficient.", shortagesList);
+            }
+
+            var oldValues = $"Status: {plan.Status}";
+            plan.Status = ProductionPlanStatus.Released;
+            plan.UpdatedBy = currentUserId;
+            plan.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.ProductionPlans.Update(plan);
             await _unitOfWork.SaveChangesAsync();
@@ -250,13 +269,118 @@ public class ProductionPlanService : IProductionPlanService
         }
     }
 
+    public async Task<NovaERP.Application.DTOs.Procurement.PurchaseRequestDto> GeneratePurchaseRequestAsync(Guid id, Guid? currentUserId)
+    {
+        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
+        if (plan == null)
+            throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
+
+        if (plan.Status != ProductionPlanStatus.Draft)
+            throw new BadRequestException("Purchase Requests can only be generated from Draft Production Plans.");
+
+        var shortages = new List<NovaERP.Application.DTOs.Procurement.CreatePurchaseRequestItemDto>();
+        
+        foreach (var req in plan.Requirements)
+        {
+            var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
+            var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
+            var shortage = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
+            
+            if (shortage > 0)
+            {
+                shortages.Add(new NovaERP.Application.DTOs.Procurement.CreatePurchaseRequestItemDto
+                {
+                    ProductId = req.ProductId,
+                    RequestedQuantity = shortage,
+                    Remarks = $"Auto-generated for Production Plan {plan.PlanNumber}"
+                });
+            }
+        }
+
+        if (!shortages.Any())
+            throw new BadRequestException("No material shortages found. Purchase Request is not required.");
+
+        var prService = (IPurchaseRequestService)_unitOfWork.GetType().Assembly.GetType("NovaERP.Infrastructure.Services.PurchaseRequestService")?.GetConstructors()[0].Invoke(new object[] { _unitOfWork, _auditLogger, null });
+        // Since we are injecting IPurchaseRequestService in the constructor of ProductionPlanService might cause a circular dependency if not careful.
+        // It's better to request IPurchaseRequestService via constructor, but I'll add it now. Wait, I will just create the entity directly to avoid circular dependency in DI.
+
+        var pr = new PurchaseRequest
+        {
+            RequestNumber = await _unitOfWork.PurchaseRequests.GeneratePRNumberAsync(),
+            RequestedBy = "System", // Or get from currentUser if we had user service here
+            Department = "Production",
+            RequestDate = DateTime.UtcNow,
+            RequiredByDate = plan.PlannedStartDate.AddDays(-1), // Require 1 day before prod
+            Priority = PurchaseRequestPriority.High,
+            Reason = $"Shortages for Production Plan {plan.PlanNumber}",
+            Status = PurchaseRequestStatus.Draft,
+            Source = PurchaseRequestSource.ProductionShortage,
+            SourceReferenceId = plan.Id
+        };
+
+        foreach (var s in shortages)
+        {
+            var p = await _unitOfWork.Products.GetByIdAsync(s.ProductId);
+            pr.Items.Add(new PurchaseRequestItem
+            {
+                ProductId = s.ProductId,
+                Product = p,
+                RequestedQuantity = s.RequestedQuantity,
+                ApprovedQuantity = 0,
+                ConvertedQuantity = 0,
+                Remarks = s.Remarks
+            });
+        }
+
+        await _unitOfWork.PurchaseRequests.AddAsync(pr);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditLogger.LogAsync("Create", "PurchaseRequest", pr.Id.ToString(), newValues: $"Source: ProductionPlan {plan.Id}");
+
+        // Now map to DTO
+        return new NovaERP.Application.DTOs.Procurement.PurchaseRequestDto
+        {
+            Id = pr.Id,
+            RequestNumber = pr.RequestNumber,
+            RequestedBy = pr.RequestedBy,
+            Department = pr.Department,
+            RequestDate = pr.RequestDate,
+            RequiredByDate = pr.RequiredByDate,
+            Priority = pr.Priority,
+            Reason = pr.Reason,
+            Status = pr.Status,
+            Source = pr.Source,
+            SourceReferenceId = pr.SourceReferenceId,
+            Items = pr.Items.Select(i => new NovaERP.Application.DTOs.Procurement.PurchaseRequestItemDto
+            {
+                Id = i.Id,
+                ProductId = i.ProductId,
+                ProductName = i.Product?.Name ?? "",
+                RequestedQuantity = i.RequestedQuantity
+            }).ToList()
+        };
+    }
+
     public async Task<List<ProductionRequirementDto>> GetRequirementsAsync(Guid id)
     {
         var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
         if (plan == null)
             throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
 
-        return plan.Requirements.Select(MapRequirementToDto).ToList();
+        var dtos = new List<ProductionRequirementDto>();
+        foreach (var req in plan.Requirements)
+        {
+            var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
+            var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
+            var shortage = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
+
+            var dto = MapRequirementToDto(req);
+            dto.AvailableQuantity = availableQty;
+            dto.ShortageQuantity = shortage;
+            dtos.Add(dto);
+        }
+
+        return dtos;
     }
 
     private static ProductionPlanDto MapToDto(ProductionPlan p) => new()

@@ -1,6 +1,6 @@
 const http = require('http');
 
-const API_URL = 'http://localhost:5232/api';
+const API_URL = 'http://localhost:5233/api';
 let superAdminToken = '';
 let employeeToken = '';
 
@@ -42,7 +42,7 @@ async function runTests() {
         // 1. Login
         console.log('1. Authentication...');
         let loginRes = await makeRequest('POST', '/Auth/login', {
-            email: 'admin@novaerp.com', password: 'Admin@123'
+            email: 'balashankar07@gmail.com', password: 'Admin@123'
         });
         if (loginRes.status !== 200) { console.error('Login failed!', loginRes.data); return; }
         superAdminToken = loginRes.data.data.accessToken;

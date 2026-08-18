@@ -11,5 +11,6 @@ public interface IProductionPlanService
     Task<ProductionPlanDto> UpdateAsync(Guid id, UpdateProductionPlanDto dto, Guid? currentUserId);
     Task<bool> DeleteAsync(Guid id, Guid? currentUserId);
     Task<ProductionPlanDto> ReleaseAsync(Guid id, Guid? currentUserId);
+    Task<NovaERP.Application.DTOs.Procurement.PurchaseRequestDto> GeneratePurchaseRequestAsync(Guid id, Guid? currentUserId);
     Task<List<ProductionRequirementDto>> GetRequirementsAsync(Guid id);
 }

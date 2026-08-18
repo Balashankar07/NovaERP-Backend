@@ -12,11 +12,13 @@ public class ProductionOrderService : IProductionOrderService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly IInventoryMovementService _inventoryMovementService;
 
-    public ProductionOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public ProductionOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _inventoryMovementService = inventoryMovementService;
     }
 
     public async Task<PagedResult<ProductionOrderDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -35,13 +37,13 @@ public class ProductionOrderService : IProductionOrderService
 
     public async Task<ProductionOrderDto?> GetByIdAsync(Guid id)
     {
-        var order = await _unitOfWork.ProductionOrders.GetByIdAsync(id);
+        var order = await _unitOfWork.ProductionOrders.GetWithRequirementsAsync(id);
         return order == null ? null : MapToDto(order);
     }
 
     public async Task<ProductionOrderDto> CreateAsync(CreateProductionOrderDto dto, Guid? currentUserId)
     {
-        var plan = await _unitOfWork.ProductionPlans.GetByIdAsync(dto.ProductionPlanId);
+        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(dto.ProductionPlanId);
         if (plan == null)
             throw new KeyNotFoundException($"ProductionPlan {dto.ProductionPlanId} not found");
 
@@ -68,7 +70,14 @@ public class ProductionOrderService : IProductionOrderService
             Status = ProductionOrderStatus.Draft,
             ProductionOrderNumber = $"PO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 4).ToUpper()}",
             CreatedBy = currentUserId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Requirements = plan.Requirements.Select(r => new ProductionOrderRequirement
+            {
+                ProductId = r.ProductId,
+                UnitId = r.UnitId,
+                RequiredQuantity = Math.Round((r.RequiredQuantity / plan.PlannedQuantity) * dto.PlannedQuantity, 2),
+                ConsumedQuantity = 0,
+            }).ToList()
         };
 
         await _unitOfWork.ProductionOrders.AddAsync(order);
@@ -80,7 +89,7 @@ public class ProductionOrderService : IProductionOrderService
 
     public async Task<ProductionOrderDto> UpdateAsync(Guid id, UpdateProductionOrderDto dto, Guid? currentUserId)
     {
-        var order = await _unitOfWork.ProductionOrders.GetByIdAsync(id);
+        var order = await _unitOfWork.ProductionOrders.GetWithRequirementsAsync(id);
         if (order == null)
             throw new KeyNotFoundException($"ProductionOrder {id} not found");
 
@@ -93,11 +102,21 @@ public class ProductionOrderService : IProductionOrderService
         if (dto.PlannedQuantity != order.PlannedQuantity)
         {
             var existingOrders = await _unitOfWork.ProductionOrders.GetByProductionPlanIdAsync(order.ProductionPlanId);
-            var plan = await _unitOfWork.ProductionPlans.GetByIdAsync(order.ProductionPlanId);
+            var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(order.ProductionPlanId);
             
             var totalPlannedExcludingCurrent = existingOrders.Where(x => x.Id != order.Id).Sum(x => x.PlannedQuantity);
             if (totalPlannedExcludingCurrent + dto.PlannedQuantity > plan!.PlannedQuantity)
                 throw new BadRequestException($"Total Production Order quantities cannot exceed Production Plan quantity.");
+
+            // Recalculate requirements based on the new quantity
+            foreach (var req in order.Requirements)
+            {
+                var planReq = plan.Requirements.FirstOrDefault(r => r.ProductId == req.ProductId);
+                if (planReq != null)
+                {
+                    req.RequiredQuantity = Math.Round((planReq.RequiredQuantity / plan.PlannedQuantity) * dto.PlannedQuantity, 2);
+                }
+            }
         }
 
         order.PlannedQuantity = dto.PlannedQuantity;
@@ -135,22 +154,38 @@ public class ProductionOrderService : IProductionOrderService
 
     public async Task<ProductionOrderDto> ReleaseAsync(Guid id, Guid? currentUserId)
     {
-        var order = await _unitOfWork.ProductionOrders.GetByIdAsync(id);
-        if (order == null)
-            throw new KeyNotFoundException($"ProductionOrder {id} not found");
+        await _unitOfWork.BeginTransactionAsync();
+        try 
+        {
+            var order = await _unitOfWork.ProductionOrders.GetWithRequirementsAsync(id);
+            if (order == null)
+                throw new KeyNotFoundException($"ProductionOrder {id} not found");
 
-        if (order.Status != ProductionOrderStatus.Draft)
-            throw new BadRequestException("Only Draft Production Orders can be released.");
+            if (order.Status != ProductionOrderStatus.Draft)
+                throw new BadRequestException("Only Draft Production Orders can be released.");
 
-        order.Status = ProductionOrderStatus.Released;
-        order.UpdatedBy = currentUserId;
-        order.UpdatedAt = DateTime.UtcNow;
+            // Reserve materials
+            foreach (var req in order.Requirements)
+            {
+                await _inventoryMovementService.ReserveForRequirementAsync(order.Id, req.Id, req.ProductId, req.RequiredQuantity, currentUserId);
+            }
 
-        _unitOfWork.ProductionOrders.Update(order);
-        await _unitOfWork.SaveChangesAsync();
-        await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: "Draft", newValues: "Released");
+            order.Status = ProductionOrderStatus.Released;
+            order.UpdatedBy = currentUserId;
+            order.UpdatedAt = DateTime.UtcNow;
 
-        return MapToDto(order);
+            _unitOfWork.ProductionOrders.Update(order);
+            await _unitOfWork.SaveChangesAsync();
+            await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: "Draft", newValues: "Released");
+
+            await _unitOfWork.CommitTransactionAsync();
+            return MapToDto(order);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
     }
 
     public async Task<ProductionOrderDto> StartAsync(Guid id, decimal startedQuantity, Guid? currentUserId)
@@ -183,49 +218,75 @@ public class ProductionOrderService : IProductionOrderService
 
     public async Task<ProductionOrderDto> CompleteAsync(Guid id, decimal completedQuantity, decimal rejectedQuantity, Guid? currentUserId)
     {
-        var order = await _unitOfWork.ProductionOrders.GetByIdAsync(id);
-        if (order == null)
-            throw new KeyNotFoundException($"ProductionOrder {id} not found");
+        await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            var order = await _unitOfWork.ProductionOrders.GetByIdAsync(id);
+            if (order == null)
+                throw new KeyNotFoundException($"ProductionOrder {id} not found");
 
-        if (order.Status != ProductionOrderStatus.InProgress)
-            throw new BadRequestException("Only InProgress Production Orders can be completed.");
+            if (order.Status != ProductionOrderStatus.InProgress)
+                throw new BadRequestException("Only InProgress Production Orders can be completed.");
 
-        if (completedQuantity + rejectedQuantity > order.StartedQuantity)
-            throw new BadRequestException("Completed + Rejected quantities cannot exceed started quantity.");
+            if (completedQuantity + rejectedQuantity > order.StartedQuantity)
+                throw new BadRequestException("Completed + Rejected quantities cannot exceed started quantity.");
 
-        order.Status = ProductionOrderStatus.Completed;
-        order.CompletedQuantity = completedQuantity;
-        order.RejectedQuantity = rejectedQuantity;
-        order.ActualEndDate = DateTime.UtcNow;
-        order.UpdatedBy = currentUserId;
-        order.UpdatedAt = DateTime.UtcNow;
+            // Release unused reservations
+            await _inventoryMovementService.ReleaseUnusedReservationsAsync(order.Id, currentUserId);
 
-        _unitOfWork.ProductionOrders.Update(order);
-        await _unitOfWork.SaveChangesAsync();
-        await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: "InProgress", newValues: "Completed");
+            order.Status = ProductionOrderStatus.Completed;
+            order.CompletedQuantity = completedQuantity;
+            order.RejectedQuantity = rejectedQuantity;
+            order.ActualEndDate = DateTime.UtcNow;
+            order.UpdatedBy = currentUserId;
+            order.UpdatedAt = DateTime.UtcNow;
 
-        return MapToDto(order);
+            _unitOfWork.ProductionOrders.Update(order);
+            await _unitOfWork.SaveChangesAsync();
+            await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: "InProgress", newValues: "Completed");
+
+            await _unitOfWork.CommitTransactionAsync();
+            return MapToDto(order);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
     }
 
     public async Task<ProductionOrderDto> CancelAsync(Guid id, string reason, Guid? currentUserId)
     {
-        var order = await _unitOfWork.ProductionOrders.GetByIdAsync(id);
-        if (order == null)
-            throw new KeyNotFoundException($"ProductionOrder {id} not found");
+        await _unitOfWork.BeginTransactionAsync();
+        try 
+        {
+            var order = await _unitOfWork.ProductionOrders.GetByIdAsync(id);
+            if (order == null)
+                throw new KeyNotFoundException($"ProductionOrder {id} not found");
 
-        if (order.Status == ProductionOrderStatus.Completed || order.Status == ProductionOrderStatus.Cancelled)
-            throw new BadRequestException($"Cannot cancel a {order.Status} Production Order.");
+            if (order.Status == ProductionOrderStatus.Completed || order.Status == ProductionOrderStatus.Cancelled)
+                throw new BadRequestException($"Cannot cancel a {order.Status} Production Order.");
 
-        order.Status = ProductionOrderStatus.Cancelled;
-        order.Remarks = string.IsNullOrWhiteSpace(order.Remarks) ? reason : $"{order.Remarks} | Cancelled: {reason}";
-        order.UpdatedBy = currentUserId;
-        order.UpdatedAt = DateTime.UtcNow;
+            // Release unused reservations
+            await _inventoryMovementService.ReleaseUnusedReservationsAsync(order.Id, currentUserId);
 
-        _unitOfWork.ProductionOrders.Update(order);
-        await _unitOfWork.SaveChangesAsync();
-        await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: order.Status.ToString(), newValues: "Cancelled");
+            order.Status = ProductionOrderStatus.Cancelled;
+            order.Remarks = string.IsNullOrWhiteSpace(order.Remarks) ? reason : $"{order.Remarks} | Cancelled: {reason}";
+            order.UpdatedBy = currentUserId;
+            order.UpdatedAt = DateTime.UtcNow;
 
-        return MapToDto(order);
+            _unitOfWork.ProductionOrders.Update(order);
+            await _unitOfWork.SaveChangesAsync();
+            await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: order.Status.ToString(), newValues: "Cancelled");
+
+            await _unitOfWork.CommitTransactionAsync();
+            return MapToDto(order);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
     }
 
     private static ProductionOrderDto MapToDto(ProductionOrder o) => new()
@@ -249,6 +310,15 @@ public class ProductionOrderService : IProductionOrderService
         Remarks = o.Remarks,
         CreatedAt = o.CreatedAt,
         UpdatedAt = o.UpdatedAt,
-        CreatedBy = o.CreatedBy
+        CreatedBy = o.CreatedBy,
+        Materials = o.Requirements?.Select(r => new ProductionOrderRequirementDto
+        {
+            Id = r.Id,
+            ProductionOrderId = r.ProductionOrderId,
+            ProductId = r.ProductId,
+            UnitId = r.UnitId,
+            RequiredQuantity = r.RequiredQuantity,
+            ConsumedQuantity = r.ConsumedQuantity
+        }).ToList() ?? new List<ProductionOrderRequirementDto>()
     };
 }

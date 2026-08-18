@@ -1,4 +1,4 @@
-﻿namespace NovaERP.Application.Features.Roles.DTOs;
+namespace NovaERP.Application.Features.Roles.DTOs;
 
 public class RoleDto
 {
@@ -9,4 +9,9 @@ public class RoleDto
     public string Description { get; set; } = string.Empty;
 
     public bool IsActive { get; set; }
+    
+    // Readiness Metadata
+    public bool IsOperationallyReady { get; set; }
+    public string ReadinessReason { get; set; } = string.Empty;
+    public string DashboardRoute { get; set; } = string.Empty;
 }

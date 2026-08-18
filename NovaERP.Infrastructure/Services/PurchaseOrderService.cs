@@ -4,6 +4,7 @@ using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
 using NovaERP.Domain.Enums;
+using Microsoft.EntityFrameworkCore;
 
 namespace NovaERP.Infrastructure.Services;
 
@@ -39,56 +40,105 @@ public class PurchaseOrderService : IPurchaseOrderService
 
     public async Task<PurchaseOrderDto> CreateAsync(CreatePurchaseOrderDto dto)
     {
-        var supplier = await _unitOfWork.Suppliers.GetByIdAsync(dto.SupplierId);
-        if (supplier == null || !supplier.IsActive)
-            throw new Exception("Supplier is invalid or inactive.");
-
-        if (dto.ExpectedDeliveryDate < DateTime.UtcNow.Date)
-            throw new Exception("Expected delivery date cannot be in the past.");
-
-        var po = new PurchaseOrder
+        await _unitOfWork.BeginTransactionAsync();
+        try
         {
-            PONumber = await _unitOfWork.PurchaseOrders.GeneratePONumberAsync(),
-            SupplierId = dto.SupplierId,
-            OrderDate = DateTime.UtcNow,
-            ExpectedDeliveryDate = dto.ExpectedDeliveryDate,
-            Status = PurchaseOrderStatus.Draft,
-            Currency = dto.Currency,
-            Remarks = dto.Remarks,
-            IsActive = true
-        };
+            var supplier = await _unitOfWork.Suppliers.GetByIdAsync(dto.SupplierId);
+            if (supplier == null || !supplier.IsActive)
+                throw new Exception("Supplier is invalid or inactive.");
 
-        var productIds = dto.Items.Select(i => i.ProductId).Distinct().ToList();
-        if (productIds.Count != dto.Items.Count)
-            throw new Exception("Duplicate products are not allowed in a Purchase Order.");
+            if (dto.ExpectedDeliveryDate < DateTime.UtcNow.Date)
+                throw new Exception("Expected delivery date cannot be in the past.");
 
-        foreach (var itemDto in dto.Items)
-        {
-            var product = await _unitOfWork.Products.GetByIdAsync(itemDto.ProductId);
-            if (product == null)
-                throw new Exception($"Product with ID {itemDto.ProductId} not found.");
-
-            var item = new PurchaseOrderItem
+            var po = new PurchaseOrder
             {
-                ProductId = itemDto.ProductId,
-                Quantity = itemDto.Quantity,
-                UnitPrice = itemDto.UnitPrice,
-                Discount = itemDto.Discount,
-                Tax = itemDto.Tax,
-                Remarks = itemDto.Remarks,
-                LineTotal = (itemDto.Quantity * itemDto.UnitPrice) - itemDto.Discount + itemDto.Tax
+                PONumber = await _unitOfWork.PurchaseOrders.GeneratePONumberAsync(),
+                SupplierId = dto.SupplierId,
+                OrderDate = DateTime.UtcNow,
+                ExpectedDeliveryDate = dto.ExpectedDeliveryDate,
+                Status = PurchaseOrderStatus.Draft,
+                Currency = dto.Currency,
+                Remarks = dto.Remarks,
+                IsActive = true
             };
-            po.Items.Add(item);
+
+            var productIds = dto.Items.Select(i => i.ProductId).Distinct().ToList();
+            if (productIds.Count != dto.Items.Count)
+                throw new Exception("Duplicate products are not allowed in a Purchase Order.");
+
+            foreach (var itemDto in dto.Items)
+            {
+                var product = await _unitOfWork.Products.GetByIdAsync(itemDto.ProductId);
+                if (product == null)
+                    throw new Exception($"Product with ID {itemDto.ProductId} not found.");
+                    
+                var supplierProduct = await _unitOfWork.SupplierProducts.GetBySupplierAndProductAsync(dto.SupplierId, itemDto.ProductId);
+                if (supplierProduct == null || !supplierProduct.IsActive)
+                    throw new Exception("Supplier is not approved for this component.");
+                    
+                if (itemDto.Quantity < supplierProduct.MOQ)
+                    throw new Exception($"Minimum order quantity for this supplier/component is {supplierProduct.MOQ}.");
+
+                if (dto.ExpectedDeliveryDate < DateTime.UtcNow.Date.AddDays(supplierProduct.LeadTimeDays))
+                    throw new Exception($"Expected delivery date violates lead time for component '{product.Name}'. Minimum lead time is {supplierProduct.LeadTimeDays} days.");
+
+                // Enforce exact pricing from SupplierProduct catalog
+                itemDto.UnitPrice = supplierProduct.UnitPrice;
+
+                if (itemDto.PurchaseRequestItemId.HasValue)
+                {
+                    var prItem = await _unitOfWork.PurchaseRequests.GetQueryable()
+                        .SelectMany(pr => pr.Items)
+                        .Include(pri => pri.PurchaseRequest)
+                        .FirstOrDefaultAsync(pri => pri.Id == itemDto.PurchaseRequestItemId.Value);
+
+                    if (prItem == null)
+                        throw new Exception("Purchase Request Item not found.");
+
+                    if (prItem.PurchaseRequest!.Status != PurchaseRequestStatus.Approved && prItem.PurchaseRequest!.Status != PurchaseRequestStatus.PartiallyConverted)
+                        throw new Exception("Purchase Request must be Approved or PartiallyConverted to create a PO.");
+
+                    if (itemDto.Quantity > prItem.RemainingQuantity)
+                        throw new Exception($"Requested conversion quantity ({itemDto.Quantity}) exceeds remaining approved quantity ({prItem.RemainingQuantity}).");
+
+                    prItem.ConvertedQuantity += itemDto.Quantity;
+                    
+                    if (prItem.PurchaseRequest.Items.All(i => i.RemainingQuantity == 0))
+                        prItem.PurchaseRequest.Status = PurchaseRequestStatus.FullyConverted;
+                    else
+                        prItem.PurchaseRequest.Status = PurchaseRequestStatus.PartiallyConverted;
+                }
+
+                var item = new PurchaseOrderItem
+                {
+                    ProductId = itemDto.ProductId,
+                    PurchaseRequestItemId = itemDto.PurchaseRequestItemId,
+                    Quantity = itemDto.Quantity,
+                    UnitPrice = itemDto.UnitPrice,
+                    SupplierUnitPrice = supplierProduct.UnitPrice,
+                    Discount = itemDto.Discount,
+                    Tax = itemDto.Tax,
+                    Remarks = itemDto.Remarks,
+                    LineTotal = (itemDto.Quantity * itemDto.UnitPrice) - itemDto.Discount + itemDto.Tax
+                };
+                po.Items.Add(item);
+            }
+
+            CalculateTotals(po);
+
+            await _unitOfWork.PurchaseOrders.AddAsync(po);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _auditLogger.LogAsync("Create", "PurchaseOrder", po.Id.ToString(), newValues: $"PONumber: {po.PONumber}, SupplierId: {po.SupplierId}, Total: {po.TotalAmount}");
+
+            await _unitOfWork.CommitTransactionAsync();
+            return MapToDto(po);
         }
-
-        CalculateTotals(po);
-
-        await _unitOfWork.PurchaseOrders.AddAsync(po);
-        await _unitOfWork.SaveChangesAsync();
-
-        await _auditLogger.LogAsync("Create", "PurchaseOrder", po.Id.ToString(), newValues: $"PONumber: {po.PONumber}, SupplierId: {po.SupplierId}, Total: {po.TotalAmount}");
-
-        return MapToDto(po);
+        catch (Exception)
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
     }
 
     public async Task<PurchaseOrderDto?> UpdateAsync(Guid id, UpdatePurchaseOrderDto dto)
@@ -128,6 +178,19 @@ public class PurchaseOrderService : IPurchaseOrderService
             var product = await _unitOfWork.Products.GetByIdAsync(itemDto.ProductId);
             if (product == null)
                 throw new Exception($"Product with ID {itemDto.ProductId} not found.");
+                
+            var supplierProduct = await _unitOfWork.SupplierProducts.GetBySupplierAndProductAsync(dto.SupplierId, itemDto.ProductId);
+            if (supplierProduct == null || !supplierProduct.IsActive)
+                throw new Exception("Supplier is not approved for this component.");
+                
+            if (itemDto.Quantity < supplierProduct.MOQ)
+                throw new Exception($"Minimum order quantity for this supplier/component is {supplierProduct.MOQ}.");
+
+            if (dto.ExpectedDeliveryDate < DateTime.UtcNow.Date.AddDays(supplierProduct.LeadTimeDays))
+                throw new Exception($"Expected delivery date violates lead time for component '{product.Name}'. Minimum lead time is {supplierProduct.LeadTimeDays} days.");
+
+            // Enforce exact pricing from SupplierProduct catalog
+            itemDto.UnitPrice = supplierProduct.UnitPrice;
 
             if (itemDto.Id.HasValue)
             {
@@ -137,6 +200,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                     existingItem.ProductId = itemDto.ProductId;
                     existingItem.Quantity = itemDto.Quantity;
                     existingItem.UnitPrice = itemDto.UnitPrice;
+                    existingItem.SupplierUnitPrice = supplierProduct.UnitPrice;
                     existingItem.Discount = itemDto.Discount;
                     existingItem.Tax = itemDto.Tax;
                     existingItem.Remarks = itemDto.Remarks;
@@ -150,6 +214,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                     ProductId = itemDto.ProductId,
                     Quantity = itemDto.Quantity,
                     UnitPrice = itemDto.UnitPrice,
+                    SupplierUnitPrice = supplierProduct.UnitPrice,
                     Discount = itemDto.Discount,
                     Tax = itemDto.Tax,
                     Remarks = itemDto.Remarks,
@@ -268,11 +333,13 @@ public class PurchaseOrderService : IPurchaseOrderService
             {
                 Id = i.Id,
                 PurchaseOrderId = i.PurchaseOrderId,
+                PurchaseRequestItemId = i.PurchaseRequestItemId,
                 ProductId = i.ProductId,
                 ProductCode = i.Product?.ProductCode ?? string.Empty,
                 ProductName = i.Product?.Name ?? string.Empty,
                 Quantity = i.Quantity,
                 UnitPrice = i.UnitPrice,
+                SupplierUnitPrice = i.SupplierUnitPrice,
                 Discount = i.Discount,
                 Tax = i.Tax,
                 LineTotal = i.LineTotal,

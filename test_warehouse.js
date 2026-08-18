@@ -49,7 +49,7 @@ async function runTests() {
         // Login as Super Admin
         console.log("Logging in as Super Admin...");
         let loginRes = await makeRequest('POST', '/Auth/login', {
-            email: 'admin@novaerp.com',
+            email: 'balashankar07@gmail.com',
             password: 'Admin@123'
         });
         

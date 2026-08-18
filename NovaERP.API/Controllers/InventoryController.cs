@@ -12,10 +12,14 @@ namespace NovaERP.API.Controllers;
 public class InventoryController : ControllerBase
 {
     private readonly IInventoryService _inventoryService;
+    private readonly IInventoryMovementService _inventoryMovementService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public InventoryController(IInventoryService inventoryService)
+    public InventoryController(IInventoryService inventoryService, IInventoryMovementService inventoryMovementService, ICurrentUserService currentUserService)
     {
         _inventoryService = inventoryService;
+        _inventoryMovementService = inventoryMovementService;
+        _currentUserService = currentUserService;
     }
 
     /// <summary>GET /api/Inventory — Paginated list with optional search and sort.</summary>
@@ -78,5 +82,70 @@ public class InventoryController : ControllerBase
     {
         var result = await _inventoryService.GetTransactionsAsync(id, pageNumber, pageSize);
         return Ok(new ApiResponse<object>(true, "Inventory transactions retrieved successfully.", result));
+    }
+
+    /// <summary>GET /api/Inventory/transactions — Paginated global transaction log.</summary>
+    [HttpGet("transactions")]
+    [HasPermission("Permissions.Inventory.Transactions.View")]
+    public async Task<IActionResult> GetAllTransactions(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? transactionType = null,
+        [FromQuery] Guid? warehouseId = null,
+        [FromQuery] Guid? productId = null,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null)
+    {
+        var result = await _inventoryService.GetAllTransactionsAsync(pageNumber, pageSize, search, transactionType, warehouseId, productId, startDate, endDate);
+        return Ok(new ApiResponse<object>(true, "Inventory transactions retrieved successfully.", result));
+    }
+
+    [HttpPost("receive")]
+    [HasPermission("Permissions.Inventory.Adjust")]
+    public async Task<IActionResult> Receive([FromBody] NovaERP.Application.Features.Inventory.DTOs.ReceiveStockDto dto)
+    {
+        await _inventoryMovementService.ReceiveAsync(dto.ProductId, dto.WarehouseId, dto.LocationId, dto.Quantity, dto.ReferenceType, dto.ReferenceId, dto.Remarks, _currentUserService.UserId);
+        return Ok(ApiResponse.SuccessResponse("Stock received successfully."));
+    }
+
+    [HttpPost("issue")]
+    [HasPermission("Permissions.Inventory.Adjust")]
+    public async Task<IActionResult> Issue([FromBody] NovaERP.Application.Features.Inventory.DTOs.IssueStockDto dto)
+    {
+        await _inventoryMovementService.IssueAsync(dto.ProductId, dto.WarehouseId, dto.LocationId, dto.Quantity, dto.ReferenceType, dto.ReferenceId, dto.Remarks, _currentUserService.UserId);
+        return Ok(ApiResponse.SuccessResponse("Stock issued successfully."));
+    }
+
+    [HttpPost("reserve")]
+    [HasPermission("Permissions.Inventory.Adjust")]
+    public async Task<IActionResult> Reserve([FromBody] NovaERP.Application.Features.Inventory.DTOs.ReserveStockDto dto)
+    {
+        await _inventoryMovementService.ReserveAsync(dto.ProductId, dto.WarehouseId, dto.LocationId, dto.Quantity, dto.ReferenceType, dto.ReferenceId, dto.Remarks, _currentUserService.UserId);
+        return Ok(ApiResponse.SuccessResponse("Stock reserved successfully."));
+    }
+
+    [HttpPost("release-reservation")]
+    [HasPermission("Permissions.Inventory.Adjust")]
+    public async Task<IActionResult> ReleaseReservation([FromBody] NovaERP.Application.Features.Inventory.DTOs.ReleaseReservationDto dto)
+    {
+        await _inventoryMovementService.ReleaseReservationAsync(dto.ProductId, dto.WarehouseId, dto.LocationId, dto.Quantity, dto.ReferenceType, dto.ReferenceId, dto.Remarks, _currentUserService.UserId);
+        return Ok(ApiResponse.SuccessResponse("Stock reservation released successfully."));
+    }
+
+    [HttpPost("adjust")]
+    [HasPermission("Permissions.Inventory.Adjust")]
+    public async Task<IActionResult> Adjust([FromBody] NovaERP.Application.Features.Inventory.DTOs.AdjustStockDto dto)
+    {
+        await _inventoryMovementService.AdjustAsync(dto.ProductId, dto.WarehouseId, dto.LocationId, dto.QuantityDelta, dto.Reason, _currentUserService.UserId);
+        return Ok(ApiResponse.SuccessResponse("Stock adjusted successfully."));
+    }
+
+    [HttpPost("transfer")]
+    [HasPermission("Permissions.Inventory.Transfer")]
+    public async Task<IActionResult> Transfer([FromBody] NovaERP.Application.Features.Inventory.DTOs.TransferStockDto dto)
+    {
+        await _inventoryMovementService.TransferAsync(dto.ProductId, dto.SourceWarehouseId, dto.SourceLocationId, dto.DestinationWarehouseId, dto.DestinationLocationId, dto.Quantity, dto.Reason, _currentUserService.UserId);
+        return Ok(ApiResponse.SuccessResponse("Stock transferred successfully."));
     }
 }

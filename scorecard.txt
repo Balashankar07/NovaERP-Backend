@@ -1,0 +1,59 @@
+﻿==================================================
+FINAL SCORECARD
+==================================================
+Inventory Data Integrity
+PASS
+
+Inventory Invariants
+PASS
+
+Receive
+PASS
+
+Issue
+PASS
+
+Reserve
+PASS
+
+Release
+PASS
+
+Adjust
+PASS
+
+Transfer
+PASS
+
+Concurrency
+PASS
+
+Goods Receipt Atomicity
+PASS
+
+Production Atomicity
+PASS
+
+Finished Goods Receipt
+PASS
+
+InventoryTransaction Audit
+PASS
+
+Direct Mutation Audit
+PASS
+
+Procurement Regression
+PASS
+
+Production Regression
+PASS
+
+Database Integrity
+PASS
+
+xmin Configuration
+PASS
+
+Backend Build
+PASS

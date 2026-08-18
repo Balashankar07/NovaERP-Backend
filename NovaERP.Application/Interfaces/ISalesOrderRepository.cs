@@ -6,7 +6,7 @@ namespace NovaERP.Application.Interfaces;
 
 public interface ISalesOrderRepository : IRepository<SalesOrder>
 {
-    Task<PagedResult<SalesOrder>> GetSalesOrdersPagedAsync(int pageNumber, int pageSize, string? search, string? sortBy, string? sortOrder);
-    Task<SalesOrder?> GetSalesOrderWithDetailsAsync(Guid id);
+    Task<PagedResult<SalesOrder>> GetSalesOrdersPagedAsync(int pageNumber, int pageSize, string? search, string? sortBy, string? sortOrder, Guid? currentUserId = null, bool isDistributor = false);
+    Task<SalesOrder?> GetSalesOrderWithDetailsAsync(Guid id, Guid? currentUserId = null, bool isDistributor = false);
     Task<string> GenerateOrderNumberAsync();
 }

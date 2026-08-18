@@ -11,13 +11,13 @@ public class GoodsReceiptService : IGoodsReceiptService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
-    private readonly IInventoryService _inventoryService;
+    private readonly IInventoryMovementService _inventoryMovementService;
 
-    public GoodsReceiptService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryService inventoryService)
+    public GoodsReceiptService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
-        _inventoryService = inventoryService;
+        _inventoryMovementService = inventoryMovementService;
     }
 
     public async Task<PagedResult<GoodsReceiptDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -56,6 +56,8 @@ public class GoodsReceiptService : IGoodsReceiptService
                 GRNNumber = await _unitOfWork.GoodsReceipts.GenerateGRNNumberAsync(),
                 PurchaseOrderId = po.Id,
                 SupplierId = po.SupplierId,
+                WarehouseId = dto.WarehouseId,
+                WarehouseLocationId = dto.WarehouseLocationId,
                 ReceiptDate = DateTime.UtcNow,
                 Status = GoodsReceiptStatus.Draft,
                 Remarks = dto.Remarks,
@@ -256,12 +258,9 @@ public class GoodsReceiptService : IGoodsReceiptService
             await _unitOfWork.SaveChangesAsync();
             await _auditLogger.LogAsync("StatusChange", "GoodsReceipt", grn.Id.ToString(), oldValues: "Draft", newValues: grn.Status.ToString());
 
-            if (grn.Status == GoodsReceiptStatus.Completed)
-            {
-                await CheckAndClosePurchaseOrderAsync(grn.PurchaseOrderId);
-                await _inventoryService.ProcessGoodsReceiptAsync(grn.Id, grn.ReceivedBy);
-            }
-
+            await CheckAndClosePurchaseOrderAsync(grn.PurchaseOrderId);
+            await ProcessInventoryMovementAsync(grn);
+            await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
             return MapToDto(grn);
         }
@@ -294,7 +293,8 @@ public class GoodsReceiptService : IGoodsReceiptService
             await _auditLogger.LogAsync("StatusChange", "GoodsReceipt", grn.Id.ToString(), oldValues: "PartiallyReceived", newValues: "Completed");
 
             await CheckAndClosePurchaseOrderAsync(grn.PurchaseOrderId);
-            await _inventoryService.ProcessGoodsReceiptAsync(grn.Id, grn.ReceivedBy);
+            await ProcessInventoryMovementAsync(grn);
+            await _unitOfWork.SaveChangesAsync();
 
             await _unitOfWork.CommitTransactionAsync();
             return MapToDto(grn);
@@ -314,6 +314,10 @@ public class GoodsReceiptService : IGoodsReceiptService
         var existingGRNs = await _unitOfWork.GoodsReceipts.GetByPurchaseOrderIdAsync(poId);
         var activeGRNs = existingGRNs.Where(g => g.Status != GoodsReceiptStatus.Cancelled && g.Status != GoodsReceiptStatus.Draft).ToList();
 
+        Console.WriteLine($"[DEBUG-PO-CLOSE] Checking PO: {poId}");
+        Console.WriteLine($"[DEBUG-PO-CLOSE] PO Items Count: {po.Items.Count}");
+        Console.WriteLine($"[DEBUG-PO-CLOSE] Existing GRNs Count: {existingGRNs.Count}, Active GRNs Count: {activeGRNs.Count}");
+
         bool allItemsFullyReceived = true;
         foreach (var poItem in po.Items)
         {
@@ -322,12 +326,17 @@ public class GoodsReceiptService : IGoodsReceiptService
                 .Where(i => i.PurchaseOrderItemId == poItem.Id)
                 .Sum(i => i.ReceivedQuantity);
 
+            Console.WriteLine($"[DEBUG-PO-CLOSE] Item {poItem.Id}: Ordered={poItem.Quantity}, Received={totalReceived}");
+
             if (totalReceived < poItem.Quantity)
             {
+                Console.WriteLine($"[DEBUG-PO-CLOSE] Item {poItem.Id} not fully received!");
                 allItemsFullyReceived = false;
                 break;
             }
         }
+
+        Console.WriteLine($"[DEBUG-PO-CLOSE] allItemsFullyReceived: {allItemsFullyReceived}");
 
         if (allItemsFullyReceived)
         {
@@ -353,6 +362,34 @@ public class GoodsReceiptService : IGoodsReceiptService
         await _auditLogger.LogAsync("StatusChange", "GoodsReceipt", grn.Id.ToString(), oldValues: "Draft", newValues: "Cancelled");
 
         return MapToDto(grn);
+    }
+
+    private async Task ProcessInventoryMovementAsync(GoodsReceipt grn)
+    {
+        var warehouseId = grn.WarehouseId;
+        if (!warehouseId.HasValue)
+        {
+            var defaultWarehouse = await _unitOfWork.Warehouses.GetDefaultWarehouseAsync();
+            if (defaultWarehouse == null) throw new Exception("No default warehouse is configured and no specific warehouse was provided.");
+            warehouseId = defaultWarehouse.Id;
+        }
+
+        foreach (var item in grn.Items)
+        {
+            decimal receivedQty = item.ReceivedQuantity - item.RejectedQuantity;
+            if (receivedQty > 0)
+            {
+                await _inventoryMovementService.ReceiveAsync(
+                    item.ProductId,
+                    warehouseId.Value,
+                    grn.WarehouseLocationId,
+                    receivedQty,
+                    InventoryReferenceType.GoodsReceipt,
+                    grn.Id,
+                    $"Received from GRN: {grn.GRNNumber}",
+                    grn.ReceivedBy);
+            }
+        }
     }
 
     private GoodsReceiptDto MapToDto(GoodsReceipt grn)

@@ -13,4 +13,5 @@ public class DashboardSummaryDto
     public int ShipmentsPending { get; set; }
     public int ActiveWarranties { get; set; }
     public int OpenWarrantyClaims { get; set; }
+    public List<ProductionChartDto> MonthlyProduction { get; set; } = new();
 }

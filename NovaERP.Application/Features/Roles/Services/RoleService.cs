@@ -17,18 +17,25 @@ public class RoleService : IRoleService
         _auditLogger = auditLogger;
     }
 
-    public async Task<PagedResult<RoleDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
+    public async Task<PagedResult<RoleDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null, bool? isOperationallyReady = null)
     {
-        var pagedResult = await _unitOfWork.Roles.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder);
+        var pagedResult = await _unitOfWork.Roles.GetAllFilteredAsync(pageNumber, pageSize, search, sortBy, sortOrder, isOperationallyReady);
         return new PagedResult<RoleDto>
         {
-            Items = pagedResult.Items.Select(r => new RoleDto
-        {
-            Id = r.Id,
-            Name = r.Name,
-            Description = r.Description,
-            IsActive = r.IsActive
-        }),
+            Items = pagedResult.Items.Select(r => 
+            {
+                var readiness = NovaERP.Application.Common.Helpers.RoleReadinessEvaluator.Evaluate(r.Name);
+                return new RoleDto
+                {
+                    Id = r.Id,
+                    Name = r.Name,
+                    Description = r.Description,
+                    IsActive = r.IsActive,
+                    IsOperationallyReady = readiness.IsOperationallyReady,
+                    ReadinessReason = readiness.ReadinessReason,
+                    DashboardRoute = readiness.DashboardRoute
+                };
+            }),
             TotalCount = pagedResult.TotalCount,
             PageNumber = pagedResult.PageNumber,
             PageSize = pagedResult.PageSize
@@ -42,12 +49,17 @@ public class RoleService : IRoleService
         if (role == null)
             return null;
 
+        var readiness = NovaERP.Application.Common.Helpers.RoleReadinessEvaluator.Evaluate(role.Name);
+
         return new RoleDto
         {
             Id = role.Id,
             Name = role.Name,
             Description = role.Description,
-            IsActive = role.IsActive
+            IsActive = role.IsActive,
+            IsOperationallyReady = readiness.IsOperationallyReady,
+            ReadinessReason = readiness.ReadinessReason,
+            DashboardRoute = readiness.DashboardRoute
         };
     }
 

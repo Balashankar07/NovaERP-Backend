@@ -1,6 +1,6 @@
 const http = require('http');
 
-const API_URL = 'http://localhost:5232/api';
+const API_URL = 'http://localhost:5233/api';
 let superAdminToken = '';
 let supplierId = '';
 let productId = '';
@@ -51,7 +51,7 @@ async function runTests() {
 
     // 1. Login as Super Admin
     const loginRes = await makeRequest('POST', '/Auth/login', {
-        email: 'admin@novaerp.com',
+        email: 'balashankar07@gmail.com',
         password: 'Admin@123'
     });
     
@@ -78,6 +78,31 @@ async function runTests() {
     } else {
         console.log("No product found. Create one first or check seed data.");
         return;
+    }
+
+    // 2.5 Ensure SupplierProduct link exists
+    console.log(`Ensuring SupplierProduct link exists for Supplier: ${supplierId}, Product: ${productId}`);
+    const spRes = await makeRequest('POST', '/supplier-products', {
+        supplierId: supplierId,
+        productId: productId,
+        supplierSKU: "TEST-SKU-001",
+        unitPrice: 100,
+        currency: "USD",
+        moq: 10,
+        leadTimeDays: 7,
+        isPreferred: true,
+        isActive: true
+    }, superAdminToken);
+
+    // It might already exist (409 Conflict), which is fine, we just need to ensure it's active.
+    if (spRes.status === 201) {
+        console.log("Created SupplierProduct link.");
+    } else if (spRes.status === 409) {
+        console.log("SupplierProduct link already exists.");
+        // We could fetch and activate it, but let's assume it's active for now or we will get a 400.
+    } else {
+        console.error("Failed to create SupplierProduct link:", spRes);
+        // Continue anyway to see if it works.
     }
 
     // 3. Test Create Purchase Order

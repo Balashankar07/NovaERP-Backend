@@ -7,6 +7,8 @@ public class CreatePurchaseOrderItemDto
     [Required]
     public Guid ProductId { get; set; }
     
+    public Guid? PurchaseRequestItemId { get; set; }
+    
     [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "Quantity must be greater than 0.")]
     public decimal Quantity { get; set; }

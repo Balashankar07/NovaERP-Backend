@@ -1,6 +1,6 @@
 const http = require('http');
 
-const API_URL = 'http://localhost:5232/api';
+const API_URL = 'http://localhost:5233/api';
 let superAdminToken = '';
 let supplierId = '';
 let productId = '';
@@ -50,7 +50,7 @@ async function runTests() {
     console.log('--- Starting Advanced GRN Verification ---');
     try {
         const loginRes = await makeRequest('POST', '/Auth/login', {
-            email: 'admin@novaerp.com',
+            email: 'balashankar07@gmail.com',
             password: 'Admin@123'
         });
         superAdminToken = loginRes.data.data.accessToken;

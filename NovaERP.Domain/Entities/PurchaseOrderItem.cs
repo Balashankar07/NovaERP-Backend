@@ -11,6 +11,9 @@ public class PurchaseOrderItem : AuditableEntity
     public Guid ProductId { get; set; }
     public Product? Product { get; set; }
     
+    public Guid? PurchaseRequestItemId { get; set; }
+    public PurchaseRequestItem? PurchaseRequestItem { get; set; }
+    
     [Column(TypeName = "decimal(18,2)")]
     public decimal Quantity { get; set; }
     
@@ -25,6 +28,9 @@ public class PurchaseOrderItem : AuditableEntity
     
     [Column(TypeName = "decimal(18,2)")]
     public decimal LineTotal { get; set; }
+    
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal? SupplierUnitPrice { get; set; }
     
     public string? Remarks { get; set; }
 }
