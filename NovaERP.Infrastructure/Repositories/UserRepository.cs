@@ -42,7 +42,11 @@ public class UserRepository
 
     public override async Task<NovaERP.Application.Common.Models.PagedResult<NovaERP.Domain.Entities.User>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
     {
-        var query = _dbSet.AsQueryable();
+        var query = _dbSet
+            .Include(x => x.Company)
+            .Include(x => x.UserRoles)
+                .ThenInclude(ur => ur.Role)
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {

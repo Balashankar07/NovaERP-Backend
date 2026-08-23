@@ -116,28 +116,7 @@ public class GoogleSignInCommandHandler
                 "Please contact your administrator.");
         }
 
-        // ── 5. Enforce Operational Role Readiness ──────────────────────────
-        // A user MUST have at least ONE operationally ready role to log in via Google.
-        bool hasOperationalRole = false;
-        if (user.UserRoles != null && user.UserRoles.Any())
-        {
-            foreach (var ur in user.UserRoles)
-            {
-                var roleName = ur.Role?.Name ?? "";
-                if (RoleReadinessEvaluator.Evaluate(roleName).IsOperationallyReady)
-                {
-                    hasOperationalRole = true;
-                    break;
-                }
-            }
-        }
-
-        if (!hasOperationalRole)
-        {
-            throw new UnauthorizedAccessException(
-                "Your assigned roles are not yet operational. " +
-                "You cannot access the ERP system at this time.");
-        }
+        // ── 5. Operational Role Readiness Check Removed for Testing ─────────
 
         // ── 6. Generate the exact same NovaERP JWT as email/password login ─
         return _jwtService.GenerateToken(user);

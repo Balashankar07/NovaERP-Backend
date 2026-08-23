@@ -12,7 +12,7 @@ async function runE2E() {
 
     let api;
     let createdIds = {
-        products: [], boms: [], prs: [], pos: [], grs: [], plans: []
+        products: [], boms: [], prs: [], pos: [], grs: [], plans: [], productionOrders: []
     };
 
     try {
@@ -23,10 +23,19 @@ async function runE2E() {
         });
         api = axios.create({ headers: { Authorization: `Bearer ${loginRes.data.data.accessToken}` } });
 
-        // 2. Create Component Product
-        console.log("2. Creating Component Product...");
+        // 2a. Get Category, Unit, and Brand
+        console.log("2a. Getting Category, Unit, and Brand...");
+        const catRes = await api.get(`${API_URL}/ProductCategories?pageSize=1`);
+        const categoryId = catRes.data.data.items[0].id;
+        const unitRes = await api.get(`${API_URL}/Units?pageSize=1`);
+        const unitId = unitRes.data.data.items[0].id;
+        const brandRes = await api.get(`${API_URL}/Brands?pageSize=1`);
+        const brandId = brandRes.data.data.items[0].id;
+
+        // 2b. Create Component Product
+        console.log("2b. Creating Component Product...");
         const compRes = await api.post(`${API_URL}/Products`, {
-            name: "Audit_Comp_1", productNumber: "COMP-AUDIT-1", productType: 2, isActive: true, costPrice: 10, sellingPrice: 0, minimumStock: 50, reorderLevel: 60, maximumStock: 500
+            categoryId, unitId, brandId, name: "Audit_Comp_1", productNumber: "COMP-AUDIT-1", productType: 2, isActive: true, costPrice: 10, sellingPrice: 15, minimumStock: 50, reorderLevel: 60, maximumStock: 500
         });
         const compId = compRes.data.data.id;
         createdIds.products.push(compId);
@@ -34,7 +43,7 @@ async function runE2E() {
         // 3. Create Finished Good Product
         console.log("3. Creating Finished Good Product...");
         const fgRes = await api.post(`${API_URL}/Products`, {
-            name: "Audit_FG_1", productNumber: "FG-AUDIT-1", productType: 1, isActive: true, costPrice: 0, sellingPrice: 100, minimumStock: 10, reorderLevel: 20, maximumStock: 100
+            categoryId, unitId, name: "Audit_FG_1", productNumber: "FG-AUDIT-1", productType: 1, isActive: true, costPrice: 0, sellingPrice: 100, minimumStock: 10, reorderLevel: 20, maximumStock: 100
         });
         const fgId = fgRes.data.data.id;
         createdIds.products.push(fgId);
@@ -43,7 +52,7 @@ async function runE2E() {
         console.log("4. Creating BOM...");
         const bomRes = await api.post(`${API_URL}/BOMs`, {
             productId: fgId, name: "Audit_BOM", revision: "1.0", isActive: true,
-            items: [{ componentId: compId, quantity: 2, unitOfMeasure: "pcs" }]
+            items: [{ rawMaterialProductId: compId, quantity: 2, unitId: unitId, wastePercentage: 0 }]
         });
         const bomId = bomRes.data.data.id;
         createdIds.boms.push(bomId);
@@ -56,10 +65,15 @@ async function runE2E() {
             supplierId: supplierId, productId: compId, supplierSKU: "SUP-COMP-1", unitPrice: 9.5, moq: 10, leadTimeDays: 5, currency: "USD", isActive: true
         });
 
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
+
         // 6. Create Production Plan
         console.log("6. Creating Production Plan (Shortage Expected)...");
         const planRes = await api.post(`${API_URL}/ProductionPlans`, {
-            planNumber: "PLN-AUDIT-1", name: "Audit Plan", targetDate: new Date().toISOString(), status: "Draft",
+            planNumber: "PLN-AUDIT-1", name: "Audit Plan", targetDate: nextWeek.toISOString(), status: "Draft",
             productId: fgId, plannedQuantity: 100,
             requirements: [{ productId: compId, requiredQuantity: 200, allocatedQuantity: 0, shortageQuantity: 200 }]
         });
@@ -69,24 +83,27 @@ async function runE2E() {
         // 7. Create Purchase Request
         console.log("7. Creating PR from Shortage...");
         const prRes = await api.post(`${API_URL}/purchase-requests`, {
-            requestNumber: "PR-AUDIT-1", requestDate: new Date().toISOString(), requiredDate: new Date().toISOString(),
-            status: "Draft", priority: "High", requestingDepartmentId: "00000000-0000-0000-0000-000000000000",
-            notes: "Audit PR",
+            requiredByDate: nextWeek.toISOString(),
+            priority: 2,
+            reason: "Audit PR",
+            source: 1, // manual/MRP
             items: [{ productId: compId, requestedQuantity: 200 }]
         });
         const prId = prRes.data.data.id;
         createdIds.prs.push(prId);
 
+        // Submit PR
+        console.log("   Submitting PR...");
+        await api.post(`${API_URL}/purchase-requests/${prId}/submit`);
+
         // Approve PR
         console.log("   Approving PR...");
-        await api.put(`${API_URL}/purchase-requests/${prId}/approve`, {
-            items: [{ purchaseRequestItemId: prRes.data.data.items[0].id, approvedQuantity: 200 }]
-        });
+        await api.post(`${API_URL}/purchase-requests/${prId}/approve`);
 
         // 8. Create Purchase Order
         console.log("8. Creating PO...");
-        const poRes = await api.post(`${API_URL}/purchase-orders`, {
-            supplierId: supplierId, orderDate: new Date().toISOString(), expectedDeliveryDate: new Date().toISOString(),
+        const poRes = await api.post(`${API_URL}/PurchaseOrders`, {
+            supplierId: supplierId, orderDate: tomorrow.toISOString(), expectedDeliveryDate: nextWeek.toISOString(),
             status: "Draft",
             items: [{ productId: compId, quantity: 200, unitPrice: 9.5, purchaseRequestItemId: prRes.data.data.items[0].id }]
         });
@@ -94,20 +111,27 @@ async function runE2E() {
         createdIds.pos.push(poId);
         const poItemId = poRes.data.data.items[0].id;
 
-        // Approve PO
-        console.log("   Approving PO...");
-        await api.put(`${API_URL}/purchase-orders/${poId}/status`, "PendingReceipt", { headers: { "Content-Type": "application/json" }});
+        // Submit and Approve PO
+        console.log("   Submitting and Approving PO...");
+        await api.post(`${API_URL}/PurchaseOrders/${poId}/submit`);
+        await api.post(`${API_URL}/PurchaseOrders/${poId}/approve`);
 
         // 9. Goods Receipt -> Inventory
         console.log("9. Creating Goods Receipt...");
         const warehouseRes = await api.get(`${API_URL}/Warehouses?pageSize=1`);
         const warehouseId = warehouseRes.data.data.items[0].id;
-        const grRes = await api.post(`${API_URL}/purchase-orders/${poId}/receive`, {
-            receiptDate: new Date().toISOString(), referenceDocument: "GR-AUDIT-1", warehouseId: warehouseId,
-            items: [{ purchaseOrderItemId: poItemId, receivedQuantity: 200, acceptedQuantity: 200, rejectedQuantity: 0, locationId: null }]
+        const grRes = await api.post(`${API_URL}/GoodsReceipts`, {
+            purchaseOrderId: poId,
+            warehouseId: warehouseId,
+            remarks: "GR-AUDIT-1",
+            items: [{ purchaseOrderItemId: poItemId, receivedQuantity: 200, rejectedQuantity: 0 }]
         });
         const grId = grRes.data.data.id;
         createdIds.grs.push(grId);
+
+        // Receive GR
+        console.log("   Receiving GR...");
+        await api.post(`${API_URL}/GoodsReceipts/${grId}/receive`);
 
         // 10. Check Inventory
         console.log("10. Verifying Inventory...");
@@ -119,24 +143,78 @@ async function runE2E() {
             console.log("[FAIL] Inventory not updated correctly.");
         }
 
+        // 10.5 Release Production Plan
+        console.log("10.5 Releasing Production Plan...");
+        await api.post(`${API_URL}/ProductionPlans/${planId}/release`);
+
+        // 11. Create Production Order
+        console.log("11. Creating Production Order...");
+        const prodOrderRes = await api.post(`${API_URL}/ProductionOrders`, {
+            productionPlanId: planId, productId: fgId, orderNumber: "PRD-AUDIT-1",
+            plannedQuantity: 100, startDate: tomorrow.toISOString(), expectedEndDate: nextWeek.toISOString(),
+            priority: 2, remarks: "Audit Production Order"
+        });
+        const prodOrderId = prodOrderRes.data.data.id;
+        createdIds.productionOrders.push(prodOrderId);
+
+        // 12. Verify Frozen Requirements
+        console.log("12. Verifying Frozen Requirements...");
+        const prodOrderGetRes = await api.get(`${API_URL}/ProductionOrders/${prodOrderId}`);
+        const requirements = prodOrderGetRes.data.data.materials;
+        if (requirements && requirements.length > 0 && requirements[0].productId === compId) {
+            console.log("[PASS] Frozen requirements correctly captured.");
+        } else {
+            console.log("[FAIL] Frozen requirements not captured correctly.");
+        }
+
+        // 13. Release Production Order
+        console.log("13. Releasing Production Order (Triggers Reservation)...");
+        await api.post(`${API_URL}/ProductionOrders/${prodOrderId}/release`);
+        
+        // 14. Check Inventory Reservation
+        console.log("14. Verifying Inventory Reservation...");
+        const postReleaseInvRes = await api.get(`${API_URL}/Inventory/by-product/${compId}`);
+        const postReleaseInventory = postReleaseInvRes.data.data.find(i => i.warehouseId === warehouseId);
+        // Required quantity was 200, so reserved should be 200
+        if (postReleaseInventory && postReleaseInventory.quantityReserved === 200) {
+            console.log("[PASS] Inventory reserved correctly. Available quantity updated.");
+        } else {
+            console.log(`[FAIL] Inventory not reserved correctly. Found reserved: ${postReleaseInventory ? postReleaseInventory.quantityReserved : 'N/A'}`);
+        }
+
         console.log("E2E WORKFLOW COMPLETED SUCCESSFULLY.");
 
     } catch (e) {
-        console.error("Test Failed:", e.response ? e.response.data : e.message);
+        if (e.response) {
+            console.error("Test Failed with status:", e.response.status);
+            console.error(JSON.stringify(e.response.data, null, 2));
+        } else {
+            console.error("Test Failed with error:", e);
+        }
     } finally {
         // Cleanup
         console.log("\nCleaning up test records...");
         // Order of deletion matters to avoid FK constraints
         try {
+            for (let id of createdIds.grs) await client.query(`DELETE FROM "GoodsReceiptItems" WHERE "GoodsReceiptId" = $1`, [id]);
             for (let id of createdIds.grs) await client.query(`DELETE FROM "GoodsReceipts" WHERE "Id" = $1`, [id]);
+            for (let id of createdIds.productionOrders) {
+                await client.query(`DELETE FROM "InventoryReservations" WHERE "ReferenceId" = $1`, [id]);
+                await client.query(`DELETE FROM "ProductionOrderRequirements" WHERE "ProductionOrderId" = $1`, [id]);
+                await client.query(`DELETE FROM "ProductionOrders" WHERE "Id" = $1`, [id]);
+            }
+            for (let id of createdIds.pos) await client.query(`DELETE FROM "PurchaseOrderItems" WHERE "PurchaseOrderId" = $1`, [id]);
             for (let id of createdIds.pos) await client.query(`DELETE FROM "PurchaseOrders" WHERE "Id" = $1`, [id]);
+            for (let id of createdIds.prs) await client.query(`DELETE FROM "PurchaseRequestItems" WHERE "PurchaseRequestId" = $1`, [id]);
             for (let id of createdIds.prs) await client.query(`DELETE FROM "PurchaseRequests" WHERE "Id" = $1`, [id]);
+            for (let id of createdIds.plans) await client.query(`DELETE FROM "ProductionPlanRequirements" WHERE "ProductionPlanId" = $1`, [id]);
             for (let id of createdIds.plans) await client.query(`DELETE FROM "ProductionPlans" WHERE "Id" = $1`, [id]);
+            for (let id of createdIds.boms) await client.query(`DELETE FROM "BOMItems" WHERE "BomId" = $1`, [id]);
             for (let id of createdIds.boms) await client.query(`DELETE FROM "BOMs" WHERE "Id" = $1`, [id]);
             await client.query(`DELETE FROM "SupplierProducts" WHERE "ProductId" = $1 OR "ProductId" = $2`, [createdIds.products[0], createdIds.products[1]]);
             for (let id of createdIds.products) {
-                await client.query(`DELETE FROM "Inventories" WHERE "ProductId" = $1`, [id]);
                 await client.query(`DELETE FROM "InventoryTransactions" WHERE "ProductId" = $1`, [id]);
+                await client.query(`DELETE FROM "Inventories" WHERE "ProductId" = $1`, [id]);
                 await client.query(`DELETE FROM "Products" WHERE "Id" = $1`, [id]);
             }
             console.log("Cleanup complete.");
