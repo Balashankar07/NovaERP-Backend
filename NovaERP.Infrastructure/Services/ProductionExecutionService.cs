@@ -223,6 +223,9 @@ public class ProductionExecutionService : IProductionExecutionService
         execution.UpdatedBy = currentUserId;
         execution.UpdatedAt = DateTime.UtcNow;
 
+        // Release unused reservations before order is completed
+        await _inventoryMovementService.ReleaseUnusedReservationsAsync(order.Id, currentUserId);
+
         // Increase finished goods inventory
         var warehouse = await _unitOfWork.Warehouses.GetDefaultWarehouseAsync();
         if (warehouse == null)

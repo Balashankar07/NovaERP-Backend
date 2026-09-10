@@ -3,6 +3,7 @@
     "axios": "^1.19.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.0",
+    "playwright": "^1.62.1",
     "puppeteer": "^25.7.0"
   }
 }

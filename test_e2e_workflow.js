@@ -12,7 +12,7 @@ async function runE2E() {
 
     let api;
     let createdIds = {
-        products: [], boms: [], prs: [], pos: [], grs: [], plans: [], productionOrders: []
+        products: [], boms: [], plans: [], prs: [], pos: [], grs: [], productionOrders: [], executions: []
     };
 
     try {
@@ -182,6 +182,33 @@ async function runE2E() {
             console.log(`[FAIL] Inventory not reserved correctly. Found reserved: ${postReleaseInventory ? postReleaseInventory.quantityReserved : 'N/A'}`);
         }
 
+        console.log("15. Creating Production Execution...");
+        const createExecRes = await api.post(`${API_URL}/ProductionExecutions`, {
+            productionOrderId: createdIds.productionOrders[0],
+            remarks: "E2E Execution Test"
+        });
+        const execution = createExecRes.data.data ? createExecRes.data.data : createExecRes.data;
+        createdIds.executions = [execution.id]; // Track for cleanup
+
+        console.log("16. Starting Execution...");
+        await api.post(`${API_URL}/ProductionExecutions/${execution.id}/start`);
+
+        console.log("17. Consuming Materials...");
+        await api.post(`${API_URL}/ProductionExecutions/${execution.id}/consume`);
+
+        console.log("18. Completing Execution...");
+        await api.post(`${API_URL}/ProductionExecutions/${execution.id}/complete`, {
+            producedQuantity: 10,
+            rejectedQuantity: 0
+        });
+
+        
+        console.log("19. Verifying Unused Reservation Release...");
+        const activeRes = await client.query(`SELECT SUM("QuantityReserved" - "QuantityConsumed") as active FROM "InventoryReservations" WHERE "ProductionOrderId" = $1`, [createdIds.productionOrders[0]]);
+        const activeRemaining = parseFloat(activeRes.rows[0].active || '0');
+        if (activeRemaining > 0) throw new Error("Unused reservations were not released!");
+        console.log("[PASS] Unused reservations released.");
+
         console.log("E2E WORKFLOW COMPLETED SUCCESSFULLY.");
 
     } catch (e) {
@@ -198,8 +225,12 @@ async function runE2E() {
         try {
             for (let id of createdIds.grs) await client.query(`DELETE FROM "GoodsReceiptItems" WHERE "GoodsReceiptId" = $1`, [id]);
             for (let id of createdIds.grs) await client.query(`DELETE FROM "GoodsReceipts" WHERE "Id" = $1`, [id]);
+            for (let id of createdIds.executions) {
+                await client.query(`DELETE FROM "MaterialConsumptions" WHERE "ProductionExecutionId" = $1`, [id]);
+                await client.query(`DELETE FROM "ProductionExecutions" WHERE "Id" = $1`, [id]);
+            }
             for (let id of createdIds.productionOrders) {
-                await client.query(`DELETE FROM "InventoryReservations" WHERE "ReferenceId" = $1`, [id]);
+                await client.query(`DELETE FROM "InventoryReservations" WHERE "ProductionOrderId" = $1`, [id]);
                 await client.query(`DELETE FROM "ProductionOrderRequirements" WHERE "ProductionOrderId" = $1`, [id]);
                 await client.query(`DELETE FROM "ProductionOrders" WHERE "Id" = $1`, [id]);
             }
@@ -207,13 +238,13 @@ async function runE2E() {
             for (let id of createdIds.pos) await client.query(`DELETE FROM "PurchaseOrders" WHERE "Id" = $1`, [id]);
             for (let id of createdIds.prs) await client.query(`DELETE FROM "PurchaseRequestItems" WHERE "PurchaseRequestId" = $1`, [id]);
             for (let id of createdIds.prs) await client.query(`DELETE FROM "PurchaseRequests" WHERE "Id" = $1`, [id]);
-            for (let id of createdIds.plans) await client.query(`DELETE FROM "ProductionPlanRequirements" WHERE "ProductionPlanId" = $1`, [id]);
             for (let id of createdIds.plans) await client.query(`DELETE FROM "ProductionPlans" WHERE "Id" = $1`, [id]);
             for (let id of createdIds.boms) await client.query(`DELETE FROM "BOMItems" WHERE "BomId" = $1`, [id]);
             for (let id of createdIds.boms) await client.query(`DELETE FROM "BOMs" WHERE "Id" = $1`, [id]);
             await client.query(`DELETE FROM "SupplierProducts" WHERE "ProductId" = $1 OR "ProductId" = $2`, [createdIds.products[0], createdIds.products[1]]);
             for (let id of createdIds.products) {
-                await client.query(`DELETE FROM "InventoryTransactions" WHERE "ProductId" = $1`, [id]);
+                // We need to delete transactions by InventoryId, not ProductId, or just delete all for safety in tests
+                await client.query(`DELETE FROM "InventoryTransactions" WHERE "InventoryId" IN (SELECT "Id" FROM "Inventories" WHERE "ProductId" = $1)`, [id]);
                 await client.query(`DELETE FROM "Inventories" WHERE "ProductId" = $1`, [id]);
                 await client.query(`DELETE FROM "Products" WHERE "Id" = $1`, [id]);
             }

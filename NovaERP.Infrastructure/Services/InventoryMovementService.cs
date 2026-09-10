@@ -312,6 +312,9 @@ public class InventoryMovementService : IInventoryMovementService
                     _unitOfWork.Inventories.Update(inventory);
                     await _auditLogger.LogAsync("Release", "Inventory", inventory.Id.ToString(), newValues: $"Released +{unusedQty} unused reservation for ProductionOrder {productionOrderId}");
                 }
+                reservation.QuantityReserved = reservation.QuantityConsumed;
+                reservation.Status = ReservationStatus.Released;
+                _unitOfWork.InventoryReservations.Update(reservation);
             }
 
             reservation.Status = ReservationStatus.Released;

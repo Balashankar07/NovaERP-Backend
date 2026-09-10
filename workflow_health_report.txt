@@ -1,0 +1,37 @@
+==================================================
+NOVAERP WORKFLOW HEALTH CHECK
+==================================================
+
+Date/Time: 2026-08-25T05:47:44.641Z
+Environment: http://localhost:5233/api
+
+authentication                 PASS
+rbac                           PASS
+products                       PASS
+bom                            PASS
+productionPlanning             PASS
+productionRequirements         PASS
+shortage                       PASS
+purchaseRequests               PASS
+prApproval                     PASS
+purchaseOrders                 PASS
+supplierRules                  PASS
+goodsReceipts                  PASS
+inventory                      PASS
+warehouses                     PASS
+productionOrders               PASS
+frozenRequirements             PASS
+reservations                   PASS
+crossModuleLinks               PASS
+databaseIntegrity              PASS
+inventoryInvariants            PASS
+apiContracts                   PASS
+productionExecutions           PASS
+queryFrontendHealth            PASS
+hardcodedData                  PASS
+concurrencyConfiguration       PASS
+build                          PASS
+
+==================================================
+FINAL STATUS: HEALTHY
+==================================================
