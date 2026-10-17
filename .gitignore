@@ -376,35 +376,54 @@ NovaERP.API/appsettings.Development.json
 NovaERP/.env
 
 # --- Node / Root level ---
-node_modules/
-package-lock.json
-temp.json
-temp.log
+/node_modules/
+/package-lock.json
+/temp.json
+/temp.log
 
-# --- Root-level debug/test/audit scripts (development tools, not source) ---
-*.patch
-*.js
-!NovaERP/
-*.ps1
-*.py
-*.cs
-*.csx
-*.txt
-scorecard.txt
-drift_backup.json
-audit_results.json
-audit_output.txt
-workflow_health_report.*
-reservation_drift_report.*
-inventory_backup.json
-fast_ui_output.txt
+# --- Root-level debug/test/audit scripts (anchored to root only) ---
+/*.patch
+/*.js
+/*.ps1
+/*.py
+/*.csx
+
+# --- Root-level junk data/report files ---
+/scorecard.txt
+/drift_backup.json
+/audit_results.json
+/audit_output.txt
+/workflow_health_report.json
+/workflow_health_report.txt
+/reservation_drift_report.json
+/reservation_drift_report.txt
+/inventory_backup.json
+/fast_ui_output.txt
+/query.cs
+/TestRunner.cs
+/test_db.cs
+/check_db.csx
+/check_jwt.ps1
+/check_jwt_payload.ps1
+/list_proc.ps1
+/list_roles.ps1
+/list_sa.ps1
+/verify_all.ps1
+/audit_runner.ps1
+/test_admin_e2e.ps1
+/test_grn.ps1
+/test_dump.ps1
+/test_quality.ps1
+/patch.py
+/update_health_check.py
 
 # --- Scratch / temp directories at root ---
-scratch/
-DbChecker/
-DbQuery/
-PgTestDiag2/
-NovaERP_backup/
+/scratch/
+/DbChecker/
+/DbQuery/
+/PgTestDiag2/
+/NovaERP_backup/
 
 # --- Build artifacts ---
-dist/
+/dist/
+
