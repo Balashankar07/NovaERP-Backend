@@ -89,5 +89,28 @@ namespace NovaERP.Application.Features.Permissions.Services
 
             await _auditLogger.LogAsync("Update", "RolePermissions", roleId.ToString(), newValues: $"Permissions assigned: {string.Join(", ", permissionIds)}");
         }
+
+        public async Task<IEnumerable<PermissionGroupDto>> GetPermissionsGroupedByModuleAsync()
+        {
+            var pagedResult = await _unitOfWork.Permissions.GetAllAsync(1, int.MaxValue);
+            
+            var grouped = pagedResult.Items
+                .GroupBy(p => string.IsNullOrWhiteSpace(p.Module) ? "Other" : p.Module)
+                .Select(g => new PermissionGroupDto
+                {
+                    Module = g.Key,
+                    Permissions = g.Select(p => new PermissionDto
+                    {
+                        Id = p.Id,
+                        Name = p.Name,
+                        Description = p.Description,
+                        Module = p.Module
+                    }).OrderBy(p => p.Name).ToList()
+                })
+                .OrderBy(g => g.Module)
+                .ToList();
+
+            return grouped;
+        }
     }
 }

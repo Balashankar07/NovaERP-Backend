@@ -11,6 +11,8 @@ public class BOM : AuditableEntity
 
     public string? Description { get; set; }
 
+    public DateTime EffectiveDate { get; set; } = DateTime.UtcNow;
+
     public bool IsActive { get; set; } = true;
 
     // Navigation Property

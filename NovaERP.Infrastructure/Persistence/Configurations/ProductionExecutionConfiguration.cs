@@ -29,5 +29,15 @@ public class ProductionExecutionConfiguration : IEntityTypeConfiguration<Product
             .WithMany(po => po.ProductionExecutions)
             .HasForeignKey(x => x.ProductionOrderId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.OutputWarehouse)
+            .WithMany()
+            .HasForeignKey(x => x.OutputWarehouseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.OutputWarehouseLocation)
+            .WithMany()
+            .HasForeignKey(x => x.OutputWarehouseLocationId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

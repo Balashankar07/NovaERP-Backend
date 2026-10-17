@@ -98,7 +98,7 @@ public class PurchaseRequestService : IPurchaseRequestService
             RequestedBy = currentUser ?? "System",
             Department = "Procurement", // Or get from user profile if exists
             RequestDate = DateTime.UtcNow,
-            RequiredByDate = dto.RequiredByDate,
+            RequiredByDate = DateTime.SpecifyKind(dto.RequiredByDate, DateTimeKind.Utc),
             Priority = dto.Priority,
             Reason = dto.Reason,
             Status = PurchaseRequestStatus.Draft,
@@ -142,8 +142,14 @@ public class PurchaseRequestService : IPurchaseRequestService
         var pr = await _unitOfWork.PurchaseRequests.GetByIdWithItemsAsync(id);
         if (pr == null) throw new KeyNotFoundException("Purchase Request not found.");
 
-        if (pr.Status != PurchaseRequestStatus.Draft)
-            throw new BadRequestException("Only Draft Purchase Requests can be edited.");
+        if (pr.Status != PurchaseRequestStatus.Draft && pr.Status != PurchaseRequestStatus.Rejected)
+            throw new BadRequestException("Only Draft or Rejected Purchase Requests can be edited.");
+
+        if (pr.Status == PurchaseRequestStatus.Rejected)
+        {
+            pr.Status = PurchaseRequestStatus.Draft;
+            pr.RejectionReason = null;
+        }
 
         if (dto.RequiredByDate < DateTime.UtcNow.Date)
             throw new BadRequestException("Required By Date cannot be in the past.");

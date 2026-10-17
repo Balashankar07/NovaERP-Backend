@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using NovaERP.Application.Interfaces.Services;
 
@@ -32,6 +32,9 @@ public class CurrentUserService : ICurrentUserService
 
     public Guid BranchId =>
         GetGuidClaim("BranchId");
+
+    public IEnumerable<string> Permissions =>
+        User?.Claims.Where(c => c.Type == "Permission").Select(c => c.Value) ?? Enumerable.Empty<string>();
 
     private Guid GetGuidClaim(string claimType)
     {

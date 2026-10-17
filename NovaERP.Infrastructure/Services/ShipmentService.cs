@@ -1,4 +1,5 @@
 using NovaERP.Application.Common.Models;
+using NovaERP.Application.Common.Exceptions;
 using NovaERP.Application.Features.Shipments.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
@@ -10,13 +11,13 @@ namespace NovaERP.Infrastructure.Services;
 public class ShipmentService : IShipmentService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IInventoryService _inventoryService;
+    private readonly IInventoryMovementService _inventoryMovementService;
     private readonly IAuditLogger _auditLogger;
 
-    public ShipmentService(IUnitOfWork unitOfWork, IInventoryService inventoryService, IAuditLogger auditLogger)
+    public ShipmentService(IUnitOfWork unitOfWork, IInventoryMovementService inventoryMovementService, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
-        _inventoryService = inventoryService;
+        _inventoryMovementService = inventoryMovementService;
         _auditLogger = auditLogger;
     }
 
@@ -42,17 +43,22 @@ public class ShipmentService : IShipmentService
     {
         var salesOrder = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(dto.SalesOrderId);
         if (salesOrder == null)
-            throw new Exception($"Sales Order with ID {dto.SalesOrderId} not found.");
+            throw new KeyNotFoundException($"Sales Order with ID {dto.SalesOrderId} not found.");
 
-        if (salesOrder.Status != SalesOrderStatus.Approved)
-            throw new Exception("Sales Order must be Approved before creating a shipment.");
+        if (salesOrder.Status != SalesOrderStatus.Reserved && salesOrder.Status != SalesOrderStatus.PartiallyShipped)
+            throw new BadRequestException("Sales Order must be Reserved or PartiallyShipped before creating a shipment.");
 
-        var salesOrderItems = salesOrder.SalesOrderItems;
-        
+        string trackingNumber = dto.TrackingNumber;
+        if (string.IsNullOrWhiteSpace(trackingNumber))
+        {
+            int count = await _unitOfWork.Shipments.GetCountAsync();
+            trackingNumber = $"TRK-{DateTime.UtcNow:yyyyMMdd}-{(count + 1):D4}";
+        }
+
         var shipment = new Shipment
         {
             SalesOrderId = dto.SalesOrderId,
-            TrackingNumber = dto.TrackingNumber,
+            TrackingNumber = trackingNumber,
             CourierName = dto.CourierName,
             Status = ShipmentStatus.Pending,
             CreatedBy = currentUserId,
@@ -61,15 +67,20 @@ public class ShipmentService : IShipmentService
 
         foreach (var itemDto in dto.ShipmentItems)
         {
-            var orderedItem = salesOrderItems.FirstOrDefault(i => i.ProductId == itemDto.ProductId);
+            var orderedItem = salesOrder.SalesOrderItems.FirstOrDefault(i => i.ProductId == itemDto.ProductId);
             if (orderedItem == null)
-                throw new Exception($"Product ID {itemDto.ProductId} is not in the Sales Order.");
+                throw new BadRequestException($"Product ID {itemDto.ProductId} is not in the Sales Order.");
 
-            // Find existing shipments for this order to validate quantities
-            // To simplify, we just validate against total ordered quantity
-            // A robust implementation would calculate previously shipped quantity
-            if (itemDto.Quantity > orderedItem.Quantity)
-                throw new Exception($"Shipment quantity {itemDto.Quantity} exceeds ordered quantity {orderedItem.Quantity} for Product ID {itemDto.ProductId}.");
+            if (itemDto.Quantity <= 0)
+                throw new BadRequestException($"Shipment quantity must be greater than zero for Product ID {itemDto.ProductId}.");
+
+            decimal remainingOrdered = orderedItem.Quantity - orderedItem.ShippedQuantity;
+            if (itemDto.Quantity > remainingOrdered)
+                throw new BadRequestException($"Shipment quantity {itemDto.Quantity} exceeds remaining ordered quantity {remainingOrdered} for Product ID {itemDto.ProductId}.");
+
+            decimal remainingReserved = orderedItem.ReservedQuantity - orderedItem.ShippedQuantity;
+            if (itemDto.Quantity > remainingReserved)
+                throw new BadRequestException($"Shipment quantity {itemDto.Quantity} exceeds currently reserved quantity {remainingReserved} for Product ID {itemDto.ProductId}.");
 
             var shipmentItem = new ShipmentItem
             {
@@ -95,10 +106,10 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await _unitOfWork.Shipments.GetByIdAsync(id);
         if (shipment == null)
-            throw new Exception("Shipment not found.");
+            throw new KeyNotFoundException("Shipment not found.");
 
         if (shipment.Status != ShipmentStatus.Pending)
-            throw new Exception("Only Pending shipments can be updated.");
+            throw new BadRequestException("Only Pending shipments can be updated.");
 
         if (dto.TrackingNumber != null) shipment.TrackingNumber = dto.TrackingNumber;
         if (dto.CourierName != null) shipment.CourierName = dto.CourierName;
@@ -118,7 +129,7 @@ public class ShipmentService : IShipmentService
         if (shipment == null) return;
 
         if (shipment.Status != ShipmentStatus.Pending)
-            throw new Exception("Only Pending shipments can be deleted.");
+            throw new BadRequestException("Only Pending shipments can be deleted.");
 
         _unitOfWork.Shipments.Delete(shipment);
         await _unitOfWork.SaveChangesAsync();
@@ -133,10 +144,14 @@ public class ShipmentService : IShipmentService
         {
             var shipment = await _unitOfWork.Shipments.GetShipmentWithDetailsAsync(id);
             if (shipment == null)
-                throw new Exception("Shipment not found.");
+                throw new KeyNotFoundException("Shipment not found.");
 
             if (shipment.Status != ShipmentStatus.Pending)
-                throw new Exception("Only Pending shipments can be dispatched.");
+                throw new BadRequestException("Only Pending shipments can be dispatched.");
+
+            var salesOrder = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(shipment.SalesOrderId);
+            if (salesOrder == null)
+                throw new KeyNotFoundException("Sales Order not found.");
 
             shipment.Status = ShipmentStatus.Dispatched;
             shipment.DispatchDate = DateTime.UtcNow;
@@ -144,18 +159,73 @@ public class ShipmentService : IShipmentService
             shipment.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.Shipments.Update(shipment);
-            await _unitOfWork.SaveChangesAsync();
 
             // Deduct Inventory
-            await _inventoryService.ProcessSalesDispatchAsync(id, currentUserId);
+            var reservations = await _unitOfWork.InventoryReservations.GetActiveBySalesOrderIdAsync(salesOrder.Id);
+
+            foreach (var shipItem in shipment.ShipmentItems)
+            {
+                var soItem = salesOrder.SalesOrderItems.FirstOrDefault(i => i.ProductId == shipItem.ProductId);
+                if (soItem == null) throw new BadRequestException("Product not found in Sales Order.");
+
+                decimal qtyToDispatch = shipItem.Quantity;
+                
+                var prodReservations = reservations.Where(r => r.ProductId == shipItem.ProductId && r.QuantityReserved > r.QuantityConsumed).ToList();
+
+                foreach(var res in prodReservations)
+                {
+                    if (qtyToDispatch <= 0) break;
+
+                    decimal availableRes = res.QuantityReserved - res.QuantityConsumed;
+                    decimal consumeQty = Math.Min(qtyToDispatch, availableRes);
+
+                    await _inventoryMovementService.IssueAsync(
+                        shipItem.ProductId,
+                        res.WarehouseId,
+                        res.WarehouseLocationId,
+                        consumeQty,
+                        InventoryReferenceType.SalesOrder,
+                        shipment.Id,
+                        $"Dispatched for Shipment: {shipment.TrackingNumber}",
+                        currentUserId,
+                        res.Id
+                    );
+
+                    // res.QuantityConsumed is updated inside IssueAsync, so we don't update it here.
+                    // The reservation status is also updated there.
+                    
+                    qtyToDispatch -= consumeQty;
+                }
+
+                if (qtyToDispatch > 0)
+                {
+                    throw new BadRequestException($"Insufficient active reservations to dispatch {shipItem.Quantity} of Product {shipItem.ProductId}.");
+                }
+
+                soItem.ShippedQuantity += shipItem.Quantity;
+            }
+
+            // Update Sales Order Status
+            bool allShipped = salesOrder.SalesOrderItems.All(i => i.ShippedQuantity >= i.Quantity);
+            if (allShipped)
+            {
+                salesOrder.Status = SalesOrderStatus.Completed;
+            }
+            else
+            {
+                salesOrder.Status = SalesOrderStatus.PartiallyShipped;
+            }
+
+            _unitOfWork.SalesOrders.Update(salesOrder);
             
+            await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
             await _auditLogger.LogAsync("Dispatch", "Shipment", id.ToString(), newValues: ShipmentStatus.Dispatched.ToString());
         }
-        catch
+        catch(Exception ex)
         {
             await _unitOfWork.RollbackTransactionAsync();
-            throw;
+            throw new BadRequestException("Dispatch failed: " + ex.Message);
         }
     }
 
@@ -163,19 +233,19 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await _unitOfWork.Shipments.GetShipmentWithDetailsAsync(id);
         if (shipment == null)
-            throw new Exception("Shipment not found.");
+            throw new KeyNotFoundException("Shipment not found.");
 
         if (shipment.Status != ShipmentStatus.Dispatched)
-            throw new Exception("Only Dispatched shipments can be delivered.");
+            throw new BadRequestException("Only Dispatched shipments can be delivered.");
 
         foreach (var deliveredItem in dto.DeliveredItems)
         {
             var item = shipment.ShipmentItems.FirstOrDefault(i => i.Id == deliveredItem.ShipmentItemId);
             if (item == null)
-                throw new Exception($"Shipment Item ID {deliveredItem.ShipmentItemId} not found in this shipment.");
+                throw new BadRequestException($"Shipment Item ID {deliveredItem.ShipmentItemId} not found in this shipment.");
 
             if (deliveredItem.DeliveredQuantity > item.Quantity)
-                throw new Exception($"Delivered quantity {deliveredItem.DeliveredQuantity} cannot exceed shipped quantity {item.Quantity} for Product ID {item.ProductId}.");
+                throw new BadRequestException($"Delivered quantity {deliveredItem.DeliveredQuantity} cannot exceed shipped quantity {item.Quantity} for Product ID {item.ProductId}.");
 
             item.DeliveredQuantity = deliveredItem.DeliveredQuantity;
             item.UpdatedBy = currentUserId;
@@ -197,16 +267,10 @@ public class ShipmentService : IShipmentService
     {
         var shipment = await _unitOfWork.Shipments.GetByIdAsync(id);
         if (shipment == null)
-            throw new Exception("Shipment not found.");
+            throw new KeyNotFoundException("Shipment not found.");
 
-        if (shipment.Status == ShipmentStatus.Delivered || shipment.Status == ShipmentStatus.Cancelled)
-            throw new Exception($"Shipment in {shipment.Status} status cannot be cancelled. It is immutable.");
-
-        if (shipment.Status == ShipmentStatus.Dispatched)
-        {
-            // Note: In a complete system we would reverse inventory transactions here.
-            // Keeping it simple as per instructions.
-        }
+        if (shipment.Status != ShipmentStatus.Pending)
+            throw new BadRequestException($"Shipment in {shipment.Status} status cannot be cancelled. Only Pending shipments can be cancelled.");
 
         shipment.Status = ShipmentStatus.Cancelled;
         shipment.UpdatedBy = currentUserId;
@@ -231,14 +295,16 @@ public class ShipmentService : IShipmentService
             Status = shipment.Status,
             CreatedAt = shipment.CreatedAt,
             UpdatedAt = shipment.UpdatedAt,
-            ShipmentItems = shipment.ShipmentItems.Select(i => new ShipmentItemDto
+            ShipmentItems = shipment.ShipmentItems != null ? shipment.ShipmentItems.Select(i => new ShipmentItemDto
             {
                 Id = i.Id,
                 ShipmentId = i.ShipmentId,
                 ProductId = i.ProductId,
+                ProductName = i.Product != null ? i.Product.Name : null,
+                ProductCode = i.Product != null ? i.Product.ProductCode : null,
                 Quantity = i.Quantity,
                 DeliveredQuantity = i.DeliveredQuantity
-            }).ToList()
+            }).ToList() : new List<ShipmentItemDto>()
         };
     }
 }

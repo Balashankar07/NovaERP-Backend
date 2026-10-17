@@ -14,5 +14,6 @@ public class PurchaseOrderItemDto
     public decimal Discount { get; set; }
     public decimal Tax { get; set; }
     public decimal LineTotal { get; set; }
+    public decimal ReceivedQuantity { get; set; }
     public string? Remarks { get; set; }
 }

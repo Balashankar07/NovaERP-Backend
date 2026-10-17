@@ -75,6 +75,7 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ICurrentUserPermissionService, CurrentUserPermissionService>();
         services.AddScoped<IAuditLogger, AuditLogger>();
         services.AddScoped<IAuditLogService, AuditLogService>();
+        services.AddScoped<IAdminService, AdminService>();
 
         services.AddScoped<IProductCategoryService, ProductCategoryService>();
         services.AddScoped<IBrandService, BrandService>();
@@ -101,6 +102,15 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<ISalesOrderService, SalesOrderService>();
         services.AddScoped<IShipmentService, ShipmentService>();
         services.AddScoped<IWarrantyService, WarrantyService>();
+        services.AddScoped<IFinanceService, FinanceService>();
+        services.AddScoped<IHRService, HRService>();
+        services.AddScoped<IWarehouseTraceabilityService, WarehouseTraceabilityService>();
+        services.AddScoped<IProductionOperationsService, ProductionOperationsService>();
+        services.AddScoped<IQualityComplianceService, QualityComplianceService>();
+        services.AddScoped<IReturnsService, ReturnsService>();
+        services.AddScoped<ISupplierPerformanceService, SupplierPerformanceService>();
+        services.AddScoped<ILogisticsDocumentsService, LogisticsDocumentsService>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<NovaERP.Application.Features.Reports.Interfaces.IReportRepository, NovaERP.Infrastructure.Repositories.Reports.ReportRepository>();
         services.AddScoped<NovaERP.Application.Features.Reports.Interfaces.IReportService, NovaERP.Infrastructure.Services.ReportService>();
 

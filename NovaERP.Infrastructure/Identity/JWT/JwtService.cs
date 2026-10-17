@@ -18,7 +18,7 @@ public class JwtService : IJwtService
         _jwtSettings = jwtOptions.Value;
     }
 
-    public LoginResponseDto GenerateToken(User user)
+    public LoginResponseDto GenerateToken(User user, List<string> permissions)
     {
         var claims = new List<Claim>
         {
@@ -44,6 +44,11 @@ public class JwtService : IJwtService
             }
         }
 
+        foreach (var permission in permissions)
+        {
+            claims.Add(new Claim("Permission", permission));
+        }
+
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
 
@@ -66,7 +71,8 @@ public class JwtService : IJwtService
             AccessToken = new JwtSecurityTokenHandler().WriteToken(token),
             ExpiresAt = expires,
             UserName = $"{user.FirstName} {user.LastName}",
-            Role = string.Join(", ", roleNames)
+            Role = string.Join(", ", roleNames),
+            Permissions = permissions
         };
     }
 }

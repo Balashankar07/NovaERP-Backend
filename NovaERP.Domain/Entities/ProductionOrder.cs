@@ -13,6 +13,9 @@ public class ProductionOrder : AuditableEntity
     public Guid ProductId { get; set; }
     public Product Product { get; set; } = null!;
 
+    public Guid? BOMId { get; set; }
+    public BOM? BOM { get; set; }
+
     public ICollection<ProductionExecution> ProductionExecutions { get; set; } = new List<ProductionExecution>();
     public ICollection<ProductionOrderRequirement> Requirements { get; set; } = new List<ProductionOrderRequirement>();
     public ICollection<InventoryReservation> Reservations { get; set; } = new List<InventoryReservation>();

@@ -2,17 +2,22 @@ using NovaERP.Application.Features.Brands.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
+using NovaERP.Infrastructure.Persistence.Context;
+using NovaERP.Application.Common.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace NovaERP.Infrastructure.Services;
 
 public class BrandService : IBrandService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly AppDbContext _context;
     private readonly IAuditLogger _auditLogger;
 
-    public BrandService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public BrandService(IUnitOfWork unitOfWork, AppDbContext context, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _context = context;
         _auditLogger = auditLogger;
     }
 
@@ -77,6 +82,11 @@ public class BrandService : IBrandService
     {
         var brand = await _unitOfWork.Brands.GetByIdAsync(id);
         if (brand == null) return false;
+
+        // Block if referenced by Products
+        var hasProducts = await _context.Products.AnyAsync(p => p.BrandId == id);
+        if (hasProducts)
+            throw new ConflictException("Cannot delete Brand because it is assigned to one or more products. Deactivate the brand instead.");
 
         await _unitOfWork.Brands.DeleteAsync(brand);
         await _unitOfWork.SaveChangesAsync();

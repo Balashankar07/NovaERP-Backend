@@ -48,8 +48,8 @@ public class GoodsReceiptService : IGoodsReceiptService
             if (po == null)
                 throw new Exception("Purchase Order not found.");
 
-            if (po.Status != PurchaseOrderStatus.Approved)
-                throw new Exception("Goods Receipt can only be created from an Approved Purchase Order.");
+            if (po.Status != PurchaseOrderStatus.Approved && po.Status != PurchaseOrderStatus.Sent && po.Status != PurchaseOrderStatus.PartiallyReceived)
+                throw new Exception("Goods Receipt can only be created from an Approved, Sent, or PartiallyReceived Purchase Order.");
 
             var grn = new GoodsReceipt
             {
@@ -104,7 +104,10 @@ public class GoodsReceiptService : IGoodsReceiptService
             await _auditLogger.LogAsync("Create", "GoodsReceipt", grn.Id.ToString(), newValues: $"GRNNumber: {grn.GRNNumber}, PurchaseOrderId: {grn.PurchaseOrderId}");
 
             await _unitOfWork.CommitTransactionAsync();
-            return MapToDto(grn);
+
+            // Reload from DB with full navigation properties to avoid null reference in MapToDto
+            var savedGrn = await _unitOfWork.GoodsReceipts.GetGoodsReceiptWithItemsAsync(grn.Id);
+            return MapToDto(savedGrn ?? grn);
         }
         catch
         {
@@ -130,6 +133,9 @@ public class GoodsReceiptService : IGoodsReceiptService
 
             var po = await _unitOfWork.PurchaseOrders.GetPurchaseOrderWithItemsAsync(grn.PurchaseOrderId);
             if (po == null) throw new Exception("Associated Purchase Order not found.");
+            
+            if (po.Status != PurchaseOrderStatus.Approved && po.Status != PurchaseOrderStatus.Sent && po.Status != PurchaseOrderStatus.PartiallyReceived)
+                throw new Exception("Goods Receipt can only be edited for an Approved, Sent, or PartiallyReceived Purchase Order.");
 
             grn.Remarks = dto.Remarks;
             grn.IsActive = dto.IsActive;
@@ -236,66 +242,32 @@ public class GoodsReceiptService : IGoodsReceiptService
             if (grn.Status != GoodsReceiptStatus.Draft)
                 throw new Exception("Only Draft GRNs can be received.");
 
-            var existingGRNs = await _unitOfWork.GoodsReceipts.GetByPurchaseOrderIdAsync(grn.PurchaseOrderId);
-            
-            // To figure out if it is partially received, check if any item received quantity < ordered quantity for THIS GRN?
-            // Actually, for GRN status, if *this* GRN itself doesn't fulfill everything, it might be partially received. 
-            // Better yet, usually a GRN is PartiallyReceived if the *PO* is partially received. But the GRN enum has PartiallyReceived.
-            // Let's keep the existing logic: if this GRN's items' received < ordered, it's PartiallyReceived.
-            bool isPartiallyReceived = false;
-            foreach (var item in grn.Items)
-            {
-                if (item.ReceivedQuantity < item.OrderedQuantity)
-                {
-                    isPartiallyReceived = true;
-                    break;
-                }
-            }
-
-            grn.Status = isPartiallyReceived ? GoodsReceiptStatus.PartiallyReceived : GoodsReceiptStatus.Completed;
-
-            _unitOfWork.GoodsReceipts.Update(grn);
-            await _unitOfWork.SaveChangesAsync();
-            await _auditLogger.LogAsync("StatusChange", "GoodsReceipt", grn.Id.ToString(), oldValues: "Draft", newValues: grn.Status.ToString());
-
-            await CheckAndClosePurchaseOrderAsync(grn.PurchaseOrderId);
-            await ProcessInventoryMovementAsync(grn);
-            await _unitOfWork.SaveChangesAsync();
-            await _unitOfWork.CommitTransactionAsync();
-            return MapToDto(grn);
-        }
-        catch
-        {
-            await _unitOfWork.RollbackTransactionAsync();
-            throw;
-        }
-    }
-
-    public async Task<GoodsReceiptDto?> CompleteAsync(Guid id)
-    {
-        await _unitOfWork.BeginTransactionAsync();
-        try
-        {
-            var grn = await _unitOfWork.GoodsReceipts.GetGoodsReceiptWithItemsAsync(id);
-            if (grn == null)
-            {
-                await _unitOfWork.RollbackTransactionAsync();
-                return null;
-            }
-
-            if (grn.Status != GoodsReceiptStatus.PartiallyReceived)
-                throw new Exception("Only PartiallyReceived GRNs can be completed manually.");
-
             grn.Status = GoodsReceiptStatus.Completed;
 
             _unitOfWork.GoodsReceipts.Update(grn);
             await _unitOfWork.SaveChangesAsync();
-            await _auditLogger.LogAsync("StatusChange", "GoodsReceipt", grn.Id.ToString(), oldValues: "PartiallyReceived", newValues: "Completed");
+            await _auditLogger.LogAsync("StatusChange", "GoodsReceipt", grn.Id.ToString(), oldValues: "Draft", newValues: "Completed");
 
-            await CheckAndClosePurchaseOrderAsync(grn.PurchaseOrderId);
-            await ProcessInventoryMovementAsync(grn);
+            var po = await _unitOfWork.PurchaseOrders.GetPurchaseOrderWithItemsAsync(grn.PurchaseOrderId);
+            if (po == null)
+            {
+                throw new Exception("Purchase Order not found.");
+            }
+
+            foreach (var item in grn.Items)
+            {
+                var poItem = po.Items.FirstOrDefault(i => i.Id == item.PurchaseOrderItemId);
+                if (poItem != null)
+                {
+                    poItem.ReceivedQuantity += item.ReceivedQuantity;
+                }
+            }
+            _unitOfWork.PurchaseOrders.Update(po);
             await _unitOfWork.SaveChangesAsync();
 
+            await CheckAndUpdatePurchaseOrderStatusAsync(po.Id);
+            await ProcessInventoryMovementAsync(grn);
+            await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
             return MapToDto(grn);
         }
@@ -306,44 +278,41 @@ public class GoodsReceiptService : IGoodsReceiptService
         }
     }
 
-    private async Task CheckAndClosePurchaseOrderAsync(Guid poId)
+    private async Task CheckAndUpdatePurchaseOrderStatusAsync(Guid poId)
     {
         var po = await _unitOfWork.PurchaseOrders.GetPurchaseOrderWithItemsAsync(poId);
         if (po == null || po.Status == PurchaseOrderStatus.Closed) return;
 
-        var existingGRNs = await _unitOfWork.GoodsReceipts.GetByPurchaseOrderIdAsync(poId);
-        var activeGRNs = existingGRNs.Where(g => g.Status != GoodsReceiptStatus.Cancelled && g.Status != GoodsReceiptStatus.Draft).ToList();
-
-        Console.WriteLine($"[DEBUG-PO-CLOSE] Checking PO: {poId}");
-        Console.WriteLine($"[DEBUG-PO-CLOSE] PO Items Count: {po.Items.Count}");
-        Console.WriteLine($"[DEBUG-PO-CLOSE] Existing GRNs Count: {existingGRNs.Count}, Active GRNs Count: {activeGRNs.Count}");
-
         bool allItemsFullyReceived = true;
+        bool anyItemReceived = false;
+
         foreach (var poItem in po.Items)
         {
-            decimal totalReceived = activeGRNs
-                .SelectMany(g => g.Items)
-                .Where(i => i.PurchaseOrderItemId == poItem.Id)
-                .Sum(i => i.ReceivedQuantity);
-
-            Console.WriteLine($"[DEBUG-PO-CLOSE] Item {poItem.Id}: Ordered={poItem.Quantity}, Received={totalReceived}");
-
-            if (totalReceived < poItem.Quantity)
+            if (poItem.ReceivedQuantity > 0)
             {
-                Console.WriteLine($"[DEBUG-PO-CLOSE] Item {poItem.Id} not fully received!");
+                anyItemReceived = true;
+            }
+            if (poItem.ReceivedQuantity < poItem.Quantity)
+            {
                 allItemsFullyReceived = false;
-                break;
             }
         }
 
-        Console.WriteLine($"[DEBUG-PO-CLOSE] allItemsFullyReceived: {allItemsFullyReceived}");
-
+        var oldStatus = po.Status;
         if (allItemsFullyReceived)
         {
             po.Status = PurchaseOrderStatus.Closed;
+        }
+        else if (anyItemReceived)
+        {
+            po.Status = PurchaseOrderStatus.PartiallyReceived;
+        }
+
+        if (oldStatus != po.Status)
+        {
             _unitOfWork.PurchaseOrders.Update(po);
             await _unitOfWork.SaveChangesAsync();
-            await _auditLogger.LogAsync("StatusChange", "PurchaseOrder", po.Id.ToString(), oldValues: "Approved", newValues: "Closed");
+            await _auditLogger.LogAsync("StatusChange", "PurchaseOrder", po.Id.ToString(), oldValues: oldStatus.ToString(), newValues: po.Status.ToString());
         }
     }
 
@@ -409,7 +378,7 @@ public class GoodsReceiptService : IGoodsReceiptService
             IsActive = grn.IsActive,
             CreatedAt = grn.CreatedAt,
             UpdatedAt = grn.UpdatedAt,
-            Items = grn.Items.Select(i => new GoodsReceiptItemDto
+            Items = (grn.Items ?? new List<GoodsReceiptItem>()).Select(i => new GoodsReceiptItemDto
             {
                 Id = i.Id,
                 GoodsReceiptId = i.GoodsReceiptId,

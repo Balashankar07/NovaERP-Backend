@@ -1,0 +1,9 @@
+export { ReturnsDashboardPage } from './ReturnsDashboardPage';
+export { CustomerReturnsListPage } from './CustomerReturnsListPage';
+export { CustomerReturnDetailPage } from './CustomerReturnDetailPage';
+export { RMAManagementPage } from './RMAManagementPage';
+export { ReturnReceiptsPage } from './ReturnReceiptsPage';
+export { ReturnDispositionPage } from './ReturnDispositionPage';
+export { ReturnRepairsPage } from './ReturnRepairsPage';
+export { ReturnReplacementsPage } from './ReturnReplacementsPage';
+export { ReverseLogisticsReportsPage } from './ReverseLogisticsReportsPage';

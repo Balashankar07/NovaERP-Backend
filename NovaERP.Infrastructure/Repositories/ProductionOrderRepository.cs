@@ -46,12 +46,12 @@ public class ProductionOrderRepository : Repository<ProductionOrder>, IProductio
                 "productionordernumber" => isDesc ? query.OrderByDescending(x => x.ProductionOrderNumber) : query.OrderBy(x => x.ProductionOrderNumber),
                 "plannedquantity" => isDesc ? query.OrderByDescending(x => x.PlannedQuantity) : query.OrderBy(x => x.PlannedQuantity),
                 "createdat" => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt),
-                _ => isDesc ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
+                _ => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt)
             };
         }
         else
         {
-            query = query.OrderByDescending(x => x.Id);
+            query = query.OrderByDescending(x => x.CreatedAt);
         }
 
         pageNumber = pageNumber < 1 ? 1 : pageNumber;
@@ -72,7 +72,9 @@ public class ProductionOrderRepository : Repository<ProductionOrder>, IProductio
     public async Task<ProductionOrder?> GetWithRequirementsAsync(Guid id)
     {
         return await _dbSet
+            .Include(x => x.Product)
             .Include(x => x.Requirements)
+                .ThenInclude(r => r.Product)
             .FirstOrDefaultAsync(x => x.Id == id);
     }
 }

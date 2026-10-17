@@ -15,4 +15,5 @@ public interface IPurchaseOrderService
     Task<PurchaseOrderDto?> SubmitAsync(Guid id);
     Task<PurchaseOrderDto?> ApproveAsync(Guid id);
     Task<PurchaseOrderDto?> RejectAsync(Guid id);
+    Task<PurchaseOrderDto?> SendAsync(Guid id);
 }

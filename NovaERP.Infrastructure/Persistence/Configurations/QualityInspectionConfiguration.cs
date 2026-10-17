@@ -34,7 +34,8 @@ public class QualityInspectionConfiguration : IEntityTypeConfiguration<QualityIn
         builder.HasOne(qi => qi.ProductionExecution)
             .WithMany()
             .HasForeignKey(qi => qi.ProductionExecutionId)
-            .OnDelete(DeleteBehavior.Restrict);
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.HasOne(qi => qi.Product)
             .WithMany()
@@ -44,6 +45,16 @@ public class QualityInspectionConfiguration : IEntityTypeConfiguration<QualityIn
         builder.HasOne(qi => qi.Inspector)
             .WithMany()
             .HasForeignKey(qi => qi.InspectorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(qi => qi.OutputWarehouse)
+            .WithMany()
+            .HasForeignKey(qi => qi.OutputWarehouseId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(qi => qi.OutputWarehouseLocation)
+            .WithMany()
+            .HasForeignKey(qi => qi.OutputWarehouseLocationId)
             .OnDelete(DeleteBehavior.Restrict);
             
         builder.HasMany(qi => qi.QualityDefects)

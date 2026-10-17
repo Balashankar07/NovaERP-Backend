@@ -51,7 +51,7 @@ public class ProductionOrderService : IProductionOrderService
             throw new BadRequestException("Production Orders can only be created for Released Production Plans.");
 
         var existingOrders = await _unitOfWork.ProductionOrders.GetByProductionPlanIdAsync(plan.Id);
-        var totalPlanned = existingOrders.Sum(x => x.PlannedQuantity);
+        var totalPlanned = existingOrders.Where(x => x.Status != ProductionOrderStatus.Cancelled).Sum(x => x.PlannedQuantity);
 
         if (totalPlanned + dto.PlannedQuantity > plan.PlannedQuantity)
             throw new BadRequestException($"Total Production Order quantities ({totalPlanned + dto.PlannedQuantity}) cannot exceed Production Plan quantity ({plan.PlannedQuantity}).");
@@ -60,13 +60,14 @@ public class ProductionOrderService : IProductionOrderService
         {
             ProductionPlanId = dto.ProductionPlanId,
             PlannedQuantity = dto.PlannedQuantity,
-            PlannedStartDate = dto.PlannedStartDate,
-            PlannedEndDate = dto.PlannedEndDate,
+            PlannedStartDate = dto.PlannedStartDate.HasValue ? DateTime.SpecifyKind(dto.PlannedStartDate.Value, DateTimeKind.Utc) : null,
+            PlannedEndDate = dto.PlannedEndDate.HasValue ? DateTime.SpecifyKind(dto.PlannedEndDate.Value, DateTimeKind.Utc) : null,
             WorkCenter = dto.WorkCenter,
             Supervisor = dto.Supervisor,
             Priority = dto.Priority,
             Remarks = dto.Remarks,
             ProductId = plan.ProductId,
+            BOMId = plan.BOMId,
             Status = ProductionOrderStatus.Draft,
             ProductionOrderNumber = $"PO-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 4).ToUpper()}",
             CreatedBy = currentUserId,
@@ -104,7 +105,7 @@ public class ProductionOrderService : IProductionOrderService
             var existingOrders = await _unitOfWork.ProductionOrders.GetByProductionPlanIdAsync(order.ProductionPlanId);
             var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(order.ProductionPlanId);
             
-            var totalPlannedExcludingCurrent = existingOrders.Where(x => x.Id != order.Id).Sum(x => x.PlannedQuantity);
+            var totalPlannedExcludingCurrent = existingOrders.Where(x => x.Id != order.Id && x.Status != ProductionOrderStatus.Cancelled).Sum(x => x.PlannedQuantity);
             if (totalPlannedExcludingCurrent + dto.PlannedQuantity > plan!.PlannedQuantity)
                 throw new BadRequestException($"Total Production Order quantities cannot exceed Production Plan quantity.");
 
@@ -295,6 +296,8 @@ public class ProductionOrderService : IProductionOrderService
         ProductionOrderNumber = o.ProductionOrderNumber,
         ProductionPlanId = o.ProductionPlanId,
         ProductId = o.ProductId,
+        ProductName = o.Product?.Name,
+        BOMId = o.BOMId,
         PlannedQuantity = o.PlannedQuantity,
         StartedQuantity = o.StartedQuantity,
         CompletedQuantity = o.CompletedQuantity,
@@ -316,6 +319,7 @@ public class ProductionOrderService : IProductionOrderService
             Id = r.Id,
             ProductionOrderId = r.ProductionOrderId,
             ProductId = r.ProductId,
+            ProductName = r.Product?.Name,
             UnitId = r.UnitId,
             RequiredQuantity = r.RequiredQuantity,
             ConsumedQuantity = r.ConsumedQuantity

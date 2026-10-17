@@ -1,0 +1,19 @@
+// Feature-specific pages directory
+// Each module gets its own subdirectory:
+//
+// src/pages/
+// ├── auth/           — Login page
+// ├── dashboard/      — Main dashboard
+// ├── products/       — Product management
+// ├── bom/            — Bill of Materials
+// ├── suppliers/      — Supplier management
+// ├── procurement/    — Purchase requests, orders, goods receipts
+// ├── inventory/      — Inventory management
+// ├── warehouse/      — Warehouse & locations
+// ├── production/     — Production orders
+// ├── quality/        — Quality inspection
+// ├── sales/          — Distributors & sales orders
+// ├── distribution/   — Shipments
+// ├── warranty/       — Warranty & service requests
+// ├── reports/        — Dashboard reports
+// └── settings/       — Users, roles, company settings

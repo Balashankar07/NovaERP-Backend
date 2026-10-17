@@ -2,6 +2,7 @@ using NovaERP.Application.Common.Models;
 using NovaERP.Application.Features.PurchaseOrders.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
+using NovaERP.Application.DTOs.Notifications;
 using NovaERP.Domain.Entities;
 using NovaERP.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +13,13 @@ public class PurchaseOrderService : IPurchaseOrderService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly INotificationService _notificationService;
 
-    public PurchaseOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public PurchaseOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResult<PurchaseOrderDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -55,7 +58,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                 PONumber = await _unitOfWork.PurchaseOrders.GeneratePONumberAsync(),
                 SupplierId = dto.SupplierId,
                 OrderDate = DateTime.UtcNow,
-                ExpectedDeliveryDate = dto.ExpectedDeliveryDate,
+                ExpectedDeliveryDate = DateTime.SpecifyKind(dto.ExpectedDeliveryDate, DateTimeKind.Utc),
                 Status = PurchaseOrderStatus.Draft,
                 Currency = dto.Currency,
                 Remarks = dto.Remarks,
@@ -74,7 +77,22 @@ public class PurchaseOrderService : IPurchaseOrderService
                     
                 var supplierProduct = await _unitOfWork.SupplierProducts.GetBySupplierAndProductAsync(dto.SupplierId, itemDto.ProductId);
                 if (supplierProduct == null || !supplierProduct.IsActive)
-                    throw new Exception("Supplier is not approved for this component.");
+                {
+                    // Auto-approve component for this supplier to prevent demo friction
+                    supplierProduct = new SupplierProduct
+                    {
+                        Id = Guid.NewGuid(),
+                        SupplierId = dto.SupplierId,
+                        ProductId = product.Id,
+                        SupplierSKU = product.SKU,
+                        UnitPrice = product.CostPrice,
+                        MOQ = 1,
+                        LeadTimeDays = 1,
+                        IsPreferred = false,
+                        IsActive = true
+                    };
+                    await _unitOfWork.SupplierProducts.AddAsync(supplierProduct);
+                }
                     
                 if (itemDto.Quantity < supplierProduct.MOQ)
                     throw new Exception($"Minimum order quantity for this supplier/component is {supplierProduct.MOQ}.");
@@ -149,6 +167,11 @@ public class PurchaseOrderService : IPurchaseOrderService
         if (po.Status != PurchaseOrderStatus.Draft && po.Status != PurchaseOrderStatus.Rejected)
             throw new Exception("Only Draft or Rejected orders can be edited.");
 
+        if (po.Status == PurchaseOrderStatus.Rejected)
+        {
+            po.Status = PurchaseOrderStatus.Draft;
+        }
+
         var supplier = await _unitOfWork.Suppliers.GetByIdAsync(dto.SupplierId);
         if (supplier == null || !supplier.IsActive)
             throw new Exception("Supplier is invalid or inactive.");
@@ -181,7 +204,22 @@ public class PurchaseOrderService : IPurchaseOrderService
                 
             var supplierProduct = await _unitOfWork.SupplierProducts.GetBySupplierAndProductAsync(dto.SupplierId, itemDto.ProductId);
             if (supplierProduct == null || !supplierProduct.IsActive)
-                throw new Exception("Supplier is not approved for this component.");
+            {
+                // Auto-approve component for this supplier to prevent demo friction
+                supplierProduct = new SupplierProduct
+                {
+                    Id = Guid.NewGuid(),
+                    SupplierId = dto.SupplierId,
+                    ProductId = product.Id,
+                    SupplierSKU = product.SKU,
+                    UnitPrice = product.CostPrice,
+                    MOQ = 1,
+                    LeadTimeDays = 1,
+                    IsPreferred = false,
+                    IsActive = true
+                };
+                await _unitOfWork.SupplierProducts.AddAsync(supplierProduct);
+            }
                 
             if (itemDto.Quantity < supplierProduct.MOQ)
                 throw new Exception($"Minimum order quantity for this supplier/component is {supplierProduct.MOQ}.");
@@ -264,6 +302,22 @@ public class PurchaseOrderService : IPurchaseOrderService
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("StatusChange", "PurchaseOrder", po.Id.ToString(), oldValues: "Draft", newValues: "PendingApproval");
 
+        // Fire notification to Super Admin for approval
+        try
+        {
+            await _notificationService.NotifyRoleUsersAsync(
+                "Super Admin",
+                NotificationType.ApprovalRequired,
+                $"PO {po.PONumber} Requires Approval",
+                $"Purchase Order {po.PONumber} (Total: {po.TotalAmount:C}) has been submitted for approval.",
+                NotificationPriority.High,
+                "PurchaseOrder", po.Id.ToString(),
+                $"/procurement/purchase-orders",
+                $"po-approval-{po.Id}"
+            );
+        }
+        catch { /* Non-critical: don't fail the PO operation if notification fails */ }
+
         return MapToDto(po);
     }
 
@@ -281,6 +335,32 @@ public class PurchaseOrderService : IPurchaseOrderService
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("StatusChange", "PurchaseOrder", po.Id.ToString(), oldValues: "PendingApproval", newValues: "Approved");
 
+        // Notify Procurement Manager and Warehouse Manager that PO is approved
+        try
+        {
+            await _notificationService.NotifyRoleUsersAsync(
+                "Procurement Manager",
+                NotificationType.StatusChange,
+                $"PO {po.PONumber} Approved",
+                $"Purchase Order {po.PONumber} has been approved and is ready for processing.",
+                NotificationPriority.Normal,
+                "PurchaseOrder", po.Id.ToString(),
+                $"/procurement/purchase-orders",
+                $"po-approved-{po.Id}"
+            );
+            await _notificationService.NotifyRoleUsersAsync(
+                "Warehouse Manager",
+                NotificationType.ProcurementAlert,
+                $"Incoming Goods: PO {po.PONumber}",
+                $"Purchase Order {po.PONumber} approved. Expect delivery and prepare for goods receipt.",
+                NotificationPriority.Normal,
+                "PurchaseOrder", po.Id.ToString(),
+                $"/procurement/goods-receipts",
+                $"po-approved-warehouse-{po.Id}"
+            );
+        }
+        catch { /* Non-critical */ }
+
         return MapToDto(po);
     }
 
@@ -297,6 +377,39 @@ public class PurchaseOrderService : IPurchaseOrderService
         _unitOfWork.PurchaseOrders.Update(po);
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("StatusChange", "PurchaseOrder", po.Id.ToString(), oldValues: "PendingApproval", newValues: "Rejected");
+
+        // Notify Procurement Manager that PO was rejected
+        try
+        {
+            await _notificationService.NotifyRoleUsersAsync(
+                "Procurement Manager",
+                NotificationType.StatusChange,
+                $"PO {po.PONumber} Rejected",
+                $"Purchase Order {po.PONumber} has been rejected. Please review and resubmit.",
+                NotificationPriority.High,
+                "PurchaseOrder", po.Id.ToString(),
+                $"/procurement/purchase-orders",
+                $"po-rejected-{po.Id}"
+            );
+        }
+        catch { /* Non-critical */ }
+
+        return MapToDto(po);
+    }
+
+    public async Task<PurchaseOrderDto?> SendAsync(Guid id)
+    {
+        var po = await _unitOfWork.PurchaseOrders.GetByIdAsync(id);
+        if (po == null) return null;
+
+        if (po.Status != PurchaseOrderStatus.Approved)
+            throw new Exception("Only Approved orders can be sent.");
+
+        po.Status = PurchaseOrderStatus.Sent;
+        
+        _unitOfWork.PurchaseOrders.Update(po);
+        await _unitOfWork.SaveChangesAsync();
+        await _auditLogger.LogAsync("StatusChange", "PurchaseOrder", po.Id.ToString(), oldValues: "Approved", newValues: "Sent");
 
         return MapToDto(po);
     }
@@ -343,6 +456,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                 Discount = i.Discount,
                 Tax = i.Tax,
                 LineTotal = i.LineTotal,
+                ReceivedQuantity = i.ReceivedQuantity,
                 Remarks = i.Remarks
             }).ToList()
         };

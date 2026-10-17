@@ -6,11 +6,17 @@ namespace NovaERP.Domain.Entities;
 
 public class InventoryReservation : AuditableEntity
 {
-    public Guid ProductionOrderId { get; set; }
-    public ProductionOrder ProductionOrder { get; set; } = null!;
+    public Guid? ProductionOrderId { get; set; }
+    public ProductionOrder? ProductionOrder { get; set; }
 
-    public Guid ProductionOrderRequirementId { get; set; }
-    public ProductionOrderRequirement ProductionOrderRequirement { get; set; } = null!;
+    public Guid? ProductionOrderRequirementId { get; set; }
+    public ProductionOrderRequirement? ProductionOrderRequirement { get; set; }
+    
+    public Guid? SalesOrderId { get; set; }
+    public SalesOrder? SalesOrder { get; set; }
+
+    public Guid? SalesOrderItemId { get; set; }
+    public SalesOrderItem? SalesOrderItem { get; set; }
 
     public Guid InventoryId { get; set; }
     public Inventory Inventory { get; set; } = null!;

@@ -51,7 +51,7 @@ public class ProductionExecutionRepository : Repository<ProductionExecution>, IP
         };
     }
 
-    public new async Task<ProductionExecution?> GetByIdAsync(Guid id)
+    public override async Task<ProductionExecution?> GetByIdAsync(Guid id)
     {
         return await _dbSet
             .Include(x => x.ProductionOrder)

@@ -60,6 +60,11 @@ public class ExceptionMiddleware
                 response.Message = badRequestEx.Message;
                 break;
 
+            case InvalidOperationException invalidOpEx:
+                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                response.Message = invalidOpEx.Message;
+                break;
+
             case ConflictException conflictEx:
                 context.Response.StatusCode = StatusCodes.Status409Conflict;
                 response.Message = conflictEx.Message;

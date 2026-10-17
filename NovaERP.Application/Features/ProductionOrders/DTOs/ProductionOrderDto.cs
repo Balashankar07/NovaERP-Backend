@@ -9,6 +9,8 @@ public class ProductionOrderDto
 
     public Guid ProductionPlanId { get; set; }
     public Guid ProductId { get; set; }
+    public string? ProductName { get; set; }
+    public Guid? BOMId { get; set; }
 
     public decimal PlannedQuantity { get; set; }
     public decimal StartedQuantity { get; set; }

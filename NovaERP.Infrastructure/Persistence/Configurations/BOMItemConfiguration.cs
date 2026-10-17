@@ -12,6 +12,9 @@ public class BOMItemConfiguration : IEntityTypeConfiguration<BOMItem>
 
         builder.HasKey(x => x.Id);
 
+        builder.HasIndex(x => new { x.BomId, x.RawMaterialProductId })
+            .IsUnique();
+
         builder.Property(x => x.Quantity)
             .IsRequired()
             .HasColumnType("decimal(18,4)");

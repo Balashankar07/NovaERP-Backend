@@ -2,6 +2,10 @@ using NovaERP.Application.Features.BOMs.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace NovaERP.Infrastructure.Services;
 
@@ -27,6 +31,7 @@ public class BOMService : IBOMService
             ProductName = b.Product?.Name ?? string.Empty,
             Version = b.Version,
             Description = b.Description,
+            EffectiveDate = b.EffectiveDate,
             IsActive = b.IsActive,
             Items = b.BOMItems.Select(i => new BOMItemDto
             {
@@ -63,6 +68,7 @@ public class BOMService : IBOMService
             ProductName = bom.Product?.Name ?? string.Empty,
             Version = bom.Version,
             Description = bom.Description,
+            EffectiveDate = bom.EffectiveDate,
             IsActive = bom.IsActive,
             Items = bom.BOMItems.Select(i => new BOMItemDto
             {
@@ -101,6 +107,7 @@ public class BOMService : IBOMService
             ProductId = dto.ProductId,
             Version = dto.Version,
             Description = dto.Description,
+            EffectiveDate = dto.EffectiveDate,
             IsActive = dto.IsActive,
             CreatedAt = DateTime.UtcNow,
             BOMItems = dto.Items.Select(i => new BOMItem
@@ -142,15 +149,9 @@ public class BOMService : IBOMService
             }
         }
 
-        var oldBom = new BOM
-        {
-            Version = bom.Version,
-            Description = bom.Description,
-            IsActive = bom.IsActive
-        };
-
         bom.Version = dto.Version;
         bom.Description = dto.Description;
+        bom.EffectiveDate = dto.EffectiveDate;
         bom.IsActive = dto.IsActive;
 
         // Update items
@@ -210,6 +211,59 @@ public class BOMService : IBOMService
         await _unitOfWork.SaveChangesAsync();
 
         await _auditLogger.LogAsync("Delete", "BOM", bom.Id.ToString());
+
+        return true;
+    }
+
+    public async Task<bool> ActivateAsync(Guid id)
+    {
+        var bom = await _unitOfWork.BOMs.GetByIdAsync(id);
+        if (bom == null) return false;
+
+        if (bom.EffectiveDate > DateTime.UtcNow)
+        {
+            throw new Exception("Cannot activate a future-effective BOM.");
+        }
+
+        await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            // Find currently active BOM for the same product
+            var pagedBoms = await _unitOfWork.BOMs.GetAllAsync(1, 100); // Assuming small number of BOMs per product
+            var activeBoms = pagedBoms.Items.Where(b => b.ProductId == bom.ProductId && b.IsActive && b.Id != id).ToList();
+
+            foreach (var activeBom in activeBoms)
+            {
+                activeBom.IsActive = false;
+                await _unitOfWork.BOMs.UpdateAsync(activeBom);
+                await _auditLogger.LogAsync("Update", "BOM", activeBom.Id.ToString(), newValues: "Deactivated automatically due to new BOM activation");
+            }
+
+            bom.IsActive = true;
+            await _unitOfWork.BOMs.UpdateAsync(bom);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _auditLogger.LogAsync("Update", "BOM", bom.Id.ToString(), newValues: "Activated");
+            await _unitOfWork.CommitTransactionAsync();
+            return true;
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
+    }
+
+    public async Task<bool> DeactivateAsync(Guid id)
+    {
+        var bom = await _unitOfWork.BOMs.GetByIdAsync(id);
+        if (bom == null) return false;
+
+        bom.IsActive = false;
+        await _unitOfWork.BOMs.UpdateAsync(bom);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditLogger.LogAsync("Update", "BOM", bom.Id.ToString(), newValues: "Deactivated");
 
         return true;
     }

@@ -14,5 +14,7 @@ public interface IInventoryMovementService
 
     // Phase 3A Extensions
     Task ReserveForRequirementAsync(Guid productionOrderId, Guid requirementId, Guid productId, decimal quantityRequired, Guid? currentUserId);
+    Task ReserveForSalesOrderItemAsync(Guid salesOrderId, Guid salesOrderItemId, Guid productId, decimal quantityRequired, Guid? currentUserId);
     Task ReleaseUnusedReservationsAsync(Guid productionOrderId, Guid? currentUserId);
+    Task ReleaseUnusedSalesReservationsAsync(Guid salesOrderId, Guid? currentUserId);
 }

@@ -20,7 +20,7 @@ public class WarehousesController : ControllerBase
     }
 
     [HttpGet]
-    [HasPermission("Permissions.Warehouses.View")]
+    // [HasPermission("Permissions.Warehouses.View")]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null)
     {
         var result = await _warehouseService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder);

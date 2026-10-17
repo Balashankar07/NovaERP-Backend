@@ -1,4 +1,4 @@
-﻿namespace NovaERP.Application.Features.Roles.DTOs;
+namespace NovaERP.Application.Features.Roles.DTOs;
 
 public class UpdateRoleDto
 {
@@ -7,4 +7,6 @@ public class UpdateRoleDto
     public string Description { get; set; } = string.Empty;
 
     public bool IsActive { get; set; }
+
+    public List<Guid>? PermissionIds { get; set; }
 }

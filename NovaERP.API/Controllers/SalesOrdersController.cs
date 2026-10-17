@@ -86,6 +86,24 @@ public class SalesOrdersController : ControllerBase
         return Ok(ApiResponse.SuccessResponse("Sales Order approved successfully", result));
     }
 
+    [HttpPost("{id}/reject")]
+    [HasPermission("Permissions.SalesOrders.Approve")]
+    public async Task<ActionResult<ApiResponse<SalesOrderDto>>> RejectSalesOrder(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _salesOrderService.RejectAsync(id, userId);
+        return Ok(ApiResponse.SuccessResponse("Sales Order rejected", result));
+    }
+
+    [HttpPost("{id}/reserve")]
+    [HasPermission("Permissions.SalesOrders.Reserve")]
+    public async Task<ActionResult<ApiResponse<SalesOrderDto>>> ReserveSalesOrder(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        var result = await _salesOrderService.ReserveAsync(id, userId);
+        return Ok(ApiResponse.SuccessResponse("Sales Order reserved successfully", result));
+    }
+
     [HttpPost("{id}/cancel")]
     [HasPermission("Permissions.SalesOrders.Cancel")]
     public async Task<ActionResult<ApiResponse<SalesOrderDto>>> CancelSalesOrder(Guid id, [FromQuery] string reason)

@@ -1,5 +1,9 @@
 using NovaERP.Application.Common.Models;
-﻿using NovaERP.Application.Features.Users.DTOs;
+using NovaERP.Application.Features.Users.DTOs;
+using NovaERP.Application.Features.Roles.DTOs;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace NovaERP.Application.Interfaces.Services;
 
@@ -14,4 +18,18 @@ public interface IUserService
     Task UpdateAsync(Guid id, UpdateUserDto dto);
 
     Task DeleteAsync(Guid id);
+
+    Task BulkDeleteAsync(IEnumerable<Guid> ids);
+
+    Task ActivateAsync(Guid id);
+
+    Task DeactivateAsync(Guid id);
+
+    Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
+
+    Task<IEnumerable<RoleDto>> GetAssignedRolesAsync(Guid userId);
+
+    Task AssignRolesAsync(Guid userId, AssignRoleDto dto);
+
+    Task RemoveRoleAsync(Guid userId, Guid roleId);
 }

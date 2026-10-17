@@ -28,6 +28,7 @@ public class ProductRepository : IProductRepository
             .Include(x => x.Category)
             .Include(x => x.Brand)
             .Include(x => x.Unit)
+            .Include(x => x.Specifications)
             .AsQueryable();
 
         // Server-side product type filter
@@ -95,6 +96,7 @@ public class ProductRepository : IProductRepository
             .Include(x => x.Category)
             .Include(x => x.Brand)
             .Include(x => x.Unit)
+            .Include(x => x.Specifications)
             .FirstOrDefaultAsync(x => x.Id == id);
     }
 

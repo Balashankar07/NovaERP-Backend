@@ -1,6 +1,7 @@
 using NovaERP.Application.Common.Exceptions;
 using NovaERP.Application.Common.Models;
 using NovaERP.Application.Features.ProductionPlans.DTOs;
+using NovaERP.Application.DTOs.Notifications;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
@@ -12,11 +13,13 @@ public class ProductionPlanService : IProductionPlanService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly INotificationService _notificationService;
 
-    public ProductionPlanService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public ProductionPlanService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResult<ProductionPlanDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -46,10 +49,10 @@ public class ProductionPlanService : IProductionPlanService
         if (product == null || !product.IsActive)
             throw new BadRequestException("Product must exist and be active.");
 
-        // Get active BOM for the product
-        var bom = await _unitOfWork.BOMs.GetActiveByProductIdAsync(dto.ProductId);
-        if (bom == null)
-            throw new BadRequestException("Product must have an active BOM to create a Production Plan.");
+        // Get selected BOM for the product
+        var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
+        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow)
+            throw new BadRequestException("Product must have a valid, active, and effective BOM to create a Production Plan.");
 
         await _unitOfWork.BeginTransactionAsync();
 
@@ -60,18 +63,21 @@ public class ProductionPlanService : IProductionPlanService
                 PlanNumber = await _unitOfWork.ProductionPlans.GeneratePlanNumberAsync(),
                 ProductId = dto.ProductId,
                 PlannedQuantity = dto.PlannedQuantity,
-                PlannedStartDate = dto.PlannedStartDate,
-                PlannedEndDate = dto.PlannedEndDate,
+                PlannedStartDate = DateTime.SpecifyKind(dto.PlannedStartDate, DateTimeKind.Utc),
+                PlannedEndDate = DateTime.SpecifyKind(dto.PlannedEndDate, DateTimeKind.Utc),
                 Priority = dto.Priority,
                 Status = ProductionPlanStatus.Draft,
                 Remarks = dto.Remarks,
+                BOMId = bom.Id,
                 CreatedBy = currentUserId
             };
 
             // Generate Requirements (MRP calculation)
             foreach (var item in bom.BOMItems)
             {
-                var requiredQty = item.Quantity * dto.PlannedQuantity;
+                var baseQty = item.Quantity * dto.PlannedQuantity;
+                var wasteQty = baseQty * (item.WastePercentage / 100);
+                var requiredQty = Math.Round(baseQty + wasteQty, 2);
                 
                 // Retrieve inventory availability (across all warehouses)
                 var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
@@ -122,9 +128,9 @@ public class ProductionPlanService : IProductionPlanService
         if (product == null || !product.IsActive)
             throw new BadRequestException("Product must exist and be active.");
 
-        var bom = await _unitOfWork.BOMs.GetActiveByProductIdAsync(dto.ProductId);
-        if (bom == null)
-            throw new BadRequestException("Product must have an active BOM to create/update a Production Plan.");
+        var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
+        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow)
+            throw new BadRequestException("Product must have a valid, active, and effective BOM to create/update a Production Plan.");
 
         await _unitOfWork.BeginTransactionAsync();
 
@@ -138,6 +144,7 @@ public class ProductionPlanService : IProductionPlanService
             plan.PlannedEndDate = dto.PlannedEndDate;
             plan.Priority = dto.Priority;
             plan.Remarks = dto.Remarks;
+            plan.BOMId = bom.Id;
             plan.UpdatedBy = currentUserId;
             plan.UpdatedAt = DateTime.UtcNow;
 
@@ -146,7 +153,9 @@ public class ProductionPlanService : IProductionPlanService
 
             foreach (var item in bom.BOMItems)
             {
-                var requiredQty = item.Quantity * dto.PlannedQuantity;
+                var baseQty = item.Quantity * dto.PlannedQuantity;
+                var wasteQty = baseQty * (item.WastePercentage / 100);
+                var requiredQty = Math.Round(baseQty + wasteQty, 2);
                 var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
                 var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
                 var shortage = requiredQty > availableQty ? requiredQty - availableQty : 0;
@@ -258,6 +267,33 @@ public class ProductionPlanService : IProductionPlanService
 
             var newValues = $"Status: {plan.Status}";
             await _auditLogger.LogAsync("StatusChange", "ProductionPlan", plan.Id.ToString(), oldValues: oldValues, newValues: newValues);
+
+            // Notify Production Manager and Warehouse Manager about the released plan
+            try
+            {
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Production Manager",
+                    NotificationType.ProductionAlert,
+                    $"Production Plan Released: {plan.PlanNumber}",
+                    $"Production Plan {plan.PlanNumber} has been released and is ready for execution.",
+                    NotificationPriority.Normal,
+                    "ProductionPlan", plan.Id.ToString(),
+                    $"/production/plans",
+                    $"pp-released-{plan.Id}"
+                );
+                
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Warehouse Manager",
+                    NotificationType.LogisticsAlert,
+                    $"Materials Required for {plan.PlanNumber}",
+                    $"Production Plan {plan.PlanNumber} is released. Please prepare raw materials for the shop floor.",
+                    NotificationPriority.Normal,
+                    "ProductionPlan", plan.Id.ToString(),
+                    $"/inventory",
+                    $"pp-materials-{plan.Id}"
+                );
+            }
+            catch { /* Non-critical */ }
 
             await _unitOfWork.CommitTransactionAsync();
             return MapToDto(plan);
@@ -388,6 +424,7 @@ public class ProductionPlanService : IProductionPlanService
         Id = p.Id,
         PlanNumber = p.PlanNumber,
         ProductId = p.ProductId,
+        BOMId = p.BOMId,
         ProductCode = p.Product?.ProductCode ?? string.Empty,
         ProductName = p.Product?.Name ?? string.Empty,
         PlannedQuantity = p.PlannedQuantity,

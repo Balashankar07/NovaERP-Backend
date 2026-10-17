@@ -7,6 +7,11 @@ public interface IReportService
 {
     Task<DashboardSummaryDto> GetDashboardSummaryAsync(CancellationToken cancellationToken);
     Task<ProcurementSummaryDto> GetProcurementSummaryAsync(CancellationToken cancellationToken);
+    Task<ProductionSummaryDto> GetProductionSummaryAsync(CancellationToken cancellationToken);
+    Task<QualitySummaryDto> GetQualitySummaryAsync(CancellationToken cancellationToken);
+    Task<SalesSummaryDto> GetSalesSummaryAsync(CancellationToken cancellationToken);
+    Task<DistributionSummaryDto> GetDistributionSummaryAsync(CancellationToken cancellationToken);
+    Task<WarrantySummaryDto> GetWarrantySummaryAsync(CancellationToken cancellationToken);
     Task<InventorySummaryDto> GetInventorySummaryAsync(CancellationToken cancellationToken);
     Task<PagedResult<InventoryReportDto>> GetInventoryReportAsync(int pageNumber, int pageSize, string? searchTerm, string? sortBy, bool sortDescending, CancellationToken cancellationToken);
     Task<PagedResult<ProductionReportDto>> GetProductionReportAsync(int pageNumber, int pageSize, string? searchTerm, string? sortBy, bool sortDescending, CancellationToken cancellationToken);

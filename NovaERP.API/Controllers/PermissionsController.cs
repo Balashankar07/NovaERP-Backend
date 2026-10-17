@@ -8,7 +8,7 @@ using NovaERP.Application.Interfaces.Services;
 namespace NovaERP.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/admin/permissions")]
 [Authorize]
 public class PermissionsController : ControllerBase
 {
@@ -27,31 +27,11 @@ public class PermissionsController : ControllerBase
         return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", permissions));
     }
 
-    [HttpGet("role/{roleId}")]
+    [HttpGet("grouped")]
     [HasPermission("Permissions.Roles.View")]
-    public async Task<IActionResult> GetRolePermissions(Guid roleId)
+    public async Task<IActionResult> GetGroupedPermissions()
     {
-        var permissions = await _permissionService.GetRolePermissionsAsync(roleId);
+        var permissions = await _permissionService.GetPermissionsGroupedByModuleAsync();
         return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", permissions));
-    }
-
-    [HttpPost("role/{roleId}")]
-    [HasPermission("Permissions.Roles.Edit")]
-    public async Task<IActionResult> AssignPermissionsToRole(Guid roleId, [FromBody] RolePermissionDto dto)
-    {
-        if (roleId != dto.RoleId)
-        {
-            return BadRequest(ApiResponse.ErrorResponse("Role ID in URL must match Role ID in body."));
-        }
-
-        try
-        {
-            await _permissionService.AssignPermissionsToRoleAsync(roleId, dto.PermissionIds);
-            return Ok(ApiResponse.SuccessResponse("Operation completed successfully."));
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
     }
 }

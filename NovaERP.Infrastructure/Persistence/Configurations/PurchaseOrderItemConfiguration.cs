@@ -19,5 +19,7 @@ public class PurchaseOrderItemConfiguration : IEntityTypeConfiguration<PurchaseO
                .WithMany()
                .HasForeignKey(x => x.PurchaseRequestItemId)
                .OnDelete(DeleteBehavior.SetNull);
+               
+        builder.Property(x => x.ReceivedQuantity).HasPrecision(18, 2);
     }
 }

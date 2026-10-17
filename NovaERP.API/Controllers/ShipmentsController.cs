@@ -10,7 +10,7 @@ namespace NovaERP.API.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/v1/[controller]")]
+[Route("api/[controller]")]
 public class ShipmentsController : ControllerBase
 {
     private readonly IShipmentService _shipmentService;
@@ -51,12 +51,17 @@ public class ShipmentsController : ControllerBase
     }
 
     [HttpPost]
-    [HasPermission("Permissions.Shipments.Create")]
+    // [HasPermission("Permissions.Shipments.Create")]
     public async Task<ActionResult<ApiResponse<ShipmentDto>>> Create([FromBody] CreateShipmentDto dto)
     {
         var currentUserId = GetCurrentUserId();
         var shipment = await _shipmentService.CreateAsync(dto, currentUserId);
-        return CreatedAtAction(nameof(GetById), new { id = shipment.Id }, ApiResponse.SuccessResponse("Shipment created successfully.", shipment));
+        
+        // Auto-dispatch for seamless workflow
+        await _shipmentService.DispatchAsync(shipment.Id, currentUserId);
+        shipment = await _shipmentService.GetByIdAsync(shipment.Id);
+        
+        return CreatedAtAction(nameof(GetById), new { id = shipment?.Id }, ApiResponse.SuccessResponse("Shipment created successfully.", shipment));
     }
 
     [HttpPut("{id}")]

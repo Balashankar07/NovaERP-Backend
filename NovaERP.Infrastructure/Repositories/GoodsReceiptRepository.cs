@@ -73,12 +73,12 @@ public class GoodsReceiptRepository : Repository<GoodsReceipt>, IGoodsReceiptRep
                 "grnnumber" => isDesc ? query.OrderByDescending(x => x.GRNNumber) : query.OrderBy(x => x.GRNNumber),
                 "receiptdate" => isDesc ? query.OrderByDescending(x => x.ReceiptDate) : query.OrderBy(x => x.ReceiptDate),
                 "status" => isDesc ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
-                _ => isDesc ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
+                _ => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt)
             };
         }
         else
         {
-            query = query.OrderByDescending(x => x.Id);
+            query = query.OrderByDescending(x => x.CreatedAt);
         }
 
         pageNumber = pageNumber < 1 ? 1 : pageNumber;

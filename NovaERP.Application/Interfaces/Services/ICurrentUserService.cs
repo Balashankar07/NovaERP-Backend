@@ -1,4 +1,4 @@
-﻿namespace NovaERP.Application.Interfaces.Services;
+namespace NovaERP.Application.Interfaces.Services;
 
 public interface ICurrentUserService
 {
@@ -13,4 +13,6 @@ public interface ICurrentUserService
     Guid BranchId { get; }
 
     bool IsAuthenticated { get; }
+
+    IEnumerable<string> Permissions { get; }
 }

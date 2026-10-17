@@ -59,8 +59,6 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.ImageUrl)
             .HasMaxLength(500);
 
-        builder.Property(x => x.Specifications)
-            .HasColumnName("Specifications")
-            .HasMaxLength(4000);
+
     }
 }

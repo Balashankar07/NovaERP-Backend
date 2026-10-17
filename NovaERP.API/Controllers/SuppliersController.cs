@@ -21,9 +21,9 @@ public class SuppliersController : ControllerBase
 
     [HttpGet]
     [HasPermission("Permissions.Suppliers.View")]
-    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null)
+    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null, [FromQuery] bool? isActive = null)
     {
-        var suppliers = await _supplierService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder);
+        var suppliers = await _supplierService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder, isActive);
         return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", suppliers));
     }
 
@@ -71,8 +71,45 @@ public class SuppliersController : ControllerBase
     [HasPermission("Permissions.Suppliers.Delete")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var deleted = await _supplierService.DeleteAsync(id);
-        if (!deleted) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
-        return NoContent();
+        try
+        {
+            var deleted = await _supplierService.DeleteAsync(id);
+            if (!deleted) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
+            return NoContent();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(ApiResponse.ErrorResponse(ex.Message));
+        }
+    }
+
+    [HttpPatch("{id:guid}/activate")]
+    [HasPermission("Permissions.Suppliers.Update")]
+    public async Task<IActionResult> Activate(Guid id)
+    {
+        try
+        {
+            await _supplierService.ActivateAsync(id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.ErrorResponse(ex.Message));
+        }
+    }
+
+    [HttpPatch("{id:guid}/deactivate")]
+    [HasPermission("Permissions.Suppliers.Update")]
+    public async Task<IActionResult> Deactivate(Guid id)
+    {
+        try
+        {
+            await _supplierService.DeactivateAsync(id);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.ErrorResponse(ex.Message));
+        }
     }
 }

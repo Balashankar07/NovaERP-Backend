@@ -16,9 +16,9 @@ public class SupplierService : ISupplierService
         _auditLogger = auditLogger;
     }
 
-    public async Task<NovaERP.Application.Common.Models.PagedResult<SupplierDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
+    public async Task<NovaERP.Application.Common.Models.PagedResult<SupplierDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null, bool? isActive = null)
     {
-        var suppliers = await _unitOfWork.Suppliers.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder);
+        var suppliers = await _unitOfWork.Suppliers.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder, isActive);
 
         return new NovaERP.Application.Common.Models.PagedResult<SupplierDto>
         {
@@ -123,12 +123,50 @@ public class SupplierService : ISupplierService
         var supplier = await _unitOfWork.Suppliers.GetByIdAsync(id);
         if (supplier == null) return false;
 
+        var isReferenced = await _unitOfWork.Suppliers.IsSupplierReferencedAsync(id);
+        if (isReferenced)
+        {
+            throw new InvalidOperationException("Supplier cannot be deleted because it is referenced by existing procurement records. Deactivate the supplier instead.");
+        }
+
         _unitOfWork.Suppliers.Delete(supplier);
         await _unitOfWork.SaveChangesAsync();
 
         await _auditLogger.LogAsync("Delete", "Supplier", supplier.Id.ToString());
 
         return true;
+    }
+
+    public async Task ActivateAsync(Guid id)
+    {
+        var supplier = await _unitOfWork.Suppliers.GetByIdAsync(id);
+        if (supplier == null) throw new Exception("Supplier not found.");
+
+        if (supplier.IsActive) return;
+
+        supplier.IsActive = true;
+        supplier.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Suppliers.Update(supplier);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditLogger.LogAsync("Activate", "Supplier", supplier.Id.ToString(), newValues: "IsActive: true");
+    }
+
+    public async Task DeactivateAsync(Guid id)
+    {
+        var supplier = await _unitOfWork.Suppliers.GetByIdAsync(id);
+        if (supplier == null) throw new Exception("Supplier not found.");
+
+        if (!supplier.IsActive) return;
+
+        supplier.IsActive = false;
+        supplier.UpdatedAt = DateTime.UtcNow;
+
+        _unitOfWork.Suppliers.Update(supplier);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditLogger.LogAsync("Deactivate", "Supplier", supplier.Id.ToString(), newValues: "IsActive: false");
     }
 
     private static SupplierDto MapToDto(Supplier supplier)

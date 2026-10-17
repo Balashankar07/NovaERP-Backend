@@ -361,3 +361,50 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# =============================================
+# NovaERP - Project-specific exclusions
+# =============================================
+
+# --- Secrets & Credentials ---
+# appsettings.json contains real DB password and JWT secret key
+# Use appsettings.Example.json as the template
+NovaERP.API/appsettings.json
+NovaERP.API/appsettings.Development.json
+
+# Frontend .env contains real Google OAuth Client ID
+NovaERP/.env
+
+# --- Node / Root level ---
+node_modules/
+package-lock.json
+temp.json
+temp.log
+
+# --- Root-level debug/test/audit scripts (development tools, not source) ---
+*.patch
+*.js
+!NovaERP/
+*.ps1
+*.py
+*.cs
+*.csx
+*.txt
+scorecard.txt
+drift_backup.json
+audit_results.json
+audit_output.txt
+workflow_health_report.*
+reservation_drift_report.*
+inventory_backup.json
+fast_ui_output.txt
+
+# --- Scratch / temp directories at root ---
+scratch/
+DbChecker/
+DbQuery/
+PgTestDiag2/
+NovaERP_backup/
+
+# --- Build artifacts ---
+dist/

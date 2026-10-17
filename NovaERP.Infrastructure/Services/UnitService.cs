@@ -2,17 +2,22 @@ using NovaERP.Application.Features.Units.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
+using NovaERP.Infrastructure.Persistence.Context;
+using NovaERP.Application.Common.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace NovaERP.Infrastructure.Services;
 
 public class UnitService : IUnitService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly AppDbContext _context;
     private readonly IAuditLogger _auditLogger;
 
-    public UnitService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public UnitService(IUnitOfWork unitOfWork, AppDbContext context, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _context = context;
         _auditLogger = auditLogger;
     }
 
@@ -79,6 +84,11 @@ public class UnitService : IUnitService
     {
         var unit = await _unitOfWork.Units.GetByIdAsync(id);
         if (unit == null) return false;
+
+        // Block if referenced by Products
+        var hasProducts = await _context.Products.AnyAsync(p => p.UnitId == id);
+        if (hasProducts)
+            throw new ConflictException("Cannot delete Unit because it is assigned to one or more products. Deactivate the unit instead.");
 
         await _unitOfWork.Units.DeleteAsync(unit);
         await _unitOfWork.SaveChangesAsync();

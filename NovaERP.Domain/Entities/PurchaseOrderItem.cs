@@ -32,5 +32,8 @@ public class PurchaseOrderItem : AuditableEntity
     [Column(TypeName = "decimal(18,2)")]
     public decimal? SupplierUnitPrice { get; set; }
     
+    [Column(TypeName = "decimal(18,2)")]
+    public decimal ReceivedQuantity { get; set; } = 0;
+    
     public string? Remarks { get; set; }
 }

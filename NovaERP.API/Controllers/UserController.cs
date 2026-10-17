@@ -8,7 +8,7 @@ using NovaERP.Application.Interfaces.Services;
 namespace NovaERP.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/admin/users")]
 [Authorize]
 public class UserController : ControllerBase
 {
@@ -68,44 +68,64 @@ public class UserController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("{id:guid}/activate")]
+    [HttpPost("bulk-delete")]
+    [HasPermission("Permissions.Users.Delete")]
+    public async Task<IActionResult> BulkDelete([FromBody] List<Guid> ids)
+    {
+        await _userService.BulkDeleteAsync(ids);
+        return NoContent();
+    }
+
+    [HttpPatch("{id:guid}/activate")]
     [HasPermission("Permissions.Users.Edit")]
     public async Task<IActionResult> Activate(Guid id)
     {
         var user = await _userService.GetByIdAsync(id);
         if (user == null) return NotFound(ApiResponse.ErrorResponse("User not found."));
         
-        await _userService.UpdateAsync(id, new UpdateUserDto 
-        { 
-            FirstName = user.FirstName, 
-            LastName = user.LastName, 
-            Phone = user.Phone, 
-            CompanyId = user.CompanyId, 
-            RoleIds = user.RoleIds, 
-            IsActive = true 
-        });
+        await _userService.ActivateAsync(id);
         
         return Ok(ApiResponse.SuccessResponse("User activated successfully."));
     }
 
-    [HttpPost("{id:guid}/deactivate")]
+    [HttpPatch("{id:guid}/deactivate")]
     [HasPermission("Permissions.Users.Edit")]
     public async Task<IActionResult> Deactivate(Guid id)
     {
         var user = await _userService.GetByIdAsync(id);
         if (user == null) return NotFound(ApiResponse.ErrorResponse("User not found."));
         
-        await _userService.UpdateAsync(id, new UpdateUserDto 
-        { 
-            FirstName = user.FirstName, 
-            LastName = user.LastName, 
-            Phone = user.Phone, 
-            CompanyId = user.CompanyId, 
-            RoleIds = user.RoleIds, 
-            IsActive = false 
-        });
+        await _userService.DeactivateAsync(id);
         
         return Ok(ApiResponse.SuccessResponse("User deactivated successfully."));
+    }
+
+    [HttpGet("{id:guid}/roles")]
+    [HasPermission("Permissions.Users.View")]
+    public async Task<IActionResult> GetRoles(Guid id)
+    {
+        var roles = await _userService.GetAssignedRolesAsync(id);
+        return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", roles));
+    }
+
+    [HttpPost("{id:guid}/roles/{roleId:guid}")]
+    [HasPermission("Permissions.Roles.Assign")]
+    public async Task<IActionResult> AssignRole(Guid id, Guid roleId)
+    {
+        await _userService.AssignRolesAsync(id, new NovaERP.Application.Features.Users.DTOs.AssignRoleDto 
+        { 
+            UserId = id, 
+            RoleIds = new List<Guid> { roleId } 
+        });
+        return Ok(ApiResponse.SuccessResponse("Role assigned successfully."));
+    }
+
+    [HttpDelete("{id:guid}/roles/{roleId:guid}")]
+    [HasPermission("Permissions.Roles.Assign")]
+    public async Task<IActionResult> RemoveRole(Guid id, Guid roleId)
+    {
+        await _userService.RemoveRoleAsync(id, roleId);
+        return NoContent();
     }
 
     [HttpPost("{id:guid}/reset-password")]

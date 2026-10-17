@@ -30,6 +30,11 @@ public class ProductionPlanConfiguration : IEntityTypeConfiguration<ProductionPl
                .HasForeignKey(x => x.ProductId)
                .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne(x => x.BOM)
+               .WithMany()
+               .HasForeignKey(x => x.BOMId)
+               .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(x => x.Requirements)
                .WithOne(x => x.ProductionPlan)
                .HasForeignKey(x => x.ProductionPlanId)

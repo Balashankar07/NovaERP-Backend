@@ -1,7 +1,9 @@
+using System.Linq;
 using System.Linq.Expressions;
 using NovaERP.Application.Common.Exceptions;
 using NovaERP.Application.Common.Models;
 using NovaERP.Application.Features.QualityInspections.DTOs;
+using NovaERP.Application.DTOs.Notifications;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
@@ -13,11 +15,15 @@ public class QualityInspectionService : IQualityInspectionService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly IInventoryMovementService _inventoryMovementService;
+    private readonly INotificationService _notificationService;
 
-    public QualityInspectionService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public QualityInspectionService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService, INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _inventoryMovementService = inventoryMovementService;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResult<QualityInspectionDto>> GetQualityInspectionsAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -64,6 +70,8 @@ public class QualityInspectionService : IQualityInspectionService
             ProductionExecutionId = dto.ProductionExecutionId,
             ProductId = dto.ProductId,
             InspectedQuantity = dto.InspectedQuantity,
+            OutputWarehouseId = execution.OutputWarehouseId,
+            OutputWarehouseLocationId = execution.OutputWarehouseLocationId,
             Remarks = dto.Remarks,
             Status = QualityInspectionStatus.Draft,
             CreatedBy = currentUserId,
@@ -73,6 +81,22 @@ public class QualityInspectionService : IQualityInspectionService
         await _unitOfWork.QualityInspections.AddAsync(inspection);
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("Create", "QualityInspection", inspection.Id.ToString(), newValues: "Inspection created");
+
+        // Notify Quality Engineer about new inspection
+        try
+        {
+            await _notificationService.NotifyRoleUsersAsync(
+                "Quality Engineer",
+                NotificationType.QualityAlert,
+                $"New Quality Inspection Required: {inspection.InspectionNumber}",
+                $"A new quality inspection {inspection.InspectionNumber} has been created for Product {inspection.ProductId} and requires your attention.",
+                NotificationPriority.Normal,
+                "QualityInspection", inspection.Id.ToString(),
+                $"/quality/inspections",
+                $"qi-created-{inspection.Id}"
+            );
+        }
+        catch { /* Non-critical */ }
 
         return await GetQualityInspectionByIdAsync(inspection.Id);
     }
@@ -85,6 +109,9 @@ public class QualityInspectionService : IQualityInspectionService
             
         if (inspection.Status == QualityInspectionStatus.Passed || inspection.Status == QualityInspectionStatus.PartiallyPassed || inspection.Status == QualityInspectionStatus.Failed || inspection.Status == QualityInspectionStatus.Cancelled)
             throw new BadRequestException("Cannot update a completed or cancelled inspection.");
+
+        if (dto.PassedQuantity + dto.FailedQuantity > inspection.InspectedQuantity)
+            throw new BadRequestException("Passed Quantity and Failed Quantity cannot exceed Inspected Quantity.");
 
         inspection.PassedQuantity = dto.PassedQuantity;
         inspection.FailedQuantity = dto.FailedQuantity;
@@ -137,30 +164,119 @@ public class QualityInspectionService : IQualityInspectionService
 
     public async Task<QualityInspectionDto> CompleteAsync(Guid id, Guid? currentUserId)
     {
-        var inspection = await _unitOfWork.QualityInspections.GetByIdAsync(id);
-        if (inspection == null)
-            throw new KeyNotFoundException(nameof(QualityInspection) + " not found");
+        await _unitOfWork.BeginTransactionAsync();
+        try
+        {
+            var inspection = await _unitOfWork.QualityInspections.GetByIdAsync(id);
+            if (inspection == null)
+                throw new KeyNotFoundException(nameof(QualityInspection) + " not found");
+                
+            if (inspection.Status != QualityInspectionStatus.InProgress)
+                throw new BadRequestException("Only InProgress inspections can be completed.");
+                
+            if (inspection.PassedQuantity + inspection.FailedQuantity != inspection.InspectedQuantity)
+                throw new BadRequestException("Passed Quantity and Failed Quantity must equal Inspected Quantity.");
+
+            if (inspection.OutputWarehouseId == null)
+            {
+                var defaultWh = await _unitOfWork.Warehouses.GetDefaultWarehouseAsync();
+                if (defaultWh != null)
+                {
+                    inspection.OutputWarehouseId = defaultWh.Id;
+                }
+                else
+                {
+                    var allWh = await _unitOfWork.Warehouses.GetAllAsync();
+                    Warehouse? wh = null;
+                    if (allWh?.Items != null)
+                    {
+                        foreach (var item in allWh.Items)
+                        {
+                            if (item.IsActive)
+                            {
+                                wh = item;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (wh != null)
+                    {
+                        inspection.OutputWarehouseId = wh.Id;
+                    }
+                    else
+                    {
+                        throw new BadRequestException("Quality Inspection has no Output Warehouse configured and no active warehouse exists.");
+                    }
+                }
+            }
+
+            if (inspection.PassedQuantity == inspection.InspectedQuantity)
+                inspection.Status = QualityInspectionStatus.Passed;
+            else if (inspection.FailedQuantity == inspection.InspectedQuantity)
+                inspection.Status = QualityInspectionStatus.Failed;
+            else
+                inspection.Status = QualityInspectionStatus.PartiallyPassed;
+                
+            inspection.UpdatedBy = currentUserId;
+            inspection.UpdatedAt = DateTime.UtcNow;
+
+            _unitOfWork.QualityInspections.Update(inspection);
             
-        if (inspection.Status != QualityInspectionStatus.InProgress)
-            throw new BadRequestException("Only InProgress inspections can be completed.");
-            
-        if (inspection.PassedQuantity + inspection.FailedQuantity != inspection.InspectedQuantity)
-            throw new BadRequestException("Passed Quantity and Failed Quantity must equal Inspected Quantity.");
+            try 
+            {
+                await _unitOfWork.SaveChangesAsync();
+            }
+            catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+            {
+                throw new ConflictException("The inspection was modified or completed by another user.");
+            }
 
-        if (inspection.PassedQuantity == inspection.InspectedQuantity)
-            inspection.Status = QualityInspectionStatus.Passed;
-        else if (inspection.FailedQuantity == inspection.InspectedQuantity)
-            inspection.Status = QualityInspectionStatus.Failed;
-        else
-            inspection.Status = QualityInspectionStatus.PartiallyPassed;
-        inspection.UpdatedBy = currentUserId;
-        inspection.UpdatedAt = DateTime.UtcNow;
+            if (inspection.PassedQuantity > 0)
+            {
+                await _inventoryMovementService.ReceiveAsync(
+                    inspection.ProductId,
+                    inspection.OutputWarehouseId.Value,
+                    inspection.OutputWarehouseLocationId,
+                    inspection.PassedQuantity,
+                    InventoryReferenceType.Production, // We will use Production
+                    inspection.Id,
+                    $"Quality Approval {inspection.InspectionNumber}",
+                    currentUserId
+                );
+                
+                await _unitOfWork.SaveChangesAsync();
+            }
 
-        _unitOfWork.QualityInspections.Update(inspection);
-        await _unitOfWork.SaveChangesAsync();
-        await _auditLogger.LogAsync("StatusChange", "QualityInspection", id.ToString(), oldValues: QualityInspectionStatus.InProgress.ToString(), newValues: inspection.Status.ToString());
+            await _unitOfWork.CommitTransactionAsync();
+            await _auditLogger.LogAsync("StatusChange", "QualityInspection", id.ToString(), oldValues: QualityInspectionStatus.InProgress.ToString(), newValues: inspection.Status.ToString());
 
-        return await GetQualityInspectionByIdAsync(id);
+            // Notify Production Manager if inspection failed or partially passed
+            if (inspection.Status == QualityInspectionStatus.Failed || inspection.Status == QualityInspectionStatus.PartiallyPassed)
+            {
+                try
+                {
+                    await _notificationService.NotifyRoleUsersAsync(
+                        "Production Manager",
+                        NotificationType.QualityAlert,
+                        $"Quality Alert: Inspection {inspection.InspectionNumber}",
+                        $"Quality inspection {inspection.InspectionNumber} finished with status {inspection.Status}. Failed quantity: {inspection.FailedQuantity}.",
+                        NotificationPriority.Critical,
+                        "QualityInspection", inspection.Id.ToString(),
+                        $"/quality/inspections",
+                        $"qi-failed-{inspection.Id}"
+                    );
+                }
+                catch { /* Non-critical */ }
+            }
+
+            return await GetQualityInspectionByIdAsync(id);
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
     }
 
     public async Task<QualityInspectionDto> CancelAsync(Guid id, string reason, Guid? currentUserId)
@@ -239,7 +355,10 @@ public class QualityInspectionService : IQualityInspectionService
             Id = entity.Id,
             InspectionNumber = entity.InspectionNumber,
             ProductionExecutionId = entity.ProductionExecutionId,
+            ProductionExecutionNumber = entity.ProductionExecution?.ExecutionNumber,
             ProductId = entity.ProductId,
+            ProductName = entity.Product?.Name,
+            ProductCode = entity.Product?.ProductCode,
             InspectedQuantity = entity.InspectedQuantity,
             PassedQuantity = entity.PassedQuantity,
             FailedQuantity = entity.FailedQuantity,
@@ -247,6 +366,8 @@ public class QualityInspectionService : IQualityInspectionService
             InspectorId = entity.InspectorId,
             InspectionDate = entity.InspectionDate,
             Remarks = entity.Remarks,
+            OutputWarehouseId = entity.OutputWarehouseId,
+            OutputWarehouseLocationId = entity.OutputWarehouseLocationId,
             QualityDefects = entity.QualityDefects?.Select(d => new QualityDefectDto
             {
                 Id = d.Id,

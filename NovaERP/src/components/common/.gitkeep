@@ -1,0 +1,9 @@
+// Common shared components directory
+// Place reusable business components here:
+// - DataTable
+// - PageHeader
+// - StatusBadge
+// - ConfirmDialog
+// - LoadingSpinner
+// - EmptyState
+// - ErrorBoundary

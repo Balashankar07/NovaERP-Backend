@@ -4,7 +4,7 @@ namespace NovaERP.Application.Interfaces.Services;
 
 public interface ISupplierService
 {
-    Task<NovaERP.Application.Common.Models.PagedResult<SupplierDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null);
+    Task<NovaERP.Application.Common.Models.PagedResult<SupplierDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null, bool? isActive = null);
 
     Task<SupplierDto?> GetByIdAsync(Guid id);
 
@@ -13,4 +13,7 @@ public interface ISupplierService
     Task<SupplierDto?> UpdateAsync(Guid id, UpdateSupplierDto dto);
 
     Task<bool> DeleteAsync(Guid id);
+    
+    Task ActivateAsync(Guid id);
+    Task DeactivateAsync(Guid id);
 }

@@ -10,8 +10,5 @@ public class RoleDto
 
     public bool IsActive { get; set; }
     
-    // Readiness Metadata
-    public bool IsOperationallyReady { get; set; }
-    public string ReadinessReason { get; set; } = string.Empty;
-    public string DashboardRoute { get; set; } = string.Empty;
+    public List<NovaERP.Application.Features.Permissions.DTOs.PermissionDto> AssignedPermissions { get; set; } = new List<NovaERP.Application.Features.Permissions.DTOs.PermissionDto>();
 }

@@ -30,4 +30,13 @@ public class InventoryReservationRepository : Repository<InventoryReservation>, 
                        (r.Status == ReservationStatus.Active || r.Status == ReservationStatus.PartiallyConsumed))
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<InventoryReservation>> GetActiveBySalesOrderIdAsync(Guid salesOrderId)
+    {
+        return await _dbSet
+            .Include(r => r.Product)
+            .Where(r => r.SalesOrderId == salesOrderId && 
+                       (r.Status == ReservationStatus.Active || r.Status == ReservationStatus.PartiallyConsumed))
+            .ToListAsync();
+    }
 }

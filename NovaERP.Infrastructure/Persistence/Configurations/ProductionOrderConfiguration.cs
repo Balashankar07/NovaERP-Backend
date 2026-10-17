@@ -46,5 +46,10 @@ public class ProductionOrderConfiguration : IEntityTypeConfiguration<ProductionO
             .WithMany()
             .HasForeignKey(x => x.ProductId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(x => x.BOM)
+            .WithMany()
+            .HasForeignKey(x => x.BOMId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

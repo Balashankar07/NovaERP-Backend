@@ -102,15 +102,15 @@ async function runAudit() {
 
   // Try known credentials
   for (const cred of [
-    {email:'balashankar07@gmail.com', pass:'Admin@123'},
-    {email:'balan@novaerp.com', pass:'Admin@123'},
-    {email:'balashankar07@gmail.com', pass:'Password@123'},
-    {email:users[0]?.Email, pass:'Admin@123'}
+    {email:'balashankar07@gmail.com', pass:'DevPassword_Admin_Secured!'},
+    {email:'balan@novaerp.com', pass:'DevPassword_Admin_Secured!'},
+    {email:'admin@novaerp.com', pass:'DevPassword_Admin_Secured!'},
+    {email:users[0]?.Email, pass:'DevPassword_Admin_Secured!'}
   ]) {
     if (!cred.email) continue;
     const r = await apiRequest('POST', '/api/Auth/login', {email:cred.email, password:cred.pass});
-    if (r.status === 200 && r.body && r.body.token) {
-      authToken = r.body.token;
+    if (r.status === 200 && r.body && r.body.data && r.body.data.accessToken) {
+      authToken = r.body.data.accessToken;
       log('AUTH', 'PASS', 'Logged in as: ' + cred.email);
       break;
     }

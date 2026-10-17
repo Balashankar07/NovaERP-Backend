@@ -32,10 +32,10 @@ async function runE2E() {
         const brandRes = await api.get(`${API_URL}/Brands?pageSize=1`);
         const brandId = brandRes.data.data.items[0].id;
 
-        // 2b. Create Component Product
+        const uniqueSuffix = Date.now();
         console.log("2b. Creating Component Product...");
         const compRes = await api.post(`${API_URL}/Products`, {
-            categoryId, unitId, brandId, name: "Audit_Comp_1", productNumber: "COMP-AUDIT-1", productType: 2, isActive: true, costPrice: 10, sellingPrice: 15, minimumStock: 50, reorderLevel: 60, maximumStock: 500
+            categoryId, unitId, brandId, name: `Audit_Comp_${uniqueSuffix}`, productNumber: `C-AUD-${uniqueSuffix}`, productType: 2, isActive: true, costPrice: 10, sellingPrice: 15, minimumStock: 50, reorderLevel: 60, maximumStock: 500
         });
         const compId = compRes.data.data.id;
         createdIds.products.push(compId);
@@ -43,7 +43,7 @@ async function runE2E() {
         // 3. Create Finished Good Product
         console.log("3. Creating Finished Good Product...");
         const fgRes = await api.post(`${API_URL}/Products`, {
-            categoryId, unitId, name: "Audit_FG_1", productNumber: "FG-AUDIT-1", productType: 1, isActive: true, costPrice: 0, sellingPrice: 100, minimumStock: 10, reorderLevel: 20, maximumStock: 100
+            categoryId, unitId, name: `Audit_FG_${uniqueSuffix}`, productNumber: `F-AUD-${uniqueSuffix}`, productType: 1, isActive: true, costPrice: 0, sellingPrice: 100, minimumStock: 10, reorderLevel: 20, maximumStock: 100
         });
         const fgId = fgRes.data.data.id;
         createdIds.products.push(fgId);

@@ -139,4 +139,20 @@ public class PurchaseOrdersController : ControllerBase
             return BadRequest(ApiResponse.ErrorResponse(ex.Message));
         }
     }
+
+    [HttpPost("{id:guid}/send")]
+    [HasPermission("Permissions.PurchaseOrders.Submit")]
+    public async Task<IActionResult> Send(Guid id)
+    {
+        try
+        {
+            var po = await _purchaseOrderService.SendAsync(id);
+            if (po == null) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
+            return Ok(ApiResponse.SuccessResponse("Order sent.", po));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.ErrorResponse(ex.Message));
+        }
+    }
 }

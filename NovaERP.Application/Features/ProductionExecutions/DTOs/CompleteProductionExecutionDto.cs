@@ -11,4 +11,9 @@ public class CompleteProductionExecutionDto
     [Required]
     [Range(0, double.MaxValue, ErrorMessage = "Rejected quantity must be non-negative.")]
     public decimal RejectedQuantity { get; set; }
+
+    [Required(ErrorMessage = "Output warehouse is required.")]
+    public Guid OutputWarehouseId { get; set; }
+
+    public Guid? OutputWarehouseLocationId { get; set; }
 }

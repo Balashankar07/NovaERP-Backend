@@ -131,9 +131,15 @@ public class ProductService : IProductService
             MaximumStock = dto.MaximumStock,
             ReorderLevel = dto.ReorderLevel,
             ImageUrl = dto.ImageUrl,
-            Specifications = dto.Specifications,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Specifications = dto.Specifications.Select(s => new ProductSpecification
+            {
+                Id = Guid.NewGuid(),
+                AttributeName = s.AttributeName,
+                Value = s.Value,
+                DisplayOrder = s.DisplayOrder
+            }).ToList()
         };
 
         await _unitOfWork.Products.AddAsync(product);
@@ -207,9 +213,22 @@ public class ProductService : IProductService
         product.MaximumStock = dto.MaximumStock;
         product.ReorderLevel = dto.ReorderLevel;
         product.ImageUrl = dto.ImageUrl;
-        product.Specifications = dto.Specifications;
         product.IsActive = dto.IsActive;
         product.UpdatedAt = DateTime.UtcNow;
+
+        // Clear and rebuild specifications to prevent duplicates and handle updates seamlessly
+        product.Specifications.Clear();
+        foreach (var spec in dto.Specifications)
+        {
+            product.Specifications.Add(new ProductSpecification
+            {
+                Id = Guid.NewGuid(),
+                ProductId = product.Id,
+                AttributeName = spec.AttributeName,
+                Value = spec.Value,
+                DisplayOrder = spec.DisplayOrder
+            });
+        }
 
         await _unitOfWork.Products.UpdateAsync(product);
         await _unitOfWork.SaveChangesAsync();
@@ -460,8 +479,14 @@ public class ProductService : IProductService
             MaximumStock = product.MaximumStock,
             ReorderLevel = product.ReorderLevel,
             ImageUrl = product.ImageUrl,
-            Specifications = product.Specifications,
-            IsActive = product.IsActive
+            IsActive = product.IsActive,
+            Specifications = product.Specifications?.Select(s => new ProductSpecificationDto
+            {
+                Id = s.Id,
+                AttributeName = s.AttributeName,
+                Value = s.Value,
+                DisplayOrder = s.DisplayOrder
+            }).OrderBy(s => s.DisplayOrder).ToList() ?? new List<ProductSpecificationDto>()
         };
     }
 }

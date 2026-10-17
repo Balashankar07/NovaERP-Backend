@@ -13,4 +13,8 @@ public interface IBOMService
     Task<BOMDto?> UpdateAsync(Guid id, UpdateBOMDto dto);
 
     Task<bool> DeleteAsync(Guid id);
+
+    Task<bool> ActivateAsync(Guid id);
+
+    Task<bool> DeactivateAsync(Guid id);
 }

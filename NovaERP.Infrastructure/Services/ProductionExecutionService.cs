@@ -226,22 +226,46 @@ public class ProductionExecutionService : IProductionExecutionService
         // Release unused reservations before order is completed
         await _inventoryMovementService.ReleaseUnusedReservationsAsync(order.Id, currentUserId);
 
-        // Increase finished goods inventory
-        var warehouse = await _unitOfWork.Warehouses.GetDefaultWarehouseAsync();
-        if (warehouse == null)
-            throw new BadRequestException("No warehouse found to store finished goods.");
+        var warehouse = await _unitOfWork.Warehouses.GetByIdAsync(dto.OutputWarehouseId);
+        if (warehouse == null || !warehouse.IsActive)
+            throw new BadRequestException("Output warehouse must exist and be active.");
 
-        if (dto.ProducedQuantity > 0)
+        if (dto.OutputWarehouseLocationId.HasValue)
         {
-            await _inventoryMovementService.ReceiveAsync(
-                order.ProductId,
-                warehouse.Id,
-                null,
-                dto.ProducedQuantity,
-                InventoryReferenceType.Production,
-                execution.Id,
-                $"Produced from Execution {execution.ExecutionNumber}",
-                currentUserId);
+            var location = await _unitOfWork.WarehouseLocations.GetByIdAsync(dto.OutputWarehouseLocationId.Value);
+            if (location == null || !location.IsActive)
+                throw new BadRequestException("Output location must exist and be active.");
+            
+            if (location.WarehouseId != warehouse.Id)
+                throw new BadRequestException("Output location must belong to the selected output warehouse.");
+        }
+
+        execution.ProducedQuantity = dto.ProducedQuantity;
+        execution.RejectedQuantity = dto.RejectedQuantity;
+        execution.OutputWarehouseId = dto.OutputWarehouseId;
+        execution.OutputWarehouseLocationId = dto.OutputWarehouseLocationId;
+        execution.Status = ProductionExecutionStatus.Completed;
+        execution.CompletedAt = DateTime.UtcNow;
+        execution.UpdatedBy = currentUserId;
+        execution.UpdatedAt = DateTime.UtcNow;
+
+        if (dto.ProducedQuantity > 0 || dto.RejectedQuantity > 0)
+        {
+            var inspection = new QualityInspection
+            {
+                InspectionNumber = await _unitOfWork.QualityInspections.GenerateInspectionNumberAsync() ?? $"QI-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 4).ToUpper()}",
+                ProductionExecutionId = execution.Id,
+                ProductId = order.ProductId,
+                InspectedQuantity = dto.ProducedQuantity,
+                PassedQuantity = 0,
+                FailedQuantity = 0,
+                Status = QualityInspectionStatus.Draft,
+                OutputWarehouseId = dto.OutputWarehouseId,
+                OutputWarehouseLocationId = dto.OutputWarehouseLocationId,
+                Remarks = $"Auto-generated from Production Execution {execution.ExecutionNumber}"
+            };
+            
+            await _unitOfWork.QualityInspections.AddAsync(inspection);
         }
 
         order.CompletedQuantity += dto.ProducedQuantity;

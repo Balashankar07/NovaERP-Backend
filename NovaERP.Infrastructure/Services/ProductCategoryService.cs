@@ -2,17 +2,22 @@ using NovaERP.Application.Features.ProductCategories.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
+using NovaERP.Infrastructure.Persistence.Context;
+using NovaERP.Application.Common.Exceptions;
+using Microsoft.EntityFrameworkCore;
 
 namespace NovaERP.Infrastructure.Services;
 
 public class ProductCategoryService : IProductCategoryService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly AppDbContext _context;
     private readonly IAuditLogger _auditLogger;
 
-    public ProductCategoryService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public ProductCategoryService(IUnitOfWork unitOfWork, AppDbContext context, IAuditLogger auditLogger)
     {
         _unitOfWork = unitOfWork;
+        _context = context;
         _auditLogger = auditLogger;
     }
 
@@ -77,6 +82,11 @@ public class ProductCategoryService : IProductCategoryService
     {
         var category = await _unitOfWork.ProductCategories.GetByIdAsync(id);
         if (category == null) return false;
+
+        // Block if referenced by Products
+        var hasProducts = await _context.Products.AnyAsync(p => p.CategoryId == id);
+        if (hasProducts)
+            throw new ConflictException("Cannot delete Category because it is assigned to one or more products. Deactivate the category instead.");
 
         await _unitOfWork.ProductCategories.DeleteAsync(category);
         await _unitOfWork.SaveChangesAsync();

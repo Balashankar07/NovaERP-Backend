@@ -37,7 +37,7 @@ public class ProductDto
     public int ReorderLevel { get; set; }
 
     public string? ImageUrl { get; set; }
-    public string? Specifications { get; set; }
+    public List<ProductSpecificationDto> Specifications { get; set; } = new();
     public bool IsActive { get; set; }
 }
 
@@ -69,7 +69,7 @@ public class CreateProductDto
     public int ReorderLevel { get; set; }
 
     public string? ImageUrl { get; set; }
-    public string? Specifications { get; set; }
+    public List<ProductSpecificationDto> Specifications { get; set; } = new();
 }
 
 /// <summary>
@@ -99,6 +99,6 @@ public class UpdateProductDto
     public int ReorderLevel { get; set; }
 
     public string? ImageUrl { get; set; }
-    public string? Specifications { get; set; }
+    public List<ProductSpecificationDto> Specifications { get; set; } = new();
     public bool IsActive { get; set; }
 }

@@ -32,6 +32,31 @@ public class ReportService : IReportService
         return await _repository.GetProcurementSummaryAsync(_currentUserService.CompanyId, cancellationToken);
     }
 
+    public async Task<ProductionSummaryDto> GetProductionSummaryAsync(CancellationToken cancellationToken)
+    {
+        return await _repository.GetProductionSummaryAsync(_currentUserService.CompanyId, cancellationToken);
+    }
+
+    public async Task<QualitySummaryDto> GetQualitySummaryAsync(CancellationToken cancellationToken)
+    {
+        return await _repository.GetQualitySummaryAsync(_currentUserService.CompanyId, cancellationToken);
+    }
+
+    public async Task<SalesSummaryDto> GetSalesSummaryAsync(CancellationToken cancellationToken)
+    {
+        return await _repository.GetSalesSummaryAsync(_currentUserService.CompanyId, cancellationToken);
+    }
+
+    public async Task<DistributionSummaryDto> GetDistributionSummaryAsync(CancellationToken cancellationToken)
+    {
+        return await _repository.GetDistributionSummaryAsync(_currentUserService.CompanyId, cancellationToken);
+    }
+
+    public async Task<WarrantySummaryDto> GetWarrantySummaryAsync(CancellationToken cancellationToken)
+    {
+        return await _repository.GetWarrantySummaryAsync(_currentUserService.CompanyId, cancellationToken);
+    }
+
     public async Task<PagedResult<InventoryReportDto>> GetInventoryReportAsync(int pageNumber, int pageSize, string? searchTerm, string? sortBy, bool sortDescending, CancellationToken cancellationToken)
     {
         var query = _repository.GetInventoryReportQuery(_currentUserService.CompanyId);

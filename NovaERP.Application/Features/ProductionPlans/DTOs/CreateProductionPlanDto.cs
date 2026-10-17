@@ -9,6 +9,9 @@ public class CreateProductionPlanDto
     public Guid ProductId { get; set; }
 
     [Required]
+    public Guid BOMId { get; set; }
+
+    [Required]
     [Range(0.01, double.MaxValue, ErrorMessage = "PlannedQuantity must be greater than zero.")]
     public decimal PlannedQuantity { get; set; }
 

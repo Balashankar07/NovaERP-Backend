@@ -5,6 +5,7 @@ public class ProductionPlanDto
     public Guid Id { get; set; }
     public string PlanNumber { get; set; } = string.Empty;
     public Guid ProductId { get; set; }
+    public Guid? BOMId { get; set; }
     public string ProductCode { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
     public decimal PlannedQuantity { get; set; }

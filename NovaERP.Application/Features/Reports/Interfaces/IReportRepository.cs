@@ -6,6 +6,11 @@ public interface IReportRepository
 {
     Task<DashboardSummaryDto> GetDashboardSummaryAsync(Guid companyId, CancellationToken cancellationToken);
     Task<ProcurementSummaryDto> GetProcurementSummaryAsync(Guid companyId, CancellationToken cancellationToken);
+    Task<ProductionSummaryDto> GetProductionSummaryAsync(Guid companyId, CancellationToken cancellationToken);
+    Task<QualitySummaryDto> GetQualitySummaryAsync(Guid companyId, CancellationToken cancellationToken);
+    Task<SalesSummaryDto> GetSalesSummaryAsync(Guid companyId, CancellationToken cancellationToken);
+    Task<DistributionSummaryDto> GetDistributionSummaryAsync(Guid companyId, CancellationToken cancellationToken);
+    Task<WarrantySummaryDto> GetWarrantySummaryAsync(Guid companyId, CancellationToken cancellationToken);
     Task<InventorySummaryDto> GetInventorySummaryAsync(Guid companyId, CancellationToken cancellationToken);
     IQueryable<InventoryReportDto> GetInventoryReportQuery(Guid companyId);
     IQueryable<ProductionReportDto> GetProductionReportQuery(Guid companyId);

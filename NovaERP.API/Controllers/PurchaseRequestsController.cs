@@ -20,7 +20,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpGet]
-    [HasPermission("Permissions.PurchaseOrders.View")]
+    [HasPermission("Permissions.PurchaseRequests.View")]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] string? search = null, [FromQuery] string? sortBy = null, [FromQuery] string? sortOrder = null, [FromQuery] string? status = null, [FromQuery] string? priority = null, [FromQuery] string? source = null)
     {
         var result = await _purchaseRequestService.GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder, status, priority, source);
@@ -28,7 +28,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpGet("{id}")]
-    [HasPermission("Permissions.PurchaseOrders.View")]
+    [HasPermission("Permissions.PurchaseRequests.View")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var result = await _purchaseRequestService.GetByIdAsync(id);
@@ -36,7 +36,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPost]
-    [HasPermission("Permissions.PurchaseOrders.Create")]
+    [HasPermission("Permissions.PurchaseRequests.Create")]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseRequestDto dto)
     {
         var result = await _purchaseRequestService.CreateAsync(dto);
@@ -44,7 +44,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [HasPermission("Permissions.PurchaseOrders.Update")]
+    [HasPermission("Permissions.PurchaseRequests.Update")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdatePurchaseRequestDto dto)
     {
         var result = await _purchaseRequestService.UpdateAsync(id, dto);
@@ -52,7 +52,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [HasPermission("Permissions.PurchaseOrders.Delete")]
+    [HasPermission("Permissions.PurchaseRequests.Delete")]
     public async Task<IActionResult> Delete(Guid id)
     {
         await _purchaseRequestService.DeleteAsync(id);
@@ -60,7 +60,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPost("{id}/submit")]
-    [HasPermission("Permissions.PurchaseOrders.Submit")]
+    [HasPermission("Permissions.PurchaseRequests.Submit")]
     public async Task<IActionResult> Submit(Guid id)
     {
         var result = await _purchaseRequestService.SubmitAsync(id);
@@ -68,7 +68,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPost("{id}/approve")]
-    [HasPermission("Permissions.PurchaseOrders.Approve")]
+    [HasPermission("Permissions.PurchaseRequests.Approve")]
     public async Task<IActionResult> Approve(Guid id)
     {
         var result = await _purchaseRequestService.ApproveAsync(id);
@@ -76,7 +76,7 @@ public class PurchaseRequestsController : ControllerBase
     }
 
     [HttpPost("{id}/reject")]
-    [HasPermission("Permissions.PurchaseOrders.Reject")]
+    [HasPermission("Permissions.PurchaseRequests.Reject")]
     public async Task<IActionResult> Reject(Guid id, [FromBody] RejectPurchaseRequestDto dto)
     {
         var result = await _purchaseRequestService.RejectAsync(id, dto);

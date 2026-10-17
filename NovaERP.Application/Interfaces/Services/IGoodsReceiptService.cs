@@ -13,6 +13,5 @@ public interface IGoodsReceiptService
     
     // Status Transitions
     Task<GoodsReceiptDto?> ReceiveAsync(Guid id);
-    Task<GoodsReceiptDto?> CompleteAsync(Guid id);
     Task<GoodsReceiptDto?> CancelAsync(Guid id);
 }

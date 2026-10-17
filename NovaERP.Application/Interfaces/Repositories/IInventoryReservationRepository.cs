@@ -6,4 +6,5 @@ public interface IInventoryReservationRepository : IRepository<InventoryReservat
 {
     Task<IEnumerable<InventoryReservation>> GetByProductionOrderIdAsync(Guid productionOrderId);
     Task<IEnumerable<InventoryReservation>> GetActiveByProductionOrderIdAsync(Guid productionOrderId);
+    Task<IEnumerable<InventoryReservation>> GetActiveBySalesOrderIdAsync(Guid salesOrderId);
 }

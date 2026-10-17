@@ -19,5 +19,12 @@ public class ProductionExecution : AuditableEntity
     public string? Remarks { get; set; }
 
     public ProductionOrder? ProductionOrder { get; set; }
+
+    public Guid? OutputWarehouseId { get; set; }
+    public Warehouse? OutputWarehouse { get; set; }
+
+    public Guid? OutputWarehouseLocationId { get; set; }
+    public WarehouseLocation? OutputWarehouseLocation { get; set; }
+
     public ICollection<MaterialConsumption> MaterialConsumptions { get; set; } = new List<MaterialConsumption>();
 }

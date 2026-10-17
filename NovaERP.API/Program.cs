@@ -35,7 +35,10 @@ public class Program
 
             // Controllers
             Log.Information("Registering Controllers...");
-            builder.Services.AddControllers();
+            builder.Services.AddControllers().AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+            });
 
             // HttpContext
             Log.Information("Registering HttpContextAccessor...");
@@ -77,9 +80,10 @@ public class Program
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
                 Log.Information("Applying migrations and seeding database...");
-                await DbSeeder.SeedAsync(context);
+                await DbSeeder.SeedAsync(context, configuration);
             }
 
             Log.Information("Application Built Successfully.");

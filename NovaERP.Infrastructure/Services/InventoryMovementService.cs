@@ -58,17 +58,20 @@ public class InventoryMovementService : IInventoryMovementService
     {
         if (quantity <= 0) throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
 
-        var inventory = await _unitOfWork.Inventories.GetByProductAndLocationAsync(productId, warehouseId, locationId);
-        if (inventory == null)
-            throw new InvalidOperationException($"Insufficient inventory available for Product {productId}.");
+        Inventory? inventory = null;
+        InventoryReservation? reservation = null;
 
         if (reservationId.HasValue)
         {
-            var reservation = await _unitOfWork.InventoryReservations.GetByIdAsync(reservationId.Value);
+            reservation = await _unitOfWork.InventoryReservations.GetByIdAsync(reservationId.Value);
             if (reservation == null || reservation.Status == ReservationStatus.Released || reservation.Status == ReservationStatus.Consumed)
                 throw new InvalidOperationException($"Invalid or inactive reservation {reservationId}.");
 
-            if (reservation.InventoryId != inventory.Id)
+            inventory = await _unitOfWork.Inventories.GetByIdAsync(reservation.InventoryId);
+            if (inventory == null)
+                throw new InvalidOperationException($"Inventory for reservation {reservationId} not found.");
+
+            if (inventory.ProductId != productId || inventory.WarehouseId != warehouseId || inventory.WarehouseLocationId != locationId)
                 throw new InvalidOperationException($"Reservation {reservationId} is for a different inventory location.");
 
             decimal remainingReservation = reservation.QuantityReserved - reservation.QuantityConsumed;
@@ -89,6 +92,10 @@ public class InventoryMovementService : IInventoryMovementService
         }
         else
         {
+            inventory = await _unitOfWork.Inventories.GetByProductAndLocationAsync(productId, warehouseId, locationId);
+            if (inventory == null)
+                throw new InvalidOperationException($"Insufficient inventory available for Product {productId}.");
+
             if (inventory.QuantityAvailable < quantity)
                 throw new InvalidOperationException($"Insufficient inventory available for Product {productId}. Required: {quantity}, Available: {inventory.QuantityAvailable}");
 
@@ -101,7 +108,11 @@ public class InventoryMovementService : IInventoryMovementService
         AssertInvariants(inventory);
         _unitOfWork.Inventories.Update(inventory);
 
-        await AppendTransaction(inventory.Id, InventoryTransactionType.ProductionIssue, refType, refId, -quantity, inventory.QuantityOnHand, remarks, currentUserId);
+        var txnType = (refType == InventoryReferenceType.SalesOrder)
+            ? InventoryTransactionType.SalesIssue
+            : InventoryTransactionType.ProductionIssue;
+
+        await AppendTransaction(inventory.Id, txnType, refType, refId, -quantity, inventory.QuantityOnHand, remarks, currentUserId);
 
         return MapToDto(inventory);
     }
@@ -311,6 +322,90 @@ public class InventoryMovementService : IInventoryMovementService
                     AssertInvariants(inventory);
                     _unitOfWork.Inventories.Update(inventory);
                     await _auditLogger.LogAsync("Release", "Inventory", inventory.Id.ToString(), newValues: $"Released +{unusedQty} unused reservation for ProductionOrder {productionOrderId}");
+                }
+                reservation.QuantityReserved = reservation.QuantityConsumed;
+                reservation.Status = ReservationStatus.Released;
+                _unitOfWork.InventoryReservations.Update(reservation);
+            }
+
+            reservation.Status = ReservationStatus.Released;
+            reservation.ReleasedAt = DateTime.UtcNow;
+            reservation.UpdatedBy = currentUserId;
+            reservation.UpdatedAt = DateTime.UtcNow;
+            _unitOfWork.InventoryReservations.Update(reservation);
+        }
+    }
+
+    public async Task ReserveForSalesOrderItemAsync(Guid salesOrderId, Guid salesOrderItemId, Guid productId, decimal quantityRequired, Guid? currentUserId)
+    {
+        if (quantityRequired <= 0) return;
+
+        var inventories = await _unitOfWork.Inventories.GetByProductIdAsync(productId);
+        var availableInventories = inventories
+            .Where(i => i.QuantityAvailable > 0)
+            .OrderBy(i => i.CreatedAt)
+            .ToList();
+
+        decimal remainingToReserve = quantityRequired;
+
+        foreach (var inv in availableInventories)
+        {
+            if (remainingToReserve <= 0) break;
+
+            decimal qtyToReserveFromThisInv = Math.Min(remainingToReserve, inv.QuantityAvailable);
+
+            inv.QuantityReserved += qtyToReserveFromThisInv;
+            inv.QuantityAvailable = inv.QuantityOnHand - inv.QuantityReserved;
+            inv.LastStockUpdate = DateTime.UtcNow;
+
+            AssertInvariants(inv);
+            _unitOfWork.Inventories.Update(inv);
+
+            var reservation = new InventoryReservation
+            {
+                SalesOrderId = salesOrderId,
+                SalesOrderItemId = salesOrderItemId,
+                InventoryId = inv.Id,
+                ProductId = productId,
+                WarehouseId = inv.WarehouseId,
+                WarehouseLocationId = inv.WarehouseLocationId,
+                QuantityReserved = qtyToReserveFromThisInv,
+                QuantityConsumed = 0,
+                Status = ReservationStatus.Active,
+                CreatedBy = currentUserId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _unitOfWork.InventoryReservations.AddAsync(reservation);
+
+            remainingToReserve -= qtyToReserveFromThisInv;
+            await _auditLogger.LogAsync("Reserve", "Inventory", inv.Id.ToString(), newValues: $"Reserved -{qtyToReserveFromThisInv} for SalesOrder {salesOrderId}");
+        }
+
+        if (remainingToReserve > 0)
+        {
+            throw new InvalidOperationException($"Insufficient inventory available to reserve required quantity for product {productId}. Shortfall: {remainingToReserve}");
+        }
+    }
+
+    public async Task ReleaseUnusedSalesReservationsAsync(Guid salesOrderId, Guid? currentUserId)
+    {
+        var reservations = await _unitOfWork.InventoryReservations.GetActiveBySalesOrderIdAsync(salesOrderId);
+        foreach (var reservation in reservations)
+        {
+            decimal unusedQty = reservation.QuantityReserved - reservation.QuantityConsumed;
+            if (unusedQty > 0)
+            {
+                var inventory = await _unitOfWork.Inventories.GetByIdAsync(reservation.InventoryId);
+                if (inventory != null)
+                {
+                    inventory.QuantityReserved -= unusedQty;
+                    inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved;
+                    inventory.LastStockUpdate = DateTime.UtcNow;
+
+                    AssertInvariants(inventory);
+                    _unitOfWork.Inventories.Update(inventory);
+                    await _auditLogger.LogAsync("Release", "Inventory", inventory.Id.ToString(), newValues: $"Released +{unusedQty} unused reservation for SalesOrder {salesOrderId}");
                 }
                 reservation.QuantityReserved = reservation.QuantityConsumed;
                 reservation.Status = ReservationStatus.Released;

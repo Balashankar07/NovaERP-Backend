@@ -4,10 +4,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using NovaERP.Application.Features.Users.DTOs;
+using NovaERP.Application.Features.Roles.DTOs;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
 using NovaERP.Domain.Entities;
-using NovaERP.Application.Common.Helpers;
+
 
 namespace NovaERP.Application.Features.Users.Services;
 
@@ -65,14 +66,10 @@ public class UserService : IUserService
             AssignedRoles = u.UserRoles?.Select(ur => 
             {
                 var roleName = ur.Role?.Name ?? "Unknown";
-                var readiness = RoleReadinessEvaluator.Evaluate(roleName);
                 return new UserAssignedRoleDto
                 {
                     RoleId = ur.RoleId,
-                    RoleName = roleName,
-                    IsOperationallyReady = readiness.IsOperationallyReady,
-                    ReadinessReason = readiness.ReadinessReason,
-                    DashboardRoute = readiness.DashboardRoute
+                    RoleName = roleName
                 };
             }).ToList() ?? new List<UserAssignedRoleDto>()
         };
@@ -188,5 +185,118 @@ public class UserService : IUserService
         await _unitOfWork.SaveChangesAsync();
 
         await _auditLogger.LogAsync("Delete", "User", user.Id.ToString());
+    }
+
+    public async Task BulkDeleteAsync(IEnumerable<Guid> ids)
+    {
+        foreach (var id in ids)
+        {
+            var user = await _unitOfWork.Users.GetByIdAsync(id);
+            if (user != null && user.Email.ToLowerInvariant() != "balashankar07@gmail.com")
+            {
+                _unitOfWork.Users.Delete(user);
+                await _auditLogger.LogAsync("Delete", "User", user.Id.ToString());
+            }
+        }
+        await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task ActivateAsync(Guid id)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(id);
+        if (user == null) throw new ArgumentException("User not found.");
+        
+        user.IsActive = true;
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+        await _auditLogger.LogAsync("Activate", "User", user.Id.ToString());
+    }
+
+    public async Task DeactivateAsync(Guid id)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(id);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        if (user.Email.ToLowerInvariant() == "balashankar07@gmail.com")
+            throw new InvalidOperationException("Cannot deactivate the Super Admin user.");
+
+        user.IsActive = false;
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+        await _auditLogger.LogAsync("Deactivate", "User", user.Id.ToString());
+    }
+
+    public async Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        if (!_passwordHasher.VerifyPassword(currentPassword, user.PasswordHash))
+        {
+            throw new InvalidOperationException("Current password is incorrect.");
+        }
+
+        user.PasswordHash = _passwordHasher.HashPassword(newPassword);
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _auditLogger.LogAsync("ChangePassword", "User", user.Id.ToString());
+    }
+
+    public async Task<IEnumerable<RoleDto>> GetAssignedRolesAsync(Guid userId)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        return user.UserRoles?.Select(ur => new RoleDto
+        {
+            Id = ur.Role?.Id ?? Guid.Empty,
+            Name = ur.Role?.Name ?? "Unknown",
+            Description = ur.Role?.Description ?? "",
+            IsActive = ur.Role?.IsActive ?? false
+        }) ?? new List<RoleDto>();
+    }
+
+    public async Task AssignRolesAsync(Guid userId, AssignRoleDto dto)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        user.UserRoles ??= new List<UserRole>();
+        
+        // Add only the ones that don't exist
+        foreach (var roleId in dto.RoleIds)
+        {
+            if (!user.UserRoles.Any(ur => ur.RoleId == roleId))
+            {
+                var role = await _unitOfWork.Roles.GetByIdAsync(roleId);
+                if (role == null || !role.IsActive)
+                    throw new ArgumentException($"Role with ID {roleId} is invalid or inactive.");
+
+                user.UserRoles.Add(new UserRole { RoleId = roleId, UserId = userId });
+            }
+        }
+        
+        _unitOfWork.Users.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+        await _auditLogger.LogAsync("AssignRoles", "User", user.Id.ToString());
+    }
+
+    public async Task RemoveRoleAsync(Guid userId, Guid roleId)
+    {
+        var user = await _unitOfWork.Users.GetByIdAsync(userId);
+        if (user == null) throw new ArgumentException("User not found.");
+
+        if (user.UserRoles != null)
+        {
+            var roleToRemove = user.UserRoles.FirstOrDefault(ur => ur.RoleId == roleId);
+            if (roleToRemove != null)
+            {
+                user.UserRoles.Remove(roleToRemove);
+                _unitOfWork.Users.Update(user);
+                await _unitOfWork.SaveChangesAsync();
+                await _auditLogger.LogAsync("RemoveRole", "User", user.Id.ToString(), newValues: $"Removed RoleId: {roleId}");
+            }
+        }
     }
 }

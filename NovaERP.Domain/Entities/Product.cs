@@ -47,8 +47,13 @@ public class Product : AuditableEntity
 
     public string? ImageUrl { get; set; }
 
-    /// <summary>JSON blob storing product specifications. Context-aware per product type/name.</summary>
-    public string? Specifications { get; set; }
+    /// <summary>
+    /// Traceability configuration: None (default), Batch, or Serial.
+    /// </summary>
+    public TrackingMode TrackingMode { get; set; } = TrackingMode.None;
+
+    /// <summary>Structured collection of product specifications.</summary>
+    public ICollection<ProductSpecification> Specifications { get; set; } = new List<ProductSpecification>();
 
     public bool IsActive { get; set; } = true;
 }

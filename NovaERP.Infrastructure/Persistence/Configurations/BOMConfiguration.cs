@@ -19,6 +19,16 @@ public class BOMConfiguration : IEntityTypeConfiguration<BOM>
         builder.Property(x => x.Description)
             .HasMaxLength(500);
 
+        builder.Property(x => x.EffectiveDate)
+            .IsRequired();
+
+        builder.HasIndex(x => new { x.ProductId, x.Version })
+            .IsUnique();
+
+        builder.HasIndex(x => x.ProductId)
+            .IsUnique()
+            .HasFilter("\"IsActive\" = true");
+
         builder.HasOne(x => x.Product)
             .WithMany()
             .HasForeignKey(x => x.ProductId)

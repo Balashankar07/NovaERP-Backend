@@ -20,6 +20,7 @@ public class QualityInspectionRepository : IQualityInspectionRepository
         var query = _context.QualityInspections
             .Include(q => q.QualityDefects)
             .Include(q => q.ProductionExecution)
+            .Include(q => q.Product)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))

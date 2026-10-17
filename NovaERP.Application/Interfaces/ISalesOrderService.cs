@@ -12,5 +12,7 @@ public interface ISalesOrderService
     Task DeleteAsync(Guid id, Guid? currentUserId);
     Task<SalesOrderDto> SubmitAsync(Guid id, Guid? currentUserId);
     Task<SalesOrderDto> ApproveAsync(Guid id, Guid? currentUserId);
+    Task<SalesOrderDto> RejectAsync(Guid id, Guid? currentUserId);
+    Task<SalesOrderDto> ReserveAsync(Guid id, Guid? currentUserId);
     Task<SalesOrderDto> CancelAsync(Guid id, string reason, Guid? currentUserId);
 }

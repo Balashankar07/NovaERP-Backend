@@ -22,6 +22,54 @@ namespace NovaERP.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AttendanceDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<TimeSpan?>("CheckIn")
+                        .HasColumnType("interval");
+
+                    b.Property<TimeSpan?>("CheckOut")
+                        .HasColumnType("interval");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("WorkHours")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId", "AttendanceDate")
+                        .IsUnique();
+
+                    b.ToTable("AttendanceRecords");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -85,6 +133,9 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -104,7 +155,12 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductId");
+                    b.HasIndex("ProductId")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\" = true");
+
+                    b.HasIndex("ProductId", "Version")
+                        .IsUnique();
 
                     b.ToTable("BOMs", (string)null);
                 });
@@ -148,11 +204,12 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("BomId");
-
                     b.HasIndex("RawMaterialProductId");
 
                     b.HasIndex("UnitId");
+
+                    b.HasIndex("BomId", "RawMaterialProductId")
+                        .IsUnique();
 
                     b.ToTable("BOMItems", (string)null);
                 });
@@ -190,6 +247,135 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Brands", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CAPA", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CapaNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("CompletedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ContainmentAction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("CorrectiveAction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("NcrId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OwnerEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PreventiveAction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("RootCause")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("TargetDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VerificationNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CapaNumber")
+                        .IsUnique();
+
+                    b.HasIndex("NcrId");
+
+                    b.HasIndex("OwnerEmployeeId");
+
+                    b.ToTable("CAPAs", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ChartOfAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountCode")
+                        .IsUnique();
+
+                    b.ToTable("ChartOfAccounts");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.Company", b =>
@@ -273,6 +459,507 @@ namespace NovaERP.Infrastructure.Migrations
                     b.ToTable("Companies", (string)null);
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerInvoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AmountPaid")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("BalanceDue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerAddress")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("InvoiceDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.ToTable("CustomerInvoices");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerInvoiceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerInvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerInvoiceId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("CustomerInvoiceItems");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerRepairRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerReturnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FaultDescription")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReinspectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RepairAction")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RepairNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("ReturnAuthorizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SerialNumber")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WorkCenterId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedEmployeeId");
+
+                    b.HasIndex("CustomerReturnId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ReinspectionId");
+
+                    b.HasIndex("RepairNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ReturnAuthorizationId");
+
+                    b.HasIndex("WorkCenterId");
+
+                    b.ToTable("CustomerRepairRequests");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerReturn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RequestedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReturnNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarrantyClaimId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("ReturnNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.HasIndex("WarrantyClaimId");
+
+                    b.ToTable("CustomerReturns");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerReturnItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BatchNumber")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Condition")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerReturnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SerialNumber")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerReturnId");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("CustomerReturnItems");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.DeliveryChallan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Carrier")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ChallanNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DestinationAddress")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("DistributorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("IssuedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VehicleNumber")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChallanNumber")
+                        .IsUnique();
+
+                    b.HasIndex("DistributorId");
+
+                    b.HasIndex("IssuedByUserId");
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("DeliveryChallans", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.DeliveryChallanItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DeliveryChallanId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("SalesOrderItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SerialNumberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UnitOfMeasure")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("DeliveryChallanId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SalesOrderItemId");
+
+                    b.HasIndex("SerialNumberId");
+
+                    b.ToTable("DeliveryChallanItems", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Department", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DepartmentCode")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("DepartmentName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ManagerUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentCode")
+                        .IsUnique();
+
+                    b.HasIndex("DepartmentName")
+                        .IsUnique();
+
+                    b.HasIndex("ManagerUserId");
+
+                    b.ToTable("Departments");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.Distributor", b =>
                 {
                     b.Property<Guid>("Id")
@@ -323,6 +1010,81 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Distributors", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.EmployeeProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountNumber")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BankName")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("BaseSalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("DateOfJoining")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Designation")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("EmergencyContact")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmployeeCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("EmploymentType")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("EmployeeCode")
+                        .IsUnique();
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("EmployeeProfiles");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.GoodsReceipt", b =>
@@ -523,6 +1285,72 @@ namespace NovaERP.Infrastructure.Migrations
                     b.ToTable("Inventories");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.InventoryBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("BatchNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ExpiryDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ManufactureDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("QuantityAvailable")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("QuantityOnHand")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("QuantityReserved")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseLocationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("WarehouseLocationId");
+
+                    b.HasIndex("ProductId", "BatchNumber")
+                        .IsUnique();
+
+                    b.ToTable("InventoryBatches");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.InventoryReservation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -541,10 +1369,10 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ProductionOrderId")
+                    b.Property<Guid?>("ProductionOrderId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ProductionOrderRequirementId")
+                    b.Property<Guid?>("ProductionOrderRequirementId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("QuantityConsumed")
@@ -557,6 +1385,12 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.Property<DateTime?>("ReleasedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SalesOrderItemId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -583,11 +1417,85 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.HasIndex("ProductionOrderRequirementId");
 
+                    b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("SalesOrderItemId");
+
                     b.HasIndex("WarehouseId");
 
                     b.HasIndex("WarehouseLocationId");
 
                     b.ToTable("InventoryReservations", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.InventorySerialNumber", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CurrentReferenceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("CurrentReferenceType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("IssuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SerialNumber")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseLocationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SerialNumber")
+                        .IsUnique();
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("WarehouseLocationId");
+
+                    b.ToTable("InventorySerialNumbers");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.InventoryTransaction", b =>
@@ -633,6 +1541,258 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasDatabaseName("IX_InventoryTransaction_ReferenceId");
 
                     b.ToTable("InventoryTransactions");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.JournalEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("EntryDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EntryNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("SourceDocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceDocumentType")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("TotalCredit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalDebit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntryNumber")
+                        .IsUnique();
+
+                    b.ToTable("JournalEntries");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.JournalEntryLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("Credit")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("Debit")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.ToTable("JournalEntryLines");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.LeaveRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ApproverUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("DecisionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DecisionRemarks")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("LeaveTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("NumberOfDays")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApproverUserId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("LeaveTypeId");
+
+                    b.ToTable("LeaveRequests");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.LeaveType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("DefaultDaysPerYear")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("LeaveTypes");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Machine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Capacity")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Location")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MachineCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("MachineName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("MachineType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkCenterId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MachineCode")
+                        .IsUnique();
+
+                    b.HasIndex("WorkCenterId");
+
+                    b.ToTable("Machines", (string)null);
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.MaterialConsumption", b =>
@@ -683,6 +1843,491 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasIndex("ProductionExecutionId");
 
                     b.ToTable("MaterialConsumptions");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.NonConformanceReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedToUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime?>("ClosedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ClosureRemarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ContainmentAction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("CorrectiveAction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("DetectedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("NcrNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PreventiveAction")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProductionExecutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QualityInspectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReportedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RootCauseCategory")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("RootCauseDescription")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid?>("SerialNumberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Severity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedToUserId");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("NcrNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductionExecutionId");
+
+                    b.HasIndex("QualityInspectionId");
+
+                    b.HasIndex("ReportedByUserId");
+
+                    b.HasIndex("SerialNumberId");
+
+                    b.ToTable("NonConformanceReports", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Notification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ActionUrl")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DeduplicationKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("EntityId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EntityType")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecipientUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeduplicationKey");
+
+                    b.HasIndex("RecipientUserId", "IsRead");
+
+                    b.ToTable("Notifications", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PackingList", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DistributorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("PackageDimensions")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PackedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("PackingDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PackingListNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TotalPackages")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("TotalWeightKg")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DistributorId");
+
+                    b.HasIndex("PackedByUserId");
+
+                    b.HasIndex("PackingListNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("PackingLists", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PackingListItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<int>("PackageNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("PackingListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("SalesOrderItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SerialNumberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("PackingListId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SalesOrderItemId");
+
+                    b.HasIndex("SerialNumberId");
+
+                    b.ToTable("PackingListItems", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CustomerInvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("PaymentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PaymentMethod")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("PaymentNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("SupplierInvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TransactionReference")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerInvoiceId");
+
+                    b.HasIndex("PaymentNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SupplierInvoiceId");
+
+                    b.ToTable("Payments");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PayrollEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Allowances")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("ApprovalJournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("BaseSalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Deductions")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("GrossPay")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("NetPay")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("PaymentJournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PeriodId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalJournalEntryId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("PaymentJournalEntryId");
+
+                    b.HasIndex("PeriodId", "EmployeeId")
+                        .IsUnique();
+
+                    b.ToTable("PayrollEntries");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PayrollPeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("PeriodEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PeriodName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("PeriodStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PeriodName")
+                        .IsUnique();
+
+                    b.ToTable("PayrollPeriods");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.Permission", b =>
@@ -795,10 +2440,8 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Property<decimal>("SellingPrice")
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<string>("Specifications")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)")
-                        .HasColumnName("Specifications");
+                    b.Property<int>("TrackingMode")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer")
@@ -868,6 +2511,90 @@ namespace NovaERP.Infrastructure.Migrations
                     b.ToTable("ProductCategories", (string)null);
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductSpecification", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AttributeName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.ToTable("ProductSpecification");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("MachineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductionExecutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("MachineId");
+
+                    b.HasIndex("ProductionExecutionId");
+
+                    b.ToTable("ProductionEvents", (string)null);
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.ProductionExecution", b =>
                 {
                     b.Property<Guid>("Id")
@@ -887,6 +2614,12 @@ namespace NovaERP.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("OutputWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OutputWarehouseLocationId")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("ProducedQuantity")
                         .HasPrecision(18, 4)
@@ -920,6 +2653,10 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasIndex("ExecutionNumber")
                         .IsUnique();
 
+                    b.HasIndex("OutputWarehouseId");
+
+                    b.HasIndex("OutputWarehouseLocationId");
+
                     b.HasIndex("ProductionOrderId");
 
                     b.ToTable("ProductionExecutions");
@@ -936,6 +2673,9 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.Property<DateTime?>("ActualStartDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("BOMId")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("CompletedQuantity")
                         .HasPrecision(18, 2)
@@ -1002,6 +2742,8 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BOMId");
+
                     b.HasIndex("ProductId");
 
                     b.HasIndex("ProductionOrderNumber")
@@ -1065,6 +2807,9 @@ namespace NovaERP.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("BOMId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1105,6 +2850,8 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("BOMId");
 
                     b.HasIndex("PlanNumber")
                         .IsUnique()
@@ -1151,6 +2898,212 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasIndex("UnitId");
 
                     b.ToTable("ProductionRequirements");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionRouting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("ProductionRoutings", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionRoutingOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("MachineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OperationName")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<Guid>("RoutingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SetupDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StandardDurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkCenterId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MachineId");
+
+                    b.HasIndex("WorkCenterId");
+
+                    b.HasIndex("RoutingId", "SequenceNumber")
+                        .IsUnique();
+
+                    b.ToTable("ProductionRoutingOperations", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ActualEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ActualStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("MachineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OperationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("PlannedEnd")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("PlannedStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProductionOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WorkCenterId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MachineId");
+
+                    b.HasIndex("OperationId");
+
+                    b.HasIndex("ProductionOrderId");
+
+                    b.HasIndex("WorkCenterId");
+
+                    b.ToTable("ProductionSchedules", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionWorkerAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("EndTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProductionExecutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RoleOrFunction")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("StartTime")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("ProductionExecutionId");
+
+                    b.ToTable("ProductionWorkerAssignments", (string)null);
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.PurchaseOrder", b =>
@@ -1249,6 +3202,10 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Quantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ReceivedQuantity")
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Remarks")
@@ -1454,6 +3411,95 @@ namespace NovaERP.Infrastructure.Migrations
                     b.ToTable("QualityDefects", (string)null);
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.QualityDisposition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DispositionNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("DispositionType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("NcrId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QualityInspectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid?>("SerialNumberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseLocationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("DispositionNumber")
+                        .IsUnique();
+
+                    b.HasIndex("NcrId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("QualityInspectionId");
+
+                    b.HasIndex("SerialNumberId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("WarehouseLocationId");
+
+                    b.ToTable("QualityDispositions", (string)null);
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.QualityInspection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1485,6 +3531,12 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Property<Guid?>("InspectorId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("OutputWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OutputWarehouseLocationId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("PassedQuantity")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -1492,7 +3544,7 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ProductionExecutionId")
+                    b.Property<Guid?>("ProductionExecutionId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Remarks")
@@ -1500,6 +3552,7 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasColumnType("character varying(1000)");
 
                     b.Property<int>("Status")
+                        .IsConcurrencyToken()
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1515,11 +3568,380 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.HasIndex("InspectorId");
 
+                    b.HasIndex("OutputWarehouseId");
+
+                    b.HasIndex("OutputWarehouseLocationId");
+
                     b.HasIndex("ProductId");
 
                     b.HasIndex("ProductionExecutionId");
 
                     b.ToTable("QualityInspections", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReplacementOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerReturnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ReplacementNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("ReservationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerReturnId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ReplacementNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ShipmentId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("ReplacementOrders");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReturnAuthorization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AuthorizationDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AuthorizedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerReturnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Instructions")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RmaNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorizedByUserId");
+
+                    b.HasIndex("CustomerReturnId")
+                        .IsUnique();
+
+                    b.HasIndex("RmaNumber")
+                        .IsUnique();
+
+                    b.ToTable("ReturnAuthorizations");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReturnDisposition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerReturnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DispositionNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("DispositionType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ExecutedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ReturnReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("CustomerReturnId");
+
+                    b.HasIndex("DispositionNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ReturnReceiptId");
+
+                    b.ToTable("ReturnDispositions");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReturnReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BatchNumber")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Condition")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerReturnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("QualityInspectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("ReceiptNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("ReceivedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReceivedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReturnAuthorizationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SerialNumber")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseLocationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerReturnId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("QualityInspectionId");
+
+                    b.HasIndex("ReceiptNumber")
+                        .IsUnique();
+
+                    b.HasIndex("ReceivedByUserId");
+
+                    b.HasIndex("ReturnAuthorizationId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("WarehouseLocationId");
+
+                    b.ToTable("ReturnReceipts");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReworkRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedEmployeeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssignedWorkCenterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletionDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("NcrId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProductionExecutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QualityInspectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("ReworkNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("StartDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("AssignedEmployeeId");
+
+                    b.HasIndex("AssignedWorkCenterId");
+
+                    b.HasIndex("NcrId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductionExecutionId");
+
+                    b.HasIndex("QualityInspectionId");
+
+                    b.HasIndex("ReworkNumber")
+                        .IsUnique();
+
+                    b.ToTable("ReworkRequests", (string)null);
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.Role", b =>
@@ -1600,11 +4022,21 @@ namespace NovaERP.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BillingAddress")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("DistributorId")
                         .HasColumnType("uuid");
@@ -1617,12 +4049,27 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("Remarks")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RequiredDeliveryDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ShippingAddress")
+                        .HasColumnType("text");
+
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
+                    b.Property<decimal>("Subtotal")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("TotalAmount")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1652,23 +4099,39 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("Discount")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("ReservedQuantity")
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid>("SalesOrderId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("ShippedQuantity")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("Tax")
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<decimal>("TotalPrice")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(18, 2)
-                        .HasColumnType("numeric(18,2)");
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -1683,6 +4146,96 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasIndex("SalesOrderId");
 
                     b.ToTable("SalesOrderItems", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ScrapRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ApprovedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("NcrId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("QualityInspectionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Remarks")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ScrapDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ScrapNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid?>("SerialNumberId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseLocationId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedByUserId");
+
+                    b.HasIndex("BatchId");
+
+                    b.HasIndex("NcrId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("QualityInspectionId");
+
+                    b.HasIndex("ScrapNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SerialNumberId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("WarehouseLocationId");
+
+                    b.ToTable("ScrapRecords", (string)null);
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.Shipment", b =>
@@ -1732,6 +4285,74 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasIndex("SalesOrderId");
 
                     b.ToTable("Shipments");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ShipmentDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CustomerInvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeliveryChallanId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("DocumentDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DocumentNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("GeneratedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PackingListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("StorageReference")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerInvoiceId");
+
+                    b.HasIndex("DeliveryChallanId");
+
+                    b.HasIndex("GeneratedByUserId");
+
+                    b.HasIndex("PackingListId");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.ToTable("ShipmentDocuments", (string)null);
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.ShipmentItem", b =>
@@ -1878,6 +4499,122 @@ namespace NovaERP.Infrastructure.Migrations
                     b.ToTable("Suppliers");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.SupplierInvoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AmountPaid")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("BalanceDue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("GoodsReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("InvoiceDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PurchaseOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("SupplierId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("TaxAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoodsReceiptId");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("SupplierInvoices");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.SupplierInvoiceItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("LineTotal")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SupplierInvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SupplierInvoiceId");
+
+                    b.ToTable("SupplierInvoiceItems");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.SupplierProduct", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1942,6 +4679,61 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasFilter("\"IsActive\" = true");
 
                     b.ToTable("SupplierProducts");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.SupplierScorecardConfig", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CommercialWeight")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("DeliveryWeight")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("FulfillmentWeight")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("GradeAThreshold")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("GradeBThreshold")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal>("GradeCThreshold")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<string>("Notes")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("QualityWeight")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SupplierScorecardConfigs", (string)null);
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.Unit", b =>
@@ -2050,6 +4842,41 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasFilter("\"GoogleSubjectId\" IS NOT NULL");
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.UserNotificationPreference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("NotificationType")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "NotificationType")
+                        .IsUnique();
+
+                    b.ToTable("UserNotificationPreferences", (string)null);
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.UserRole", b =>
@@ -2197,6 +5024,9 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<Guid?>("ParentLocationId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Rack")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
@@ -2204,6 +5034,9 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Property<string>("Shelf")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -2219,6 +5052,8 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ParentLocationId");
 
                     b.HasIndex("WarehouseId", "LocationCode")
                         .IsUnique();
@@ -2329,6 +5164,73 @@ namespace NovaERP.Infrastructure.Migrations
                     b.ToTable("ServiceRequests", (string)null);
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.WorkCenter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Capacity")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.ToTable("WorkCenters", (string)null);
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.AttendanceRecord", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "Employee")
+                        .WithMany("AttendanceRecords")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.AuditLog", b =>
                 {
                     b.HasOne("NovaERP.Domain.Entities.User", "User")
@@ -2375,6 +5277,274 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("RawMaterialProduct");
 
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CAPA", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.NonConformanceReport", "NonConformanceReport")
+                        .WithMany("CAPAs")
+                        .HasForeignKey("NcrId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "OwnerEmployee")
+                        .WithMany()
+                        .HasForeignKey("OwnerEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("NonConformanceReport");
+
+                    b.Navigation("OwnerEmployee");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerInvoice", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Distributor", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId");
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrder", "SalesOrder")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderId");
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("SalesOrder");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerInvoiceItem", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.CustomerInvoice", "CustomerInvoice")
+                        .WithMany("Items")
+                        .HasForeignKey("CustomerInvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId");
+
+                    b.Navigation("CustomerInvoice");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerRepairRequest", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "AssignedEmployee")
+                        .WithMany()
+                        .HasForeignKey("AssignedEmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.CustomerReturn", "CustomerReturn")
+                        .WithMany("Repairs")
+                        .HasForeignKey("CustomerReturnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.QualityInspection", "Reinspection")
+                        .WithMany()
+                        .HasForeignKey("ReinspectionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.ReturnAuthorization", "ReturnAuthorization")
+                        .WithMany()
+                        .HasForeignKey("ReturnAuthorizationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.WorkCenter", "WorkCenter")
+                        .WithMany()
+                        .HasForeignKey("WorkCenterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("AssignedEmployee");
+
+                    b.Navigation("CustomerReturn");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Reinspection");
+
+                    b.Navigation("ReturnAuthorization");
+
+                    b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerReturn", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.Distributor", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrder", "SalesOrder")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Shipment", "Shipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.WarrantyClaim", "WarrantyClaim")
+                        .WithMany()
+                        .HasForeignKey("WarrantyClaimId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("SalesOrder");
+
+                    b.Navigation("Shipment");
+
+                    b.Navigation("WarrantyClaim");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerReturnItem", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.CustomerReturn", "CustomerReturn")
+                        .WithMany("Items")
+                        .HasForeignKey("CustomerReturnId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CustomerReturn");
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.DeliveryChallan", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Distributor", "Customer")
+                        .WithMany()
+                        .HasForeignKey("DistributorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.User", "IssuedByUser")
+                        .WithMany()
+                        .HasForeignKey("IssuedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrder", "SalesOrder")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Shipment", "Shipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("IssuedByUser");
+
+                    b.Navigation("SalesOrder");
+
+                    b.Navigation("Shipment");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.DeliveryChallanItem", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.InventoryBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.DeliveryChallan", "DeliveryChallan")
+                        .WithMany("Items")
+                        .HasForeignKey("DeliveryChallanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrderItem", "SalesOrderItem")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.InventorySerialNumber", "SerialNumber")
+                        .WithMany()
+                        .HasForeignKey("SerialNumberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("DeliveryChallan");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("SalesOrderItem");
+
+                    b.Navigation("SerialNumber");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Department", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "ManagerUser")
+                        .WithMany()
+                        .HasForeignKey("ManagerUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ManagerUser");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.EmployeeProfile", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Department", "Department")
+                        .WithMany("Employees")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Department");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.GoodsReceipt", b =>
@@ -2461,6 +5631,32 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("WarehouseLocation");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.InventoryBatch", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "WarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Warehouse");
+
+                    b.Navigation("WarehouseLocation");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.InventoryReservation", b =>
                 {
                     b.HasOne("NovaERP.Domain.Entities.Inventory", "Inventory")
@@ -2478,14 +5674,20 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasOne("NovaERP.Domain.Entities.ProductionOrder", "ProductionOrder")
                         .WithMany("Reservations")
                         .HasForeignKey("ProductionOrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("NovaERP.Domain.Entities.ProductionOrderRequirement", "ProductionOrderRequirement")
                         .WithMany("Reservations")
                         .HasForeignKey("ProductionOrderRequirementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrder", "SalesOrder")
+                        .WithMany("InventoryReservations")
+                        .HasForeignKey("SalesOrderId");
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrderItem", "SalesOrderItem")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderItemId");
 
                     b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
                         .WithMany()
@@ -2506,6 +5708,43 @@ namespace NovaERP.Infrastructure.Migrations
 
                     b.Navigation("ProductionOrderRequirement");
 
+                    b.Navigation("SalesOrder");
+
+                    b.Navigation("SalesOrderItem");
+
+                    b.Navigation("Warehouse");
+
+                    b.Navigation("WarehouseLocation");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.InventorySerialNumber", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.InventoryBatch", "Batch")
+                        .WithMany("SerialNumbers")
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "WarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Product");
+
                     b.Navigation("Warehouse");
 
                     b.Navigation("WarehouseLocation");
@@ -2520,6 +5759,62 @@ namespace NovaERP.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Inventory");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.JournalEntryLine", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.ChartOfAccount", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.JournalEntry", "JournalEntry")
+                        .WithMany("Lines")
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("JournalEntry");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.LeaveRequest", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "ApproverUser")
+                        .WithMany()
+                        .HasForeignKey("ApproverUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "Employee")
+                        .WithMany("LeaveRequests")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.LeaveType", "LeaveType")
+                        .WithMany()
+                        .HasForeignKey("LeaveTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApproverUser");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("LeaveType");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Machine", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.WorkCenter", "WorkCenter")
+                        .WithMany("Machines")
+                        .HasForeignKey("WorkCenterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("WorkCenter");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.MaterialConsumption", b =>
@@ -2549,6 +5844,204 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("ProductionExecution");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.NonConformanceReport", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "AssignedToUser")
+                        .WithMany()
+                        .HasForeignKey("AssignedToUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.InventoryBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.ProductionExecution", "ProductionExecution")
+                        .WithMany()
+                        .HasForeignKey("ProductionExecutionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.QualityInspection", "QualityInspection")
+                        .WithMany()
+                        .HasForeignKey("QualityInspectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.User", "ReportedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.InventorySerialNumber", "SerialNumber")
+                        .WithMany()
+                        .HasForeignKey("SerialNumberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AssignedToUser");
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ProductionExecution");
+
+                    b.Navigation("QualityInspection");
+
+                    b.Navigation("ReportedByUser");
+
+                    b.Navigation("SerialNumber");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("RecipientUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RecipientUser");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PackingList", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Distributor", "Customer")
+                        .WithMany()
+                        .HasForeignKey("DistributorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.User", "PackedByUser")
+                        .WithMany()
+                        .HasForeignKey("PackedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrder", "SalesOrder")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Shipment", "Shipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("PackedByUser");
+
+                    b.Navigation("SalesOrder");
+
+                    b.Navigation("Shipment");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PackingListItem", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.InventoryBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.PackingList", "PackingList")
+                        .WithMany("Items")
+                        .HasForeignKey("PackingListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.SalesOrderItem", "SalesOrderItem")
+                        .WithMany()
+                        .HasForeignKey("SalesOrderItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.InventorySerialNumber", "SerialNumber")
+                        .WithMany()
+                        .HasForeignKey("SerialNumberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("PackingList");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("SalesOrderItem");
+
+                    b.Navigation("SerialNumber");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Payment", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.CustomerInvoice", "CustomerInvoice")
+                        .WithMany()
+                        .HasForeignKey("CustomerInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.SupplierInvoice", "SupplierInvoice")
+                        .WithMany()
+                        .HasForeignKey("SupplierInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CustomerInvoice");
+
+                    b.Navigation("SupplierInvoice");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PayrollEntry", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.JournalEntry", "ApprovalJournalEntry")
+                        .WithMany()
+                        .HasForeignKey("ApprovalJournalEntryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "Employee")
+                        .WithMany("PayrollEntries")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.JournalEntry", "PaymentJournalEntry")
+                        .WithMany()
+                        .HasForeignKey("PaymentJournalEntryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.PayrollPeriod", "Period")
+                        .WithMany("Entries")
+                        .HasForeignKey("PeriodId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ApprovalJournalEntry");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("PaymentJournalEntry");
+
+                    b.Navigation("Period");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.Product", b =>
                 {
                     b.HasOne("NovaERP.Domain.Entities.Brand", "Brand")
@@ -2576,19 +6069,74 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Unit");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductSpecification", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany("Specifications")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionEvent", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.Machine", "Machine")
+                        .WithMany()
+                        .HasForeignKey("MachineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.ProductionExecution", "ProductionExecution")
+                        .WithMany()
+                        .HasForeignKey("ProductionExecutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Machine");
+
+                    b.Navigation("ProductionExecution");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.ProductionExecution", b =>
                 {
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "OutputWarehouse")
+                        .WithMany()
+                        .HasForeignKey("OutputWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "OutputWarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("OutputWarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("NovaERP.Domain.Entities.ProductionOrder", "ProductionOrder")
                         .WithMany("ProductionExecutions")
                         .HasForeignKey("ProductionOrderId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.Navigation("OutputWarehouse");
+
+                    b.Navigation("OutputWarehouseLocation");
+
                     b.Navigation("ProductionOrder");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.ProductionOrder", b =>
                 {
+                    b.HasOne("NovaERP.Domain.Entities.BOM", "BOM")
+                        .WithMany()
+                        .HasForeignKey("BOMId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("NovaERP.Domain.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
@@ -2600,6 +6148,8 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasForeignKey("ProductionPlanId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("BOM");
 
                     b.Navigation("Product");
 
@@ -2634,11 +6184,18 @@ namespace NovaERP.Infrastructure.Migrations
 
             modelBuilder.Entity("NovaERP.Domain.Entities.ProductionPlan", b =>
                 {
+                    b.HasOne("NovaERP.Domain.Entities.BOM", "BOM")
+                        .WithMany()
+                        .HasForeignKey("BOMId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("NovaERP.Domain.Entities.Product", "Product")
                         .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("BOM");
 
                     b.Navigation("Product");
                 });
@@ -2667,6 +6224,95 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("ProductionPlan");
 
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionRouting", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionRoutingOperation", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Machine", "Machine")
+                        .WithMany()
+                        .HasForeignKey("MachineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.ProductionRouting", "Routing")
+                        .WithMany("Operations")
+                        .HasForeignKey("RoutingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.WorkCenter", "WorkCenter")
+                        .WithMany()
+                        .HasForeignKey("WorkCenterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Machine");
+
+                    b.Navigation("Routing");
+
+                    b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionSchedule", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Machine", "Machine")
+                        .WithMany()
+                        .HasForeignKey("MachineId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.ProductionRoutingOperation", "Operation")
+                        .WithMany()
+                        .HasForeignKey("OperationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.ProductionOrder", "ProductionOrder")
+                        .WithMany()
+                        .HasForeignKey("ProductionOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.WorkCenter", "WorkCenter")
+                        .WithMany()
+                        .HasForeignKey("WorkCenterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Machine");
+
+                    b.Navigation("Operation");
+
+                    b.Navigation("ProductionOrder");
+
+                    b.Navigation("WorkCenter");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionWorkerAssignment", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.ProductionExecution", "ProductionExecution")
+                        .WithMany()
+                        .HasForeignKey("ProductionExecutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("ProductionExecution");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.PurchaseOrder", b =>
@@ -2736,11 +6382,83 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("QualityInspection");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.QualityDisposition", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.InventoryBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.NonConformanceReport", "NonConformanceReport")
+                        .WithMany("QualityDispositions")
+                        .HasForeignKey("NcrId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.QualityInspection", "QualityInspection")
+                        .WithMany()
+                        .HasForeignKey("QualityInspectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.InventorySerialNumber", "SerialNumber")
+                        .WithMany()
+                        .HasForeignKey("SerialNumberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "WarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("NonConformanceReport");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("QualityInspection");
+
+                    b.Navigation("SerialNumber");
+
+                    b.Navigation("Warehouse");
+
+                    b.Navigation("WarehouseLocation");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.QualityInspection", b =>
                 {
                     b.HasOne("NovaERP.Domain.Entities.User", "Inspector")
                         .WithMany()
                         .HasForeignKey("InspectorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "OutputWarehouse")
+                        .WithMany()
+                        .HasForeignKey("OutputWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "OutputWarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("OutputWarehouseLocationId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("NovaERP.Domain.Entities.Product", "Product")
@@ -2752,14 +6470,212 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasOne("NovaERP.Domain.Entities.ProductionExecution", "ProductionExecution")
                         .WithMany()
                         .HasForeignKey("ProductionExecutionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Inspector");
+
+                    b.Navigation("OutputWarehouse");
+
+                    b.Navigation("OutputWarehouseLocation");
 
                     b.Navigation("Product");
 
                     b.Navigation("ProductionExecution");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReplacementOrder", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.CustomerReturn", "CustomerReturn")
+                        .WithMany("Replacements")
+                        .HasForeignKey("CustomerReturnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Shipment", "Shipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CustomerReturn");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Shipment");
+
+                    b.Navigation("Warehouse");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReturnAuthorization", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "AuthorizedByUser")
+                        .WithMany()
+                        .HasForeignKey("AuthorizedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.CustomerReturn", "CustomerReturn")
+                        .WithOne("RMA")
+                        .HasForeignKey("NovaERP.Domain.Entities.ReturnAuthorization", "CustomerReturnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AuthorizedByUser");
+
+                    b.Navigation("CustomerReturn");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReturnDisposition", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.CustomerReturn", "CustomerReturn")
+                        .WithMany("Dispositions")
+                        .HasForeignKey("CustomerReturnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.ReturnReceipt", "ReturnReceipt")
+                        .WithMany()
+                        .HasForeignKey("ReturnReceiptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("CustomerReturn");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ReturnReceipt");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReturnReceipt", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.CustomerReturn", "CustomerReturn")
+                        .WithMany("Receipts")
+                        .HasForeignKey("CustomerReturnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.QualityInspection", "QualityInspection")
+                        .WithMany()
+                        .HasForeignKey("QualityInspectionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.User", "ReceivedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReceivedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.ReturnAuthorization", "ReturnAuthorization")
+                        .WithMany()
+                        .HasForeignKey("ReturnAuthorizationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "WarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CustomerReturn");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("QualityInspection");
+
+                    b.Navigation("ReceivedByUser");
+
+                    b.Navigation("ReturnAuthorization");
+
+                    b.Navigation("Warehouse");
+
+                    b.Navigation("WarehouseLocation");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ReworkRequest", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.EmployeeProfile", "AssignedEmployee")
+                        .WithMany()
+                        .HasForeignKey("AssignedEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.WorkCenter", "AssignedWorkCenter")
+                        .WithMany()
+                        .HasForeignKey("AssignedWorkCenterId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.NonConformanceReport", "NonConformanceReport")
+                        .WithMany("ReworkRequests")
+                        .HasForeignKey("NcrId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.ProductionExecution", "ProductionExecution")
+                        .WithMany()
+                        .HasForeignKey("ProductionExecutionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.QualityInspection", "QualityInspection")
+                        .WithMany()
+                        .HasForeignKey("QualityInspectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("AssignedEmployee");
+
+                    b.Navigation("AssignedWorkCenter");
+
+                    b.Navigation("NonConformanceReport");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ProductionExecution");
+
+                    b.Navigation("QualityInspection");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.RolePermission", b =>
@@ -2811,6 +6727,68 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("SalesOrder");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.ScrapRecord", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "ApprovedByUser")
+                        .WithMany()
+                        .HasForeignKey("ApprovedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.InventoryBatch", "Batch")
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.NonConformanceReport", "NonConformanceReport")
+                        .WithMany("ScrapRecords")
+                        .HasForeignKey("NcrId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.QualityInspection", "QualityInspection")
+                        .WithMany()
+                        .HasForeignKey("QualityInspectionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.InventorySerialNumber", "SerialNumber")
+                        .WithMany()
+                        .HasForeignKey("SerialNumberId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "WarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("WarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ApprovedByUser");
+
+                    b.Navigation("Batch");
+
+                    b.Navigation("NonConformanceReport");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("QualityInspection");
+
+                    b.Navigation("SerialNumber");
+
+                    b.Navigation("Warehouse");
+
+                    b.Navigation("WarehouseLocation");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.Shipment", b =>
                 {
                     b.HasOne("NovaERP.Domain.Entities.SalesOrder", "SalesOrder")
@@ -2820,6 +6798,45 @@ namespace NovaERP.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("SalesOrder");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.ShipmentDocument", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.CustomerInvoice", "CustomerInvoice")
+                        .WithMany()
+                        .HasForeignKey("CustomerInvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.DeliveryChallan", "DeliveryChallan")
+                        .WithMany()
+                        .HasForeignKey("DeliveryChallanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.User", "GeneratedByUser")
+                        .WithMany()
+                        .HasForeignKey("GeneratedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("NovaERP.Domain.Entities.PackingList", "PackingList")
+                        .WithMany()
+                        .HasForeignKey("PackingListId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.Shipment", "Shipment")
+                        .WithMany()
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CustomerInvoice");
+
+                    b.Navigation("DeliveryChallan");
+
+                    b.Navigation("GeneratedByUser");
+
+                    b.Navigation("PackingList");
+
+                    b.Navigation("Shipment");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.ShipmentItem", b =>
@@ -2839,6 +6856,46 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("Shipment");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.SupplierInvoice", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.GoodsReceipt", "GoodsReceipt")
+                        .WithMany()
+                        .HasForeignKey("GoodsReceiptId");
+
+                    b.HasOne("NovaERP.Domain.Entities.PurchaseOrder", "PurchaseOrder")
+                        .WithMany()
+                        .HasForeignKey("PurchaseOrderId");
+
+                    b.HasOne("NovaERP.Domain.Entities.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("GoodsReceipt");
+
+                    b.Navigation("PurchaseOrder");
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.SupplierInvoiceItem", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId");
+
+                    b.HasOne("NovaERP.Domain.Entities.SupplierInvoice", "SupplierInvoice")
+                        .WithMany("Items")
+                        .HasForeignKey("SupplierInvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("SupplierInvoice");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.SupplierProduct", b =>
@@ -2871,6 +6928,17 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.UserNotificationPreference", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.UserRole", b =>
                 {
                     b.HasOne("NovaERP.Domain.Entities.Role", "Role")
@@ -2892,11 +6960,18 @@ namespace NovaERP.Infrastructure.Migrations
 
             modelBuilder.Entity("NovaERP.Domain.Entities.WarehouseLocation", b =>
                 {
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "ParentLocation")
+                        .WithMany("ChildLocations")
+                        .HasForeignKey("ParentLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
                         .WithMany("Locations")
                         .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ParentLocation");
 
                     b.Navigation("Warehouse");
                 });
@@ -2931,6 +7006,23 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Warranty");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.WorkCenter", b =>
+                {
+                    b.HasOne("NovaERP.Domain.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.Warehouse", "Warehouse")
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Warehouse");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.BOM", b =>
                 {
                     b.Navigation("BOMItems");
@@ -2946,9 +7038,48 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Users");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerInvoice", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.CustomerReturn", b =>
+                {
+                    b.Navigation("Dispositions");
+
+                    b.Navigation("Items");
+
+                    b.Navigation("RMA");
+
+                    b.Navigation("Receipts");
+
+                    b.Navigation("Repairs");
+
+                    b.Navigation("Replacements");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.DeliveryChallan", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Department", b =>
+                {
+                    b.Navigation("Employees");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.Distributor", b =>
                 {
                     b.Navigation("SalesOrders");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.EmployeeProfile", b =>
+                {
+                    b.Navigation("AttendanceRecords");
+
+                    b.Navigation("LeaveRequests");
+
+                    b.Navigation("PayrollEntries");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.GoodsReceipt", b =>
@@ -2961,9 +7092,45 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Transactions");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.InventoryBatch", b =>
+                {
+                    b.Navigation("SerialNumbers");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.JournalEntry", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.NonConformanceReport", b =>
+                {
+                    b.Navigation("CAPAs");
+
+                    b.Navigation("QualityDispositions");
+
+                    b.Navigation("ReworkRequests");
+
+                    b.Navigation("ScrapRecords");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PackingList", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.PayrollPeriod", b =>
+                {
+                    b.Navigation("Entries");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.Permission", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.Product", b =>
+                {
+                    b.Navigation("Specifications");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.ProductCategory", b =>
@@ -2995,6 +7162,11 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Requirements");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.ProductionRouting", b =>
+                {
+                    b.Navigation("Operations");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.PurchaseOrder", b =>
                 {
                     b.Navigation("Items");
@@ -3019,12 +7191,19 @@ namespace NovaERP.Infrastructure.Migrations
 
             modelBuilder.Entity("NovaERP.Domain.Entities.SalesOrder", b =>
                 {
+                    b.Navigation("InventoryReservations");
+
                     b.Navigation("SalesOrderItems");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.Shipment", b =>
                 {
                     b.Navigation("ShipmentItems");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.SupplierInvoice", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.Unit", b =>
@@ -3042,9 +7221,19 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Locations");
                 });
 
+            modelBuilder.Entity("NovaERP.Domain.Entities.WarehouseLocation", b =>
+                {
+                    b.Navigation("ChildLocations");
+                });
+
             modelBuilder.Entity("NovaERP.Domain.Entities.Warranty", b =>
                 {
                     b.Navigation("WarrantyClaims");
+                });
+
+            modelBuilder.Entity("NovaERP.Domain.Entities.WorkCenter", b =>
+                {
+                    b.Navigation("Machines");
                 });
 #pragma warning restore 612, 618
         }

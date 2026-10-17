@@ -12,15 +12,18 @@ public class LoginCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtService _jwtService;
+    private readonly IUnitOfWork _unitOfWork;
 
     public LoginCommandHandler(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        IJwtService jwtService)
+        IJwtService jwtService,
+        IUnitOfWork unitOfWork)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _jwtService = jwtService;
+        _unitOfWork = unitOfWork;
     }
 
     public async Task<LoginResponseDto> Handle(
@@ -45,7 +48,39 @@ public class LoginCommandHandler
         if (!validPassword)
             throw new UnauthorizedAccessException("Invalid email or password.");
 
+        // Load RolePermissions and construct final permissions list
+        var permissions = new List<string>();
+        var roleIds = user.UserRoles?.Select(ur => ur.RoleId).ToList();
+
+        if (roleIds != null && roleIds.Any())
+        {
+            var allRoles = await _unitOfWork.Roles.GetAllAsync(1, int.MaxValue);
+            var activeRoleIds = allRoles.Items
+                .Where(r => roleIds.Contains(r.Id) && r.IsActive)
+                .Select(r => r.Id)
+                .ToList();
+
+            if (!activeRoleIds.Any())
+                throw new UnauthorizedAccessException("Your assigned role(s) are currently inactive. Please contact your administrator.");
+
+            var rolePermissions = await _unitOfWork.RolePermissions.GetAllAsync(1, int.MaxValue);
+            var permissionIds = rolePermissions.Items
+                .Where(rp => activeRoleIds.Contains(rp.RoleId))
+                .Select(rp => rp.PermissionId)
+                .Distinct()
+                .ToList();
+
+            if (permissionIds.Any())
+            {
+                var allPermissions = await _unitOfWork.Permissions.GetAllAsync(1, int.MaxValue);
+                permissions = allPermissions.Items
+                    .Where(p => permissionIds.Contains(p.Id))
+                    .Select(p => p.Name)
+                    .ToList();
+            }
+        }
+
         // Generate JWT Token
-        return _jwtService.GenerateToken(user);
+        return _jwtService.GenerateToken(user, permissions);
     }
 }

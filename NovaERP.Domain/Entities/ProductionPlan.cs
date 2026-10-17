@@ -10,6 +10,9 @@ public class ProductionPlan : AuditableEntity
     public Guid ProductId { get; set; }
     public Product Product { get; set; } = null!;
 
+    public Guid? BOMId { get; set; }
+    public BOM? BOM { get; set; }
+
     public decimal PlannedQuantity { get; set; }
 
     public DateTime PlannedStartDate { get; set; }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using NovaERP.API.Authorization;
 using NovaERP.Application.Common.Models;
 using NovaERP.Application.Features.BOMs.DTOs;
@@ -45,6 +46,10 @@ public class BOMsController : ControllerBase
             var bom = await _bomService.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = bom.Id }, ApiResponse.SuccessResponse("Operation completed successfully.", bom));
         }
+        catch (DbUpdateException)
+        {
+            return Conflict(ApiResponse.ErrorResponse("A BOM with this version already exists, or a database constraint was violated."));
+        }
         catch (Exception ex)
         {
             return BadRequest(ApiResponse.ErrorResponse(ex.Message));
@@ -61,6 +66,10 @@ public class BOMsController : ControllerBase
             if (bom == null) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
             return Ok(ApiResponse.SuccessResponse("Operation completed successfully.", bom));
         }
+        catch (DbUpdateException)
+        {
+            return Conflict(ApiResponse.ErrorResponse("A BOM with this version already exists, or a database constraint was violated."));
+        }
         catch (Exception ex)
         {
             return BadRequest(ApiResponse.ErrorResponse(ex.Message));
@@ -71,8 +80,44 @@ public class BOMsController : ControllerBase
     [HasPermission("Permissions.BOMs.Delete")]
     public async Task<IActionResult> Delete(Guid id)
     {
-        var deleted = await _bomService.DeleteAsync(id);
-        if (!deleted) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
-        return NoContent();
+        try
+        {
+            var deleted = await _bomService.DeleteAsync(id);
+            if (!deleted) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
+            return NoContent();
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(ApiResponse.ErrorResponse("This BOM cannot be deleted because it is referenced by other records."));
+        }
+    }
+
+    [HttpPatch("{id:guid}/activate")]
+    [HasPermission("Permissions.BOMs.Update")]
+    public async Task<IActionResult> Activate(Guid id)
+    {
+        try
+        {
+            var activated = await _bomService.ActivateAsync(id);
+            if (!activated) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
+            return Ok(ApiResponse.SuccessResponse("BOM activated successfully."));
+        }
+        catch (DbUpdateException)
+        {
+            return Conflict(ApiResponse.ErrorResponse("Another BOM is already active and could not be deactivated concurrently."));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse.ErrorResponse(ex.Message));
+        }
+    }
+
+    [HttpPatch("{id:guid}/deactivate")]
+    [HasPermission("Permissions.BOMs.Update")]
+    public async Task<IActionResult> Deactivate(Guid id)
+    {
+        var deactivated = await _bomService.DeactivateAsync(id);
+        if (!deactivated) return NotFound(ApiResponse.ErrorResponse("Resource not found."));
+        return Ok(ApiResponse.SuccessResponse("BOM deactivated successfully."));
     }
 }

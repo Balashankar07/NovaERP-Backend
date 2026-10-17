@@ -27,7 +27,4 @@ public class UserAssignedRoleDto
 {
     public Guid RoleId { get; set; }
     public string RoleName { get; set; } = string.Empty;
-    public bool IsOperationallyReady { get; set; }
-    public string ReadinessReason { get; set; } = string.Empty;
-    public string DashboardRoute { get; set; } = string.Empty;
 }

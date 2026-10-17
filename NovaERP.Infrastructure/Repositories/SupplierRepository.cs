@@ -17,13 +17,31 @@ public class SupplierRepository : Repository<Supplier>, ISupplierRepository
             .FirstOrDefaultAsync(s => s.SupplierCode == code && s.IsActive);
     }
 
+    public async Task<bool> IsSupplierReferencedAsync(Guid supplierId)
+    {
+        bool hasPOs = await _context.PurchaseOrders.AnyAsync(po => po.SupplierId == supplierId);
+        bool hasSupplierProducts = await _context.SupplierProducts.AnyAsync(sp => sp.SupplierId == supplierId);
+        
+        return hasPOs || hasSupplierProducts;
+    }
+
     public override async Task<NovaERP.Application.Common.Models.PagedResult<Supplier>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
+    {
+        return await GetAllAsync(pageNumber, pageSize, search, sortBy, sortOrder, null);
+    }
+
+    public async Task<NovaERP.Application.Common.Models.PagedResult<Supplier>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null, bool? isActive = null)
     {
         var query = _context.Suppliers.AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(x => x.SupplierName.Contains(search) || x.SupplierCode.Contains(search) || (x.CompanyName != null && x.CompanyName.Contains(search)));
+        }
+
+        if (isActive.HasValue)
+        {
+            query = query.Where(x => x.IsActive == isActive.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(sortBy))

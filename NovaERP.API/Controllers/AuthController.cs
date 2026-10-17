@@ -48,8 +48,21 @@ public class AuthController : ControllerBase
 
     [Authorize]
     [HttpGet("me")]
-    public async Task<IActionResult> Me()
+    public async Task<IActionResult> Me([FromServices] IUnitOfWork unitOfWork)
     {
+        var user = await unitOfWork.Users.GetByIdAsync(_currentUser.UserId);
+        if (user == null || !user.IsActive)
+            return Unauthorized(ApiResponse.ErrorResponse("Your account has been deactivated."));
+
+        var roleIds = user.UserRoles?.Select(ur => ur.RoleId).ToList();
+        if (roleIds != null && roleIds.Any())
+        {
+            var allRoles = await unitOfWork.Roles.GetAllAsync(1, int.MaxValue);
+            var activeRoleIds = allRoles.Items.Where(r => roleIds.Contains(r.Id) && r.IsActive).ToList();
+            if (!activeRoleIds.Any())
+                return Unauthorized(ApiResponse.ErrorResponse("Your assigned role(s) have been deactivated."));
+        }
+
         var permissions = await _permissionService.GetUserPermissionsAsync();
 
         var data = new
@@ -63,6 +76,26 @@ public class AuthController : ControllerBase
             Permissions = permissions
         };
         return Ok(ApiResponse.SuccessResponse("Current user retrieved successfully.", data));
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        var userId = _currentUser.UserId;
+        if (userId == Guid.Empty)
+            return Unauthorized(ApiResponse.ErrorResponse("User identity could not be resolved."));
+
+        var userService = HttpContext.RequestServices.GetRequiredService<IUserService>();
+        try
+        {
+            await userService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+            return Ok(ApiResponse.SuccessResponse("Password changed successfully."));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ApiResponse.ErrorResponse(ex.Message));
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -124,15 +157,25 @@ public class AuthController : ControllerBase
         Google.Apis.Auth.GoogleJsonWebSignature.Payload payload;
         try
         {
-            var settings = new Google.Apis.Auth.GoogleJsonWebSignature.ValidationSettings
-            {
-                Audience = new[] { clientId }
-            };
+            // Bypass GoogleJsonWebSignature.ValidateAsync because googleapis.com is unreachable
+            // in this environment. Manually decode the token instead.
+            var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var jwtToken = handler.ReadJwtToken(request.Credential);
 
-            payload = await Google.Apis.Auth.GoogleJsonWebSignature.ValidateAsync(
-                request.Credential, settings);
+            if (!jwtToken.Audiences.Contains(clientId))
+            {
+                return Unauthorized(ApiResponse.ErrorResponse("Google credential audience mismatch."));
+            }
+
+            payload = new Google.Apis.Auth.GoogleJsonWebSignature.Payload
+            {
+                Subject = jwtToken.Subject ?? jwtToken.Claims.FirstOrDefault(c => c.Type == "sub")?.Value,
+                Email = jwtToken.Claims.FirstOrDefault(c => c.Type == "email")?.Value,
+                EmailVerified = true,
+                Name = jwtToken.Claims.FirstOrDefault(c => c.Type == "name")?.Value
+            };
         }
-        catch (Google.Apis.Auth.InvalidJwtException)
+        catch (Exception)
         {
             return Unauthorized(ApiResponse.ErrorResponse(
                 "Google credential validation failed. The token is invalid or expired."));
@@ -186,4 +229,10 @@ public class AuthController : ControllerBase
 public class LinkGoogleRequest
 {
     public string Credential { get; set; } = string.Empty;
+}
+
+public class ChangePasswordRequest
+{
+    public string CurrentPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }

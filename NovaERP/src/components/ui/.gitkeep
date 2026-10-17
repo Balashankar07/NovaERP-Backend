@@ -1,0 +1,5 @@
+// Shared/common UI component placeholders
+// Shadcn UI components will be installed here via: npx shadcn@latest add <component>
+// This directory is reserved for shadcn/ui components
+
+// Custom shared components (non-shadcn) go in src/components/common/

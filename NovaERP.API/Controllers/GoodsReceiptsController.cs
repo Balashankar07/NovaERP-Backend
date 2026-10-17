@@ -76,14 +76,6 @@ public class GoodsReceiptsController : ControllerBase
         return Ok(ApiResponse.SuccessResponse($"Status changed to {result.Status}", result));
     }
 
-    [HttpPost("{id:guid}/complete")]
-    [HasPermission("Permissions.GoodsReceipts.Complete")]
-    public async Task<IActionResult> Complete(Guid id)
-    {
-        var result = await _goodsReceiptService.CompleteAsync(id);
-        if (result == null) return NotFound(ApiResponse.ErrorResponse("Goods Receipt not found."));
-        return Ok(ApiResponse.SuccessResponse($"Status changed to {result.Status}", result));
-    }
 
     [HttpPost("{id:guid}/cancel")]
     [HasPermission("Permissions.GoodsReceipts.Cancel")]

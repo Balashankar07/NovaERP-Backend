@@ -57,12 +57,12 @@ public class ProductionPlanRepository : Repository<ProductionPlan>, IProductionP
                 "plannedstartdate" => isDesc ? query.OrderByDescending(x => x.PlannedStartDate) : query.OrderBy(x => x.PlannedStartDate),
                 "plannedenddate" => isDesc ? query.OrderByDescending(x => x.PlannedEndDate) : query.OrderBy(x => x.PlannedEndDate),
                 "status" => isDesc ? query.OrderByDescending(x => x.Status) : query.OrderBy(x => x.Status),
-                _ => isDesc ? query.OrderByDescending(x => x.Id) : query.OrderBy(x => x.Id)
+                _ => isDesc ? query.OrderByDescending(x => x.CreatedAt) : query.OrderBy(x => x.CreatedAt)
             };
         }
         else
         {
-            query = query.OrderByDescending(x => x.Id);
+            query = query.OrderByDescending(x => x.CreatedAt);
         }
 
         pageNumber = pageNumber < 1 ? 1 : pageNumber;
