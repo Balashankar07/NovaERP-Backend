@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,9 +28,9 @@ public static class InfrastructureServiceRegistration
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        var connectionString = ResolveConnectionString(configuration);
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(
-                configuration.GetConnectionString("DefaultConnection")));
+            options.UseNpgsql(connectionString));
 
         // Register Infrastructure MediatR handlers (e.g. GoogleSignInCommandHandler)
         // These handlers live in Infrastructure because they depend on Infrastructure packages.
@@ -124,5 +125,39 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPasswordHasher, PasswordHasher>();
 
         return services;
+    }
+
+    private static string ResolveConnectionString(IConfiguration configuration)
+    {
+        var conn = configuration.GetConnectionString("DefaultConnection")
+            ?? Environment.GetEnvironmentVariable("DATABASE_URL")
+            ?? configuration["DATABASE_URL"]
+            ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(conn)) return conn;
+
+        // Auto-convert Render/Heroku postgres:// URLs into Npgsql standard connection string
+        if (conn.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+            conn.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var uri = new Uri(conn);
+                var userInfo = uri.UserInfo.Split(':');
+                var user = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
+                var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+                var host = uri.Host;
+                var port = uri.Port > 0 ? uri.Port : 5432;
+                var db = uri.AbsolutePath.TrimStart('/');
+
+                return $"Host={host};Port={port};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;";
+            }
+            catch
+            {
+                return conn;
+            }
+        }
+
+        return conn;
     }
 }

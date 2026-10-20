@@ -29,6 +29,13 @@ public class Program
             Log.Information("Creating WebApplicationBuilder...");
             var builder = WebApplication.CreateBuilder(args);
 
+            // Bind to PORT provided dynamically by hosting environments (e.g. Render, Railway)
+            var renderPort = Environment.GetEnvironmentVariable("PORT");
+            if (!string.IsNullOrEmpty(renderPort))
+            {
+                builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
+            }
+
             // Configure Serilog
             Log.Information("Configuring Serilog...");
             builder.Host.UseSerilog();
@@ -66,7 +73,7 @@ public class Program
 
             // CORS
             Log.Information("Registering CORS...");
-            builder.Services.AddCorsPolicies();
+            builder.Services.AddCorsPolicies(builder.Configuration);
 
             // Swagger
             Log.Information("Registering Swagger...");
@@ -88,8 +95,8 @@ public class Program
 
             Log.Information("Application Built Successfully.");
 
-            // Swagger
-            if (app.Environment.IsDevelopment())
+            // Swagger (available in Development or enabled for review in Production)
+            if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger", true))
             {
                 app.UseSwaggerDocumentation();
             }

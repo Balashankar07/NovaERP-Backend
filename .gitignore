@@ -426,4 +426,19 @@ NovaERP/.env
 
 # --- Build artifacts ---
 /dist/
-
+
+
+# --- Obsolete stale directory at root ---
+/src/
+
+# --- Root-level node tooling (audit/test runners only, not production code) ---
+/package.json
+
+# --- Temporary frontend test/debug artifacts ---
+NovaERP/debug.js
+NovaERP/test.js
+NovaERP/ts_errors.txt
+NovaERP/scratch/
+
+# --- Docs temporary scripts ---
+docs/*.js

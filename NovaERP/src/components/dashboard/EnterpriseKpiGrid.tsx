@@ -56,8 +56,6 @@ export function EnterpriseKpiGrid() {
         title="Sales Volume" 
         value={formatCurrency(data.salesThisMonth ?? 0)} 
         icon={CircleDollarSign}
-        trend="14.2%"
-        trendUp={true}
         subtitle="This Month"
         iconColorClass="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
       />
@@ -65,8 +63,6 @@ export function EnterpriseKpiGrid() {
         title="Inventory Valuation" 
         value={formatCurrency(data.totalInventoryValue ?? 0)} 
         icon={Warehouse}
-        trend="2.8%"
-        trendUp={true}
         subtitle="Active Warehouses"
         iconColorClass="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
       />
@@ -74,8 +70,6 @@ export function EnterpriseKpiGrid() {
         title="Production Output" 
         value={formatNumber(data.completedProductionOrders ?? 0)} 
         icon={Factory}
-        trend="8.5%"
-        trendUp={true}
         subtitle="Orders Completed"
         iconColorClass="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
       />
