@@ -442,3 +442,6 @@ NovaERP/scratch/
 
 # --- Docs temporary scripts ---
 docs/*.js
+
+# --- Automated browser test screenshots ---
+/browser_screenshots/
