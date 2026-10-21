@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,232 +11,117 @@ namespace NovaERP.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<uint>(
-                name: "xmin",
-                table: "Inventories",
-                type: "xid",
-                rowVersion: true,
-                nullable: false,
-                defaultValue: 0u);
+            // Note: xmin is a PostgreSQL system column and already exists implicitly on all tables.
+            migrationBuilder.Sql(@"
+                ALTER TABLE IF EXISTS ""GoodsReceipts"" ADD COLUMN IF NOT EXISTS ""WarehouseId"" uuid NULL;
+                ALTER TABLE IF EXISTS ""GoodsReceipts"" ADD COLUMN IF NOT EXISTS ""WarehouseLocationId"" uuid NULL;
 
-            migrationBuilder.AddColumn<Guid>(
-                name: "WarehouseId",
-                table: "GoodsReceipts",
-                type: "uuid",
-                nullable: true);
+                CREATE TABLE IF NOT EXISTS ""ProductionOrderRequirements"" (
+                    ""Id"" uuid NOT NULL,
+                    ""ProductionOrderId"" uuid NOT NULL,
+                    ""ProductId"" uuid NOT NULL,
+                    ""UnitId"" uuid NULL,
+                    ""RequiredQuantity"" numeric(18,2) NOT NULL,
+                    ""ConsumedQuantity"" numeric(18,2) NOT NULL DEFAULT 0,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedAt"" timestamp with time zone NULL,
+                    ""CreatedBy"" uuid NULL,
+                    ""UpdatedBy"" uuid NULL,
+                    CONSTRAINT ""PK_ProductionOrderRequirements"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.AddColumn<Guid>(
-                name: "WarehouseLocationId",
-                table: "GoodsReceipts",
-                type: "uuid",
-                nullable: true);
+                CREATE TABLE IF NOT EXISTS ""InventoryReservations"" (
+                    ""Id"" uuid NOT NULL,
+                    ""ProductionOrderId"" uuid NOT NULL,
+                    ""ProductionOrderRequirementId"" uuid NOT NULL,
+                    ""InventoryId"" uuid NOT NULL,
+                    ""ProductId"" uuid NOT NULL,
+                    ""WarehouseId"" uuid NOT NULL,
+                    ""WarehouseLocationId"" uuid NULL,
+                    ""QuantityReserved"" numeric(18,2) NOT NULL,
+                    ""QuantityConsumed"" numeric(18,2) NOT NULL DEFAULT 0,
+                    ""Status"" integer NOT NULL,
+                    ""ReleasedAt"" timestamp with time zone NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedAt"" timestamp with time zone NULL,
+                    ""CreatedBy"" uuid NULL,
+                    ""UpdatedBy"" uuid NULL,
+                    CONSTRAINT ""PK_InventoryReservations"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "ProductionOrderRequirements",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductionOrderId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductId = table.Column<Guid>(type: "uuid", nullable: false),
-                    UnitId = table.Column<Guid>(type: "uuid", nullable: true),
-                    RequiredQuantity = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
-                    ConsumedQuantity = table.Column<decimal>(type: "numeric(18,2)", nullable: false, defaultValue: 0m),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: true),
-                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_ProductionOrderRequirements", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_ProductionOrderRequirements_ProductionOrders_ProductionOrde~",
-                        column: x => x.ProductionOrderId,
-                        principalTable: "ProductionOrders",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_ProductionOrderRequirements_Products_ProductId",
-                        column: x => x.ProductId,
-                        principalTable: "Products",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_ProductionOrderRequirements_Units_UnitId",
-                        column: x => x.UnitId,
-                        principalTable: "Units",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
-                });
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_ProductionOrderRequirements_ProductionOrders_ProductionOrde~') THEN 
+                        ALTER TABLE ""ProductionOrderRequirements"" ADD CONSTRAINT ""FK_ProductionOrderRequirements_ProductionOrders_ProductionOrde~"" 
+                            FOREIGN KEY (""ProductionOrderId"") REFERENCES ""ProductionOrders"" (""Id"") ON DELETE CASCADE; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_ProductionOrderRequirements_Products_ProductId') THEN 
+                        ALTER TABLE ""ProductionOrderRequirements"" ADD CONSTRAINT ""FK_ProductionOrderRequirements_Products_ProductId"" 
+                            FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE RESTRICT; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_ProductionOrderRequirements_Units_UnitId') THEN 
+                        ALTER TABLE ""ProductionOrderRequirements"" ADD CONSTRAINT ""FK_ProductionOrderRequirements_Units_UnitId"" 
+                            FOREIGN KEY (""UnitId"") REFERENCES ""Units"" (""Id"") ON DELETE SET NULL; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_InventoryReservations_Inventories_InventoryId') THEN 
+                        ALTER TABLE ""InventoryReservations"" ADD CONSTRAINT ""FK_InventoryReservations_Inventories_InventoryId"" 
+                            FOREIGN KEY (""InventoryId"") REFERENCES ""Inventories"" (""Id"") ON DELETE RESTRICT; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_InventoryReservations_ProductionOrderRequirements_Productio~') THEN 
+                        ALTER TABLE ""InventoryReservations"" ADD CONSTRAINT ""FK_InventoryReservations_ProductionOrderRequirements_Productio~"" 
+                            FOREIGN KEY (""ProductionOrderRequirementId"") REFERENCES ""ProductionOrderRequirements"" (""Id"") ON DELETE CASCADE; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_InventoryReservations_ProductionOrders_ProductionOrderId') THEN 
+                        ALTER TABLE ""InventoryReservations"" ADD CONSTRAINT ""FK_InventoryReservations_ProductionOrders_ProductionOrderId"" 
+                            FOREIGN KEY (""ProductionOrderId"") REFERENCES ""ProductionOrders"" (""Id"") ON DELETE CASCADE; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_InventoryReservations_Products_ProductId') THEN 
+                        ALTER TABLE ""InventoryReservations"" ADD CONSTRAINT ""FK_InventoryReservations_Products_ProductId"" 
+                            FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE RESTRICT; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_InventoryReservations_WarehouseLocations_WarehouseLocationId') THEN 
+                        ALTER TABLE ""InventoryReservations"" ADD CONSTRAINT ""FK_InventoryReservations_WarehouseLocations_WarehouseLocationId"" 
+                            FOREIGN KEY (""WarehouseLocationId"") REFERENCES ""WarehouseLocations"" (""Id"") ON DELETE SET NULL; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_InventoryReservations_Warehouses_WarehouseId') THEN 
+                        ALTER TABLE ""InventoryReservations"" ADD CONSTRAINT ""FK_InventoryReservations_Warehouses_WarehouseId"" 
+                            FOREIGN KEY (""WarehouseId"") REFERENCES ""Warehouses"" (""Id"") ON DELETE RESTRICT; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_GoodsReceipts_WarehouseLocations_WarehouseLocationId') THEN 
+                        ALTER TABLE ""GoodsReceipts"" ADD CONSTRAINT ""FK_GoodsReceipts_WarehouseLocations_WarehouseLocationId"" 
+                            FOREIGN KEY (""WarehouseLocationId"") REFERENCES ""WarehouseLocations"" (""Id"") ON DELETE SET NULL; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_GoodsReceipts_Warehouses_WarehouseId') THEN 
+                        ALTER TABLE ""GoodsReceipts"" ADD CONSTRAINT ""FK_GoodsReceipts_Warehouses_WarehouseId"" 
+                            FOREIGN KEY (""WarehouseId"") REFERENCES ""Warehouses"" (""Id"") ON DELETE SET NULL; 
+                    END IF; 
+                END $$;
 
-            migrationBuilder.CreateTable(
-                name: "InventoryReservations",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductionOrderId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductionOrderRequirementId = table.Column<Guid>(type: "uuid", nullable: false),
-                    InventoryId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductId = table.Column<Guid>(type: "uuid", nullable: false),
-                    WarehouseId = table.Column<Guid>(type: "uuid", nullable: false),
-                    WarehouseLocationId = table.Column<Guid>(type: "uuid", nullable: true),
-                    QuantityReserved = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
-                    QuantityConsumed = table.Column<decimal>(type: "numeric(18,2)", nullable: false, defaultValue: 0m),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    ReleasedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: true),
-                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_InventoryReservations", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_InventoryReservations_Inventories_InventoryId",
-                        column: x => x.InventoryId,
-                        principalTable: "Inventories",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_InventoryReservations_ProductionOrderRequirements_Productio~",
-                        column: x => x.ProductionOrderRequirementId,
-                        principalTable: "ProductionOrderRequirements",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_InventoryReservations_ProductionOrders_ProductionOrderId",
-                        column: x => x.ProductionOrderId,
-                        principalTable: "ProductionOrders",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                    table.ForeignKey(
-                        name: "FK_InventoryReservations_Products_ProductId",
-                        column: x => x.ProductId,
-                        principalTable: "Products",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_InventoryReservations_WarehouseLocations_WarehouseLocationId",
-                        column: x => x.WarehouseLocationId,
-                        principalTable: "WarehouseLocations",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.SetNull);
-                    table.ForeignKey(
-                        name: "FK_InventoryReservations_Warehouses_WarehouseId",
-                        column: x => x.WarehouseId,
-                        principalTable: "Warehouses",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_GoodsReceipts_WarehouseId",
-                table: "GoodsReceipts",
-                column: "WarehouseId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_GoodsReceipts_WarehouseLocationId",
-                table: "GoodsReceipts",
-                column: "WarehouseLocationId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryReservations_InventoryId",
-                table: "InventoryReservations",
-                column: "InventoryId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryReservations_ProductId",
-                table: "InventoryReservations",
-                column: "ProductId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryReservations_ProductionOrderId",
-                table: "InventoryReservations",
-                column: "ProductionOrderId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryReservations_ProductionOrderRequirementId",
-                table: "InventoryReservations",
-                column: "ProductionOrderRequirementId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryReservations_WarehouseId",
-                table: "InventoryReservations",
-                column: "WarehouseId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InventoryReservations_WarehouseLocationId",
-                table: "InventoryReservations",
-                column: "WarehouseLocationId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ProductionOrderRequirements_ProductId",
-                table: "ProductionOrderRequirements",
-                column: "ProductId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ProductionOrderRequirements_ProductionOrderId_ProductId",
-                table: "ProductionOrderRequirements",
-                columns: new[] { "ProductionOrderId", "ProductId" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_ProductionOrderRequirements_UnitId",
-                table: "ProductionOrderRequirements",
-                column: "UnitId");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_GoodsReceipts_WarehouseLocations_WarehouseLocationId",
-                table: "GoodsReceipts",
-                column: "WarehouseLocationId",
-                principalTable: "WarehouseLocations",
-                principalColumn: "Id");
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_GoodsReceipts_Warehouses_WarehouseId",
-                table: "GoodsReceipts",
-                column: "WarehouseId",
-                principalTable: "Warehouses",
-                principalColumn: "Id");
+                CREATE INDEX IF NOT EXISTS ""IX_GoodsReceipts_WarehouseId"" ON ""GoodsReceipts"" (""WarehouseId"");
+                CREATE INDEX IF NOT EXISTS ""IX_GoodsReceipts_WarehouseLocationId"" ON ""GoodsReceipts"" (""WarehouseLocationId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InventoryReservations_InventoryId"" ON ""InventoryReservations"" (""InventoryId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InventoryReservations_ProductId"" ON ""InventoryReservations"" (""ProductId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InventoryReservations_ProductionOrderId"" ON ""InventoryReservations"" (""ProductionOrderId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InventoryReservations_ProductionOrderRequirementId"" ON ""InventoryReservations"" (""ProductionOrderRequirementId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InventoryReservations_WarehouseId"" ON ""InventoryReservations"" (""WarehouseId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InventoryReservations_WarehouseLocationId"" ON ""InventoryReservations"" (""WarehouseLocationId"");
+                CREATE INDEX IF NOT EXISTS ""IX_ProductionOrderRequirements_ProductId"" ON ""ProductionOrderRequirements"" (""ProductId"");
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ProductionOrderRequirements_ProductionOrderId_ProductId"" ON ""ProductionOrderRequirements"" (""ProductionOrderId"", ""ProductId"");
+                CREATE INDEX IF NOT EXISTS ""IX_ProductionOrderRequirements_UnitId"" ON ""ProductionOrderRequirements"" (""UnitId"");
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_GoodsReceipts_WarehouseLocations_WarehouseLocationId",
-                table: "GoodsReceipts");
-
-            migrationBuilder.DropForeignKey(
-                name: "FK_GoodsReceipts_Warehouses_WarehouseId",
-                table: "GoodsReceipts");
-
-            migrationBuilder.DropTable(
-                name: "InventoryReservations");
-
-            migrationBuilder.DropTable(
-                name: "ProductionOrderRequirements");
-
-            migrationBuilder.DropIndex(
-                name: "IX_GoodsReceipts_WarehouseId",
-                table: "GoodsReceipts");
-
-            migrationBuilder.DropIndex(
-                name: "IX_GoodsReceipts_WarehouseLocationId",
-                table: "GoodsReceipts");
-
-            migrationBuilder.DropColumn(
-                name: "xmin",
-                table: "Inventories");
-
-            migrationBuilder.DropColumn(
-                name: "WarehouseId",
-                table: "GoodsReceipts");
-
-            migrationBuilder.DropColumn(
-                name: "WarehouseLocationId",
-                table: "GoodsReceipts");
+            migrationBuilder.Sql(@"
+                ALTER TABLE IF EXISTS ""GoodsReceipts"" DROP CONSTRAINT IF EXISTS ""FK_GoodsReceipts_WarehouseLocations_WarehouseLocationId"";
+                ALTER TABLE IF EXISTS ""GoodsReceipts"" DROP CONSTRAINT IF EXISTS ""FK_GoodsReceipts_Warehouses_WarehouseId"";
+                DROP TABLE IF EXISTS ""InventoryReservations"";
+                DROP TABLE IF EXISTS ""ProductionOrderRequirements"";
+                ALTER TABLE IF EXISTS ""GoodsReceipts"" DROP COLUMN IF EXISTS ""WarehouseLocationId"";
+                ALTER TABLE IF EXISTS ""GoodsReceipts"" DROP COLUMN IF EXISTS ""WarehouseId"";
+            ");
         }
     }
 }

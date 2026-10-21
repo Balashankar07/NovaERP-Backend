@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
@@ -10,22 +10,17 @@ namespace NovaERP.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<decimal>(
-                name: "ReceivedQuantity",
-                table: "PurchaseOrderItems",
-                type: "numeric(18,2)",
-                precision: 18,
-                scale: 2,
-                nullable: false,
-                defaultValue: 0m);
+            migrationBuilder.Sql(@"
+                ALTER TABLE IF EXISTS ""PurchaseOrderItems"" ADD COLUMN IF NOT EXISTS ""ReceivedQuantity"" numeric(18,2) NOT NULL DEFAULT 0;
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "ReceivedQuantity",
-                table: "PurchaseOrderItems");
+            migrationBuilder.Sql(@"
+                ALTER TABLE IF EXISTS ""PurchaseOrderItems"" DROP COLUMN IF EXISTS ""ReceivedQuantity"";
+            ");
         }
     }
 }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using NovaERP.API.Extensions;
 using NovaERP.API.Services;
 using NovaERP.Application.DependencyInjection;
@@ -114,6 +115,53 @@ public class Program
                 {
                     Log.Error(ex, "Manual trigger seed failed.");
                     return Results.Problem(detail: ex.ToString(), title: "Seeding Failed");
+                }
+            });
+
+            // Diagnostic endpoint to inspect applied/pending migrations and existing tables
+            app.MapGet("/api/db-inspect", async (AppDbContext context) =>
+            {
+                try
+                {
+                    var applied = await context.Database.GetAppliedMigrationsAsync();
+                    var pending = await context.Database.GetPendingMigrationsAsync();
+
+                    var tables = new List<string>();
+                    var columns = new List<string>();
+                    using var conn = context.Database.GetDbConnection();
+                    await conn.OpenAsync();
+
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;";
+                        using var reader = await cmd.ExecuteReaderAsync();
+                        while (await reader.ReadAsync())
+                        {
+                            tables.Add(reader.GetString(0));
+                        }
+                    }
+
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "SELECT table_name || '.' || column_name FROM information_schema.columns WHERE table_schema = 'public' ORDER BY table_name, column_name;";
+                        using var reader = await cmd.ExecuteReaderAsync();
+                        while (await reader.ReadAsync())
+                        {
+                            columns.Add(reader.GetString(0));
+                        }
+                    }
+
+                    return Results.Ok(new
+                    {
+                        appliedMigrations = applied,
+                        pendingMigrations = pending,
+                        existingTables = tables,
+                        existingColumns = columns
+                    });
+                }
+                catch (Exception ex)
+                {
+                    return Results.Problem(detail: ex.ToString(), title: "Inspection Failed");
                 }
             });
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,82 +11,53 @@ namespace NovaERP.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<decimal>(
-                name: "SupplierUnitPrice",
-                table: "PurchaseOrderItems",
-                type: "numeric(18,2)",
-                nullable: true);
+            migrationBuilder.Sql(@"
+                ALTER TABLE IF EXISTS ""PurchaseOrderItems"" ADD COLUMN IF NOT EXISTS ""SupplierUnitPrice"" numeric(18,2);
 
-            migrationBuilder.CreateTable(
-                name: "SupplierProducts",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    SupplierId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SupplierSKU = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    UnitPrice = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
-                    MOQ = table.Column<decimal>(type: "numeric(18,2)", nullable: false),
-                    LeadTimeDays = table.Column<int>(type: "integer", nullable: false),
-                    Currency = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    IsPreferred = table.Column<bool>(type: "boolean", nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: true),
-                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_SupplierProducts", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_SupplierProducts_Products_ProductId",
-                        column: x => x.ProductId,
-                        principalTable: "Products",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_SupplierProducts_Suppliers_SupplierId",
-                        column: x => x.SupplierId,
-                        principalTable: "Suppliers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                });
+                CREATE TABLE IF NOT EXISTS ""SupplierProducts"" (
+                    ""Id"" uuid NOT NULL,
+                    ""SupplierId"" uuid NOT NULL,
+                    ""ProductId"" uuid NOT NULL,
+                    ""SupplierSKU"" character varying(100) NOT NULL,
+                    ""UnitPrice"" numeric(18,2) NOT NULL,
+                    ""MOQ"" numeric(18,2) NOT NULL,
+                    ""LeadTimeDays"" integer NOT NULL,
+                    ""Currency"" character varying(10) NOT NULL,
+                    ""IsPreferred"" boolean NOT NULL,
+                    ""IsActive"" boolean NOT NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedAt"" timestamp with time zone NULL,
+                    ""CreatedBy"" uuid NULL,
+                    ""UpdatedBy"" uuid NULL,
+                    CONSTRAINT ""PK_SupplierProducts"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.CreateIndex(
-                name: "IX_SupplierProducts_IsActive",
-                table: "SupplierProducts",
-                column: "IsActive");
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_SupplierProducts_Products_ProductId') THEN 
+                        ALTER TABLE ""SupplierProducts"" ADD CONSTRAINT ""FK_SupplierProducts_Products_ProductId"" 
+                            FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE RESTRICT; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_SupplierProducts_Suppliers_SupplierId') THEN 
+                        ALTER TABLE ""SupplierProducts"" ADD CONSTRAINT ""FK_SupplierProducts_Suppliers_SupplierId"" 
+                            FOREIGN KEY (""SupplierId"") REFERENCES ""Suppliers"" (""Id"") ON DELETE RESTRICT; 
+                    END IF; 
+                END $$;
 
-            migrationBuilder.CreateIndex(
-                name: "IX_SupplierProducts_ProductId",
-                table: "SupplierProducts",
-                column: "ProductId",
-                unique: true,
-                filter: "\"IsActive\" = true AND \"IsPreferred\" = true");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_SupplierProducts_SupplierId",
-                table: "SupplierProducts",
-                column: "SupplierId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_SupplierProducts_SupplierId_ProductId",
-                table: "SupplierProducts",
-                columns: new[] { "SupplierId", "ProductId" },
-                unique: true,
-                filter: "\"IsActive\" = true");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierProducts_IsActive"" ON ""SupplierProducts"" (""IsActive"");
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_SupplierProducts_ProductId"" ON ""SupplierProducts"" (""ProductId"") WHERE ""IsActive"" = true AND ""IsPreferred"" = true;
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierProducts_SupplierId"" ON ""SupplierProducts"" (""SupplierId"");
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_SupplierProducts_SupplierId_ProductId"" ON ""SupplierProducts"" (""SupplierId"", ""ProductId"") WHERE ""IsActive"" = true;
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "SupplierProducts");
-
-            migrationBuilder.DropColumn(
-                name: "SupplierUnitPrice",
-                table: "PurchaseOrderItems");
+            migrationBuilder.Sql(@"
+                DROP TABLE IF EXISTS ""SupplierProducts"";
+                ALTER TABLE IF EXISTS ""PurchaseOrderItems"" DROP COLUMN IF EXISTS ""SupplierUnitPrice"";
+            ");
         }
     }
 }

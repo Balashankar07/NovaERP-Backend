@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -11,123 +11,78 @@ namespace NovaERP.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<Guid>(
-                name: "PurchaseRequestItemId",
-                table: "PurchaseOrderItems",
-                type: "uuid",
-                nullable: true);
+            migrationBuilder.Sql(@"
+                ALTER TABLE IF EXISTS ""PurchaseOrderItems"" ADD COLUMN IF NOT EXISTS ""PurchaseRequestItemId"" uuid;
 
-            migrationBuilder.CreateTable(
-                name: "PurchaseRequests",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    RequestNumber = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    RequestedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Department = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    RequestDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    RequiredByDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Priority = table.Column<int>(type: "integer", nullable: false),
-                    Reason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    Status = table.Column<int>(type: "integer", nullable: false),
-                    ApprovedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    ApprovedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    RejectionReason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    Source = table.Column<int>(type: "integer", nullable: false),
-                    SourceReferenceId = table.Column<Guid>(type: "uuid", nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: true),
-                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PurchaseRequests", x => x.Id);
-                });
+                CREATE TABLE IF NOT EXISTS ""PurchaseRequests"" (
+                    ""Id"" uuid NOT NULL,
+                    ""RequestNumber"" character varying(50) NOT NULL,
+                    ""RequestedBy"" character varying(100) NOT NULL,
+                    ""Department"" character varying(100) NOT NULL,
+                    ""RequestDate"" timestamp with time zone NOT NULL,
+                    ""RequiredByDate"" timestamp with time zone NOT NULL,
+                    ""Priority"" integer NOT NULL,
+                    ""Reason"" character varying(500) NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""ApprovedBy"" character varying(100) NULL,
+                    ""ApprovedAt"" timestamp with time zone NULL,
+                    ""RejectionReason"" character varying(500) NULL,
+                    ""Source"" integer NOT NULL,
+                    ""SourceReferenceId"" uuid NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedAt"" timestamp with time zone NULL,
+                    ""CreatedBy"" uuid NULL,
+                    ""UpdatedBy"" uuid NULL,
+                    CONSTRAINT ""PK_PurchaseRequests"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.CreateTable(
-                name: "PurchaseRequestItems",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    PurchaseRequestId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ProductId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RequestedQuantity = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    ApprovedQuantity = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    ConvertedQuantity = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    Remarks = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    CreatedBy = table.Column<Guid>(type: "uuid", nullable: true),
-                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PurchaseRequestItems", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PurchaseRequestItems_Products_ProductId",
-                        column: x => x.ProductId,
-                        principalTable: "Products",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
-                        name: "FK_PurchaseRequestItems_PurchaseRequests_PurchaseRequestId",
-                        column: x => x.PurchaseRequestId,
-                        principalTable: "PurchaseRequests",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
+                CREATE TABLE IF NOT EXISTS ""PurchaseRequestItems"" (
+                    ""Id"" uuid NOT NULL,
+                    ""PurchaseRequestId"" uuid NOT NULL,
+                    ""ProductId"" uuid NOT NULL,
+                    ""RequestedQuantity"" numeric(18,2) NOT NULL,
+                    ""ApprovedQuantity"" numeric(18,2) NOT NULL,
+                    ""ConvertedQuantity"" numeric(18,2) NOT NULL,
+                    ""Remarks"" character varying(500) NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedAt"" timestamp with time zone NULL,
+                    ""CreatedBy"" uuid NULL,
+                    ""UpdatedBy"" uuid NULL,
+                    CONSTRAINT ""PK_PurchaseRequestItems"" PRIMARY KEY (""Id"")
+                );
 
-            migrationBuilder.CreateIndex(
-                name: "IX_PurchaseOrderItems_PurchaseRequestItemId",
-                table: "PurchaseOrderItems",
-                column: "PurchaseRequestItemId");
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_PurchaseRequestItems_Products_ProductId') THEN 
+                        ALTER TABLE ""PurchaseRequestItems"" ADD CONSTRAINT ""FK_PurchaseRequestItems_Products_ProductId"" 
+                            FOREIGN KEY (""ProductId"") REFERENCES ""Products"" (""Id"") ON DELETE RESTRICT; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_PurchaseRequestItems_PurchaseRequests_PurchaseRequestId') THEN 
+                        ALTER TABLE ""PurchaseRequestItems"" ADD CONSTRAINT ""FK_PurchaseRequestItems_PurchaseRequests_PurchaseRequestId"" 
+                            FOREIGN KEY (""PurchaseRequestId"") REFERENCES ""PurchaseRequests"" (""Id"") ON DELETE CASCADE; 
+                    END IF; 
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'FK_PurchaseOrderItems_PurchaseRequestItems_PurchaseRequestItem~') THEN 
+                        ALTER TABLE ""PurchaseOrderItems"" ADD CONSTRAINT ""FK_PurchaseOrderItems_PurchaseRequestItems_PurchaseRequestItem~"" 
+                            FOREIGN KEY (""PurchaseRequestItemId"") REFERENCES ""PurchaseRequestItems"" (""Id"") ON DELETE SET NULL; 
+                    END IF; 
+                END $$;
 
-            migrationBuilder.CreateIndex(
-                name: "IX_PurchaseRequestItems_ProductId",
-                table: "PurchaseRequestItems",
-                column: "ProductId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PurchaseRequestItems_PurchaseRequestId",
-                table: "PurchaseRequestItems",
-                column: "PurchaseRequestId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_PurchaseRequests_RequestNumber",
-                table: "PurchaseRequests",
-                column: "RequestNumber",
-                unique: true);
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_PurchaseOrderItems_PurchaseRequestItems_PurchaseRequestItem~",
-                table: "PurchaseOrderItems",
-                column: "PurchaseRequestItemId",
-                principalTable: "PurchaseRequestItems",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.SetNull);
+                CREATE INDEX IF NOT EXISTS ""IX_PurchaseOrderItems_PurchaseRequestItemId"" ON ""PurchaseOrderItems"" (""PurchaseRequestItemId"");
+                CREATE INDEX IF NOT EXISTS ""IX_PurchaseRequestItems_ProductId"" ON ""PurchaseRequestItems"" (""ProductId"");
+                CREATE INDEX IF NOT EXISTS ""IX_PurchaseRequestItems_PurchaseRequestId"" ON ""PurchaseRequestItems"" (""PurchaseRequestId"");
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PurchaseRequests_RequestNumber"" ON ""PurchaseRequests"" (""RequestNumber"");
+            ");
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_PurchaseOrderItems_PurchaseRequestItems_PurchaseRequestItem~",
-                table: "PurchaseOrderItems");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseRequestItems");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseRequests");
-
-            migrationBuilder.DropIndex(
-                name: "IX_PurchaseOrderItems_PurchaseRequestItemId",
-                table: "PurchaseOrderItems");
-
-            migrationBuilder.DropColumn(
-                name: "PurchaseRequestItemId",
-                table: "PurchaseOrderItems");
+            migrationBuilder.Sql(@"
+                ALTER TABLE IF EXISTS ""PurchaseOrderItems"" DROP CONSTRAINT IF EXISTS ""FK_PurchaseOrderItems_PurchaseRequestItems_PurchaseRequestItem~"";
+                DROP TABLE IF EXISTS ""PurchaseRequestItems"";
+                DROP TABLE IF EXISTS ""PurchaseRequests"";
+                ALTER TABLE IF EXISTS ""PurchaseOrderItems"" DROP COLUMN IF EXISTS ""PurchaseRequestItemId"";
+            ");
         }
     }
 }
