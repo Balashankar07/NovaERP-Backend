@@ -11,6 +11,7 @@ namespace NovaERP.Infrastructure.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql(@"
+CREATE SEQUENCE IF NOT EXISTS ""ProductNumberSeq"" START WITH 1;
 DO $$
 DECLARE
     rec RECORD;
