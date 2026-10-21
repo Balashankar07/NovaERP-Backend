@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MediatR;
+using Npgsql;
 
 using NovaERP.Application.Features.Users.Services;
 using NovaERP.Application.Interfaces;
@@ -20,6 +21,7 @@ using NovaERP.Application.Features.Roles.Services;
 using NovaERP.Application.Features.Dashboard;
 using NovaERP.Application.Features.Permissions.Services;
 using NovaERP.Application.Features.AuditLogs.Services;
+
 namespace NovaERP.Infrastructure.DependencyInjection;
 
 public static class InfrastructureServiceRegistration
@@ -30,10 +32,16 @@ public static class InfrastructureServiceRegistration
     {
         var connectionString = ResolveConnectionString(configuration);
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseNpgsql(connectionString, npgsql =>
+            {
+                npgsql.EnableRetryOnFailure(
+                    maxRetryCount: 5,
+                    maxRetryDelay: TimeSpan.FromSeconds(10),
+                    errorCodesToAdd: null);
+                npgsql.CommandTimeout(60);
+            }));
 
         // Register Infrastructure MediatR handlers (e.g. GoogleSignInCommandHandler)
-        // These handlers live in Infrastructure because they depend on Infrastructure packages.
         services.AddMediatR(cfg =>
         {
             cfg.RegisterServicesFromAssemblyContaining<GoogleSignInCommandHandler>();
@@ -143,14 +151,14 @@ public static class InfrastructureServiceRegistration
             try
             {
                 var uri = new Uri(conn);
-                var userInfo = uri.UserInfo.Split(':');
-                var user = userInfo.Length > 0 ? Uri.UnescapeDataString(userInfo[0]) : "";
-                var pass = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
+                var colonIndex = uri.UserInfo.IndexOf(':');
+                var user = colonIndex >= 0 ? Uri.UnescapeDataString(uri.UserInfo.Substring(0, colonIndex)) : Uri.UnescapeDataString(uri.UserInfo);
+                var pass = colonIndex >= 0 ? Uri.UnescapeDataString(uri.UserInfo.Substring(colonIndex + 1)) : string.Empty;
                 var host = uri.Host;
                 var port = uri.Port > 0 ? uri.Port : 5432;
                 var db = uri.AbsolutePath.TrimStart('/');
 
-                return $"Host={host};Port={port};Database={db};Username={user};Password={pass};SSL Mode=Require;Trust Server Certificate=true;";
+                return $"Host={host};Port={port};Database={db};Username={user};Password={pass};SSL Mode=Prefer;Trust Server Certificate=true;Timeout=60;Command Timeout=60;";
             }
             catch
             {

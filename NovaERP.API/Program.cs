@@ -85,14 +85,27 @@ public class Program
             Log.Information("Building Application...");
             var app = builder.Build();
 
-            // Apply Migrations & Seed Database
+            // Apply Migrations & Seed Database with retry policy for cloud cold-start
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
                 Log.Information("Applying migrations and seeding database...");
-                await DbSeeder.SeedAsync(context, configuration);
+                const int maxRetries = 5;
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
+                {
+                    try
+                    {
+                        await DbSeeder.SeedAsync(context, configuration);
+                        break;
+                    }
+                    catch (Exception ex) when (attempt < maxRetries)
+                    {
+                        Log.Warning("Database connection attempt {Attempt}/{MaxRetries} failed ({Message}). Retrying in 5 seconds...", attempt, maxRetries, ex.Message);
+                        await Task.Delay(5000);
+                    }
+                }
             }
 
             Log.Information("Application Built Successfully.");
