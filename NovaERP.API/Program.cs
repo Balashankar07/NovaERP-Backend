@@ -85,30 +85,21 @@ public class Program
             Log.Information("Building Application...");
             var app = builder.Build();
 
-            // Apply Migrations & Seed Database with retry policy for cloud cold-start
-            using (var scope = app.Services.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-
-                Log.Information("Applying migrations and seeding database...");
-                const int maxRetries = 5;
-                for (int attempt = 1; attempt <= maxRetries; attempt++)
-                {
-                    try
-                    {
-                        await DbSeeder.SeedAsync(context, configuration);
-                        break;
-                    }
-                    catch (Exception ex) when (attempt < maxRetries)
-                    {
-                        Log.Warning("Database connection attempt {Attempt}/{MaxRetries} failed ({Message}). Retrying in 5 seconds...", attempt, maxRetries, ex.Message);
-                        await Task.Delay(5000);
-                    }
-                }
-            }
-
             Log.Information("Application Built Successfully.");
+
+            // Health & Root Endpoints for immediate cloud status checks
+            app.MapGet("/", () => Results.Ok(new
+            {
+                service = "NovaERP API",
+                status = "online",
+                timestamp = DateTime.UtcNow
+            }));
+
+            app.MapGet("/health", () => Results.Ok(new
+            {
+                status = "healthy",
+                timestamp = DateTime.UtcNow
+            }));
 
             // Swagger (available in Development or enabled for review in Production)
             if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger", true))
@@ -138,6 +129,41 @@ public class Program
             // Controllers
             Log.Information("Mapping Controllers...");
             app.MapControllers();
+
+            // Apply Migrations & Seed Database in a resilient background task
+            // This ensures Kestrel binds to PORT immediately so Render health check succeeds without timing out
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(1500); // Allow Kestrel to bind port and start listening first
+
+                const int maxRetries = 10;
+                for (int attempt = 1; attempt <= maxRetries; attempt++)
+                {
+                    try
+                    {
+                        Log.Information("Background DB initialization attempt {Attempt}/{MaxRetries}...", attempt, maxRetries);
+                        using var scope = app.Services.CreateScope();
+                        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+
+                        await DbSeeder.SeedAsync(context, configuration);
+                        Log.Information("Database migrations and seeding completed successfully!");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (attempt < maxRetries)
+                        {
+                            Log.Warning("DB initialization attempt {Attempt}/{MaxRetries} failed ({Message}). Retrying in 10 seconds...", attempt, maxRetries, ex.Message);
+                            await Task.Delay(10000);
+                        }
+                        else
+                        {
+                            Log.Error(ex, "DB initialization encountered errors after {MaxRetries} attempts. Web API remains live and serving requests.", maxRetries);
+                        }
+                    }
+                }
+            });
 
             Log.Information("Starting Web Server...");
 

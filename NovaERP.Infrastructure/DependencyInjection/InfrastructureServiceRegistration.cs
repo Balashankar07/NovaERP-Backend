@@ -137,14 +137,37 @@ public static class InfrastructureServiceRegistration
 
     private static string ResolveConnectionString(IConfiguration configuration)
     {
-        var conn = configuration.GetConnectionString("DefaultConnection")
-            ?? Environment.GetEnvironmentVariable("DATABASE_URL")
-            ?? configuration["DATABASE_URL"]
-            ?? string.Empty;
+        // 1. Highest priority: DATABASE_URL environment variable from Render / cloud host
+        var envDbUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+        if (!string.IsNullOrWhiteSpace(envDbUrl) && !envDbUrl.Contains("YOUR_DB_HOST", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParsePostgresUrlOrConnectionString(envDbUrl);
+        }
 
+        // 2. Configuration DATABASE_URL
+        var configDbUrl = configuration["DATABASE_URL"];
+        if (!string.IsNullOrWhiteSpace(configDbUrl) && !configDbUrl.Contains("YOUR_DB_HOST", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParsePostgresUrlOrConnectionString(configDbUrl);
+        }
+
+        // 3. DefaultConnection from ConnectionStrings
+        var defaultConn = configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrWhiteSpace(defaultConn) && !defaultConn.Contains("YOUR_DB_HOST", StringComparison.OrdinalIgnoreCase))
+        {
+            return ParsePostgresUrlOrConnectionString(defaultConn);
+        }
+
+        return string.Empty;
+    }
+
+    private static string ParsePostgresUrlOrConnectionString(string conn)
+    {
         if (string.IsNullOrWhiteSpace(conn)) return conn;
 
-        // Auto-convert Render/Heroku postgres:// URLs into Npgsql standard connection string
+        conn = conn.Trim().Trim('"').Trim('\'');
+
+        // Auto-convert Render/Heroku postgres:// or postgresql:// URLs into Npgsql standard connection string
         if (conn.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
             conn.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
         {
@@ -164,6 +187,11 @@ public static class InfrastructureServiceRegistration
             {
                 return conn;
             }
+        }
+
+        if (!conn.Contains("Trust Server Certificate", StringComparison.OrdinalIgnoreCase))
+        {
+            conn = conn.TrimEnd(';') + ";Trust Server Certificate=true;";
         }
 
         return conn;
