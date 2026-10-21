@@ -13,6 +13,11 @@ public partial class AddProductSpecifications : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
+        migrationBuilder.Sql(@"
+            ALTER TABLE ""Products"" ADD COLUMN IF NOT EXISTS ""Type"" integer NOT NULL DEFAULT 0;
+            ALTER TABLE ""Products"" ADD COLUMN IF NOT EXISTS ""ProductNumber"" character varying(50) NOT NULL DEFAULT '';
+        ");
+
         // Add Specifications column (nullable varchar, up to 4000 chars for JSON specs)
         migrationBuilder.AddColumn<string>(
             name: "Specifications",

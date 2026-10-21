@@ -11,6 +11,15 @@ public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext context, IConfiguration? configuration = null)
     {
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                ALTER TABLE IF EXISTS ""Products"" ADD COLUMN IF NOT EXISTS ""Type"" integer NOT NULL DEFAULT 0;
+                ALTER TABLE IF EXISTS ""Products"" ADD COLUMN IF NOT EXISTS ""ProductNumber"" character varying(50) NOT NULL DEFAULT '';
+            ");
+        }
+        catch { }
+
         await context.Database.MigrateAsync();
 
         // ==========================

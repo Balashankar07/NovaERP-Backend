@@ -13,7 +13,9 @@ public partial class AddProductTypeAndConstraints : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        // Already applied directly to the database. No action required.
+        migrationBuilder.Sql(@"
+            ALTER TABLE ""Products"" ADD COLUMN IF NOT EXISTS ""Type"" integer NOT NULL DEFAULT 0;
+        ");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)

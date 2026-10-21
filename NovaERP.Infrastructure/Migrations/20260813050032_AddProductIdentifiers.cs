@@ -13,7 +13,9 @@ public partial class AddProductIdentifiers : Migration
 {
     protected override void Up(MigrationBuilder migrationBuilder)
     {
-        // Already applied directly to the database. No action required.
+        migrationBuilder.Sql(@"
+            ALTER TABLE ""Products"" ADD COLUMN IF NOT EXISTS ""ProductNumber"" character varying(50) NOT NULL DEFAULT '';
+        ");
     }
 
     protected override void Down(MigrationBuilder migrationBuilder)
