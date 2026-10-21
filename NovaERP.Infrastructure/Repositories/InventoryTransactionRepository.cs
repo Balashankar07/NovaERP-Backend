@@ -35,11 +35,11 @@ public class InventoryTransactionRepository : Repository<InventoryTransaction>, 
     {
         var query = _dbSet
             .Include(t => t.Inventory)
-                .ThenInclude(i => i.Product)
+                .ThenInclude(i => i!.Product)
             .Include(t => t.Inventory)
-                .ThenInclude(i => i.Warehouse)
+                .ThenInclude(i => i!.Warehouse)
             .Include(t => t.Inventory)
-                .ThenInclude(i => i.WarehouseLocation)
+                .ThenInclude(i => i!.WarehouseLocation)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -58,12 +58,12 @@ public class InventoryTransactionRepository : Repository<InventoryTransaction>, 
 
         if (warehouseId.HasValue)
         {
-            query = query.Where(t => t.Inventory.WarehouseId == warehouseId.Value);
+            query = query.Where(t => t.Inventory != null && t.Inventory.WarehouseId == warehouseId.Value);
         }
 
         if (productId.HasValue)
         {
-            query = query.Where(t => t.Inventory.ProductId == productId.Value);
+            query = query.Where(t => t.Inventory != null && t.Inventory.ProductId == productId.Value);
         }
 
         if (startDate.HasValue)

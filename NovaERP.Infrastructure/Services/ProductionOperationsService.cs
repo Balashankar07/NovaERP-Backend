@@ -91,7 +91,7 @@ public class ProductionOperationsService : IProductionOperationsService
         _context.WorkCenters.Add(workCenter);
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("WorkCenter.Create", $"Created Work Center '{workCenter.Code}' ({workCenter.Name})", currentUserId?.ToString());
+        await _auditLogger.LogAsync("WorkCenter.Create", "WorkCenter", workCenter.Id.ToString(), newValues: $"Created Work Center '{workCenter.Code}' ({workCenter.Name})");
 
         return (await GetWorkCentersAsync(1, 1, workCenter.Code)).Items.First();
     }
@@ -116,7 +116,7 @@ public class ProductionOperationsService : IProductionOperationsService
 
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("WorkCenter.Update", $"Updated Work Center '{wc.Code}'", currentUserId?.ToString());
+        await _auditLogger.LogAsync("WorkCenter.Update", "WorkCenter", wc.Id.ToString(), newValues: $"Updated Work Center '{wc.Code}'");
 
         return (await GetWorkCentersAsync(1, 1, wc.Code)).Items.First();
     }
@@ -195,7 +195,7 @@ public class ProductionOperationsService : IProductionOperationsService
         _context.Machines.Add(machine);
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("Machine.Create", $"Created Machine '{machine.MachineCode}' ({machine.MachineName})", currentUserId?.ToString());
+        await _auditLogger.LogAsync("Machine.Create", "Machine", machine.Id.ToString(), newValues: $"Created Machine '{machine.MachineCode}' ({machine.MachineName})");
 
         return (await GetMachinesAsync(1, 1, null, null)).Items.First(m => m.Id == machine.Id);
     }
@@ -224,7 +224,7 @@ public class ProductionOperationsService : IProductionOperationsService
 
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("Machine.Update", $"Updated Machine '{machine.MachineCode}' status to {machine.Status}", currentUserId?.ToString());
+        await _auditLogger.LogAsync("Machine.Update", "Machine", machine.Id.ToString(), newValues: $"Updated Machine '{machine.MachineCode}' status to {machine.Status}");
 
         return (await GetMachinesAsync(1, 1, null, null)).Items.First(m => m.Id == machine.Id);
     }
@@ -345,7 +345,7 @@ public class ProductionOperationsService : IProductionOperationsService
         _context.ProductionRoutings.Add(routing);
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("Routing.Create", $"Created Production Routing v{routing.Version} for Product '{prod.Name}'", currentUserId?.ToString());
+        await _auditLogger.LogAsync("Routing.Create", "ProductionRouting", routing.Id.ToString(), newValues: $"Created Production Routing v{routing.Version} for Product '{prod.Name}'");
 
         return (await GetRoutingsAsync(1, 1, dto.ProductId)).Items.First(r => r.Id == routing.Id);
     }
@@ -427,7 +427,7 @@ public class ProductionOperationsService : IProductionOperationsService
         _context.ProductionWorkerAssignments.Add(assignment);
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("WorkerAssignment.Create", $"Assigned Employee '{emp.EmployeeCode}' to Execution '{exec.ExecutionNumber}'", currentUserId?.ToString());
+        await _auditLogger.LogAsync("WorkerAssignment.Create", "WorkerAssignment", assignment.Id.ToString(), newValues: $"Assigned Employee '{emp.EmployeeCode}' to Execution '{exec.ExecutionNumber}'");
 
         return (await GetWorkerAssignmentsAsync(1, 1, dto.ProductionExecutionId, dto.EmployeeId)).Items.First(a => a.Id == assignment.Id);
     }
@@ -444,7 +444,7 @@ public class ProductionOperationsService : IProductionOperationsService
 
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("WorkerAssignment.Complete", $"Completed Assignment '{id}' for Employee '{assignment.Employee.EmployeeCode}'", currentUserId?.ToString());
+        await _auditLogger.LogAsync("WorkerAssignment.Complete", "WorkerAssignment", id.ToString(), newValues: $"Completed Assignment '{id}' for Employee '{assignment.Employee.EmployeeCode}'");
 
         return (await GetWorkerAssignmentsAsync(1, 1, assignment.ProductionExecutionId, assignment.EmployeeId)).Items.First(a => a.Id == assignment.Id);
     }
@@ -553,7 +553,7 @@ public class ProductionOperationsService : IProductionOperationsService
         _context.ProductionSchedules.Add(schedule);
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("Schedule.Create", $"Created Schedule for Order '{po.ProductionOrderNumber}' at Work Center '{wc.Code}'", currentUserId?.ToString());
+        await _auditLogger.LogAsync("Schedule.Create", "ProductionSchedule", schedule.Id.ToString(), newValues: $"Created Schedule for Order '{po.ProductionOrderNumber}' at Work Center '{wc.Code}'");
 
         return (await GetSchedulesAsync(1, 1, dto.ProductionOrderId, dto.WorkCenterId, null)).Items.First(s => s.Id == schedule.Id);
     }
@@ -584,7 +584,7 @@ public class ProductionOperationsService : IProductionOperationsService
 
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("Schedule.UpdateStatus", $"Updated Schedule '{id}' status to {dto.Status}", currentUserId?.ToString());
+        await _auditLogger.LogAsync("Schedule.UpdateStatus", "ProductionSchedule", id.ToString(), newValues: $"Updated Schedule '{id}' status to {dto.Status}");
 
         return (await GetSchedulesAsync(1, 1, schedule.ProductionOrderId, null, null)).Items.First(s => s.Id == id);
     }
@@ -596,7 +596,7 @@ public class ProductionOperationsService : IProductionOperationsService
             .Include(e => e.ProductionExecution)
             .Include(e => e.Machine)
             .Include(e => e.Employee)
-                .ThenInclude(emp => emp.User)
+                .ThenInclude(emp => emp!.User)
             .AsNoTracking();
 
         if (executionId.HasValue)
@@ -665,7 +665,7 @@ public class ProductionOperationsService : IProductionOperationsService
         _context.ProductionEvents.Add(evt);
         await _context.SaveChangesAsync();
 
-        await _auditLogger.LogAsync("ProductionEvent.Create", $"Logged {evt.EventType} event for Execution '{exec.ExecutionNumber}'", currentUserId?.ToString());
+        await _auditLogger.LogAsync("ProductionEvent.Create", "ProductionEvent", evt.Id.ToString(), newValues: $"Logged {evt.EventType} event for Execution '{exec.ExecutionNumber}'");
 
         return (await GetEventsAsync(1, 1, dto.ProductionExecutionId, null, null)).Items.First(e => e.Id == evt.Id);
     }

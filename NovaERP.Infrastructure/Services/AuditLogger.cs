@@ -20,12 +20,12 @@ public class AuditLogger : IAuditLogger
         var auditLog = new AuditLog
         {
             UserId = _currentUserService.IsAuthenticated ? _currentUserService.UserId : null,
-            Action = action,
-            EntityName = entityName,
-            EntityId = entityId,
-            OldValues = oldValues,
-            NewValues = newValues,
-            IpAddress = string.Empty, // Could be populated via IHttpContextAccessor if needed
+            Action = action ?? string.Empty,
+            EntityName = entityName ?? string.Empty,
+            EntityId = entityId ?? string.Empty,
+            OldValues = oldValues ?? string.Empty,
+            NewValues = newValues ?? string.Empty,
+            IpAddress = string.Empty,
             Timestamp = DateTime.UtcNow
         };
 

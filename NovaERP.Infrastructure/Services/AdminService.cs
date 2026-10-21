@@ -108,7 +108,7 @@ public class AdminService : IAdminService
                 Id = a.Id,
                 Timestamp = a.Timestamp,
                 EventType = "FailedLogin",
-                UserIdentifier = a.User != null ? a.User.Email : (a.UserId.HasValue ? a.UserId.ToString() : "Unknown"),
+                UserIdentifier = a.User != null ? a.User.Email : (a.UserId.HasValue ? a.UserId.Value.ToString() : "Unknown"),
                 Action = a.Action,
                 Details = !string.IsNullOrEmpty(a.NewValues) ? a.NewValues : a.EntityName,
                 IpAddress = !string.IsNullOrEmpty(a.IpAddress) ? a.IpAddress : "127.0.0.1"
@@ -126,7 +126,7 @@ public class AdminService : IAdminService
                 Id = a.Id,
                 Timestamp = a.Timestamp,
                 EventType = "PermissionDenied",
-                UserIdentifier = a.User != null ? a.User.Email : (a.UserId.HasValue ? a.UserId.ToString() : "Unknown"),
+                UserIdentifier = a.User != null ? a.User.Email : (a.UserId.HasValue ? a.UserId.Value.ToString() : "Unknown"),
                 Action = a.Action,
                 Details = !string.IsNullOrEmpty(a.NewValues) ? a.NewValues : a.EntityName,
                 IpAddress = !string.IsNullOrEmpty(a.IpAddress) ? a.IpAddress : "127.0.0.1"
@@ -536,7 +536,7 @@ public class AdminService : IAdminService
                 Id = a.Id,
                 Timestamp = a.Timestamp,
                 EventType = a.Action.ToUpper().Contains("DENIED") ? "PermissionDenied" : "FailedLogin",
-                UserIdentifier = a.User != null ? a.User.Email : (a.UserId.HasValue ? a.UserId.ToString() : "Unknown"),
+                UserIdentifier = a.User != null ? a.User.Email : (a.UserId.HasValue ? a.UserId.Value.ToString() : "Unknown"),
                 Action = a.Action,
                 Details = !string.IsNullOrEmpty(a.NewValues) ? a.NewValues : a.EntityName,
                 IpAddress = !string.IsNullOrEmpty(a.IpAddress) ? a.IpAddress : "127.0.0.1"

@@ -336,9 +336,6 @@ public class ProductionPlanService : IProductionPlanService
         if (!shortages.Any())
             throw new BadRequestException("No material shortages found. Purchase Request is not required.");
 
-        var prService = (IPurchaseRequestService)_unitOfWork.GetType().Assembly.GetType("NovaERP.Infrastructure.Services.PurchaseRequestService")?.GetConstructors()[0].Invoke(new object[] { _unitOfWork, _auditLogger, null });
-        // Since we are injecting IPurchaseRequestService in the constructor of ProductionPlanService might cause a circular dependency if not careful.
-        // It's better to request IPurchaseRequestService via constructor, but I'll add it now. Wait, I will just create the entity directly to avoid circular dependency in DI.
 
         var pr = new PurchaseRequest
         {
