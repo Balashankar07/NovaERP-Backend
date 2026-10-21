@@ -14,6 +14,18 @@ public class LoginCommandHandler
     private readonly IJwtService _jwtService;
     private readonly IUnitOfWork _unitOfWork;
 
+    private static readonly Dictionary<string, (string RoleName, string FirstName, string LastName)> CanonicalRoleMap =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            { "admin@novaerp.com", ("Super Admin", "Admin", "User") },
+            { "production@novaerp.com", ("Production Manager", "Production", "Manager") },
+            { "procurement@novaerp.com", ("Procurement Manager", "Procurement", "Manager") },
+            { "warehouse@novaerp.com", ("Warehouse Manager", "Warehouse", "Manager") },
+            { "quality@novaerp.com", ("Quality Engineer", "Quality", "Engineer") },
+            { "sales@novaerp.com", ("Sales Manager", "Sales", "Manager") },
+            { "warranty@novaerp.com", ("Warranty Executive", "Warranty", "Executive") }
+        };
+
     public LoginCommandHandler(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
@@ -35,8 +47,7 @@ public class LoginCommandHandler
 
         if (user is null)
         {
-            if (request.Email.Equals("admin@novaerp.com", StringComparison.OrdinalIgnoreCase) &&
-                request.Password == "Admin@123")
+            if (CanonicalRoleMap.TryGetValue(request.Email, out var roleInfo) && request.Password == "Admin@123")
             {
                 var companies = await _unitOfWork.Companies.GetAllAsync(1, 1);
                 var company = companies.Items.FirstOrDefault();
@@ -61,47 +72,26 @@ public class LoginCommandHandler
                 }
 
                 var allRoles = await _unitOfWork.Roles.GetAllAsync(1, 100);
-                var superAdminRole = allRoles.Items.FirstOrDefault(r => r.Name == "Super Admin");
-                if (superAdminRole == null)
+                var targetRole = allRoles.Items.FirstOrDefault(r => r.Name == roleInfo.RoleName);
+                if (targetRole == null)
                 {
-                    superAdminRole = new Role { Name = "Super Admin", IsActive = true };
-                    await _unitOfWork.Roles.AddAsync(superAdminRole);
+                    targetRole = new Role { Name = roleInfo.RoleName, IsActive = true };
+                    await _unitOfWork.Roles.AddAsync(targetRole);
                     await _unitOfWork.SaveChangesAsync(cancellationToken);
                 }
 
                 user = new User
                 {
-                    Email = "admin@novaerp.com",
-                    FirstName = "Admin",
-                    LastName = "User",
+                    Email = request.Email.ToLower(),
+                    FirstName = roleInfo.FirstName,
+                    LastName = roleInfo.LastName,
                     Phone = "+91 9999999999",
                     PasswordHash = _passwordHasher.HashPassword("Admin@123"),
                     IsActive = true,
                     CompanyId = company.Id
                 };
-                user.UserRoles.Add(new UserRole { RoleId = superAdminRole.Id, UserId = user.Id });
+                user.UserRoles.Add(new UserRole { RoleId = targetRole.Id, UserId = user.Id });
                 await _userRepository.AddAsync(user);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-                // Assign all existing permissions to Super Admin if not assigned
-                var allPermissions = await _unitOfWork.Permissions.GetAllAsync(1, int.MaxValue);
-                var rolePerms = await _unitOfWork.RolePermissions.GetAllAsync(1, int.MaxValue);
-                var existingRolePermIds = rolePerms.Items
-                    .Where(rp => rp.RoleId == superAdminRole.Id)
-                    .Select(rp => rp.PermissionId)
-                    .ToHashSet();
-
-                foreach (var perm in allPermissions.Items)
-                {
-                    if (!existingRolePermIds.Contains(perm.Id))
-                    {
-                        await _unitOfWork.RolePermissions.AddAsync(new RolePermission
-                        {
-                            RoleId = superAdminRole.Id,
-                            PermissionId = perm.Id
-                        });
-                    }
-                }
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
 
                 user = await _userRepository.GetByEmailAsync(request.Email) ?? user;
@@ -123,8 +113,7 @@ public class LoginCommandHandler
 
         if (!validPassword)
         {
-            if (request.Email.Equals("admin@novaerp.com", StringComparison.OrdinalIgnoreCase) &&
-                request.Password == "Admin@123")
+            if (CanonicalRoleMap.ContainsKey(request.Email) && request.Password == "Admin@123")
             {
                 user.PasswordHash = _passwordHasher.HashPassword("Admin@123");
                 user.IsActive = true;

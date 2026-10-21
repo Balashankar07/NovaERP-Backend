@@ -440,61 +440,124 @@ public static class DbSeeder
         await context.SaveChangesAsync();
 
         // ==========================
-        // Grant All Permissions to Super Admin Role
+        // Grant Permissions to Canonical Roles
         // ==========================
-        if (superAdminRole != null)
+        var roleDefinitions = new Dictionary<string, Func<string, bool>>
         {
-            var existingSuperAdminPermIds = (await context.RolePermissions
-                .Where(rp => rp.RoleId == superAdminRole.Id)
-                .Select(rp => rp.PermissionId)
-                .ToListAsync())
-                .ToHashSet();
+            ["Super Admin"] = p => true,
+            ["Production Manager"] = p => 
+                p.Contains("Production") || p.Contains("BOMs") || p.Contains("Dashboard") || 
+                p == "Permissions.Products.View" || p == "Permissions.Inventory.Transactions.View" ||
+                p == "Permissions.Reports.Production" || p == "Permissions.Reports.View",
+            ["Procurement Manager"] = p => 
+                p.Contains("PurchaseOrder") || p.Contains("PurchaseRequest") || p.Contains("Supplier") || 
+                p.Contains("GoodsReceipt") || p.Contains("Dashboard") || 
+                p == "Permissions.Products.View" || p == "Permissions.Reports.View",
+            ["Warehouse Manager"] = p => 
+                p.Contains("Warehouse") || p.Contains("Inventory") || p.Contains("GoodsReceipt") || 
+                p.Contains("Shipment") || p.Contains("LogisticsDocument") || p.Contains("Dashboard") || 
+                p == "Permissions.Products.View" || p == "Permissions.Reports.Inventory" || p == "Permissions.Reports.View",
+            ["Quality Engineer"] = p => 
+                p.Contains("Quality") || p.Contains("NCR") || p.Contains("CAPA") || 
+                p.Contains("Scrap") || p.Contains("Rework") || p.Contains("Dashboard") || 
+                p == "Permissions.Products.View" || p == "Permissions.BOMs.View" || p == "Permissions.Reports.Quality" || p == "Permissions.Reports.View",
+            ["Sales Manager"] = p => 
+                p.Contains("Sales") || p.Contains("Shipment") || p.Contains("Distributor") || 
+                p.Contains("LogisticsDocument") || p.Contains("Dashboard") || 
+                p == "Permissions.Products.View" || p == "Permissions.ProductCategories.View" || 
+                p == "Permissions.Brands.View" || p == "Permissions.Units.View" || 
+                p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View",
+            ["Warranty Executive"] = p => 
+                p.Contains("Warrant") || p.Contains("Return") || p.Contains("Dashboard") || 
+                p == "Permissions.Products.View" || p == "Permissions.Reports.Warranty" || p == "Permissions.Reports.View"
+        };
 
-            var missingPerms = allPermsDict.Values
-                .Where(p => !existingSuperAdminPermIds.Contains(p.Id))
-                .Select(p => new RolePermission
-                {
-                    RoleId = superAdminRole.Id,
-                    PermissionId = p.Id
-                })
-                .ToList();
-
-            if (missingPerms.Count > 0)
+        foreach (var (targetRoleName, permFilter) in roleDefinitions)
+        {
+            var targetRole = allRoles.FirstOrDefault(r => r.Name == targetRoleName) ?? 
+                             await context.Roles.FirstOrDefaultAsync(r => r.Name == targetRoleName);
+            if (targetRole != null)
             {
-                await context.RolePermissions.AddRangeAsync(missingPerms);
-                await context.SaveChangesAsync();
+                var existingRolePermIds = (await context.RolePermissions
+                    .Where(rp => rp.RoleId == targetRole.Id)
+                    .Select(rp => rp.PermissionId)
+                    .ToListAsync())
+                    .ToHashSet();
+
+                var matchingPerms = allPermsDict.Values
+                    .Where(p => permFilter(p.Name) && !existingRolePermIds.Contains(p.Id))
+                    .Select(p => new RolePermission
+                    {
+                        RoleId = targetRole.Id,
+                        PermissionId = p.Id
+                    })
+                    .ToList();
+
+                if (matchingPerms.Count > 0)
+                {
+                    await context.RolePermissions.AddRangeAsync(matchingPerms);
+                    await context.SaveChangesAsync();
+                }
             }
         }
 
         // ==========================
-        // Seed Super Admin User
+        // Seed Canonical Users (all 7 roles)
         // ==========================
-        var superAdmin = await context.Users.FirstOrDefaultAsync(u => u.Email == "admin@novaerp.com");
         var defaultCompany = await context.Companies.FirstOrDefaultAsync();
-        if (superAdmin == null && defaultCompany != null)
+        if (defaultCompany != null)
         {
-            superAdmin = new User
+            var canonicalUsers = new List<(string Email, string FirstName, string LastName, string RoleName, string Phone)>
             {
-                Email = "admin@novaerp.com",
-                FirstName = "Admin",
-                LastName = "User",
-                Phone = "+91 9999999999",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
-                IsActive = true,
-                CompanyId = defaultCompany.Id
+                ("admin@novaerp.com", "Admin", "User", "Super Admin", "+91 9999999999"),
+                ("production@novaerp.com", "Production", "Manager", "Production Manager", "+91 9999999991"),
+                ("procurement@novaerp.com", "Procurement", "Manager", "Procurement Manager", "+91 9999999992"),
+                ("warehouse@novaerp.com", "Warehouse", "Manager", "Warehouse Manager", "+91 9999999993"),
+                ("quality@novaerp.com", "Quality", "Engineer", "Quality Engineer", "+91 9999999994"),
+                ("sales@novaerp.com", "Sales", "Manager", "Sales Manager", "+91 9999999995"),
+                ("warranty@novaerp.com", "Warranty", "Executive", "Warranty Executive", "+91 9999999996")
             };
-            await context.Users.AddAsync(superAdmin);
-            await context.SaveChangesAsync();
-        }
 
-        if (superAdmin != null && superAdminRole != null && !await context.UserRoles.AnyAsync(ur => ur.UserId == superAdmin.Id && ur.RoleId == superAdminRole.Id))
-        {
-            await context.UserRoles.AddAsync(new UserRole
+            foreach (var (email, firstName, lastName, roleName, phone) in canonicalUsers)
             {
-                UserId = superAdmin.Id,
-                RoleId = superAdminRole.Id
-            });
-            await context.SaveChangesAsync();
+                var targetRole = allRoles.FirstOrDefault(r => r.Name == roleName) ?? 
+                                 await context.Roles.FirstOrDefaultAsync(r => r.Name == roleName);
+                if (targetRole == null) continue;
+
+                var user = await context.Users.FirstOrDefaultAsync(u => u.Email == email);
+                if (user == null)
+                {
+                    user = new User
+                    {
+                        Email = email,
+                        FirstName = firstName,
+                        LastName = lastName,
+                        Phone = phone,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                        IsActive = true,
+                        CompanyId = defaultCompany.Id
+                    };
+                    await context.Users.AddAsync(user);
+                    await context.SaveChangesAsync();
+                }
+                else
+                {
+                    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123");
+                    user.IsActive = true;
+                    context.Users.Update(user);
+                    await context.SaveChangesAsync();
+                }
+
+                if (!await context.UserRoles.AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == targetRole.Id))
+                {
+                    await context.UserRoles.AddAsync(new UserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = targetRole.Id
+                    });
+                    await context.SaveChangesAsync();
+                }
+            }
         }
 
         // ==========================

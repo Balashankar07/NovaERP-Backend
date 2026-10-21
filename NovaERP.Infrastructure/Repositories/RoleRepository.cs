@@ -12,9 +12,24 @@ public class RoleRepository : Repository<Role>, IRoleRepository
     {
     }
 
+    public override async Task<Role?> GetByIdAsync(Guid id)
+    {
+        return await _dbSet
+            .Include(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
+            .Include(r => r.UserRoles)
+                .ThenInclude(ur => ur.User)
+            .FirstOrDefaultAsync(r => r.Id == id);
+    }
+
     public async Task<Role?> GetByNameAsync(string roleName)
     {
-        return await _dbSet.FirstOrDefaultAsync(r => r.Name == roleName);
+        return await _dbSet
+            .Include(r => r.RolePermissions)
+                .ThenInclude(rp => rp.Permission)
+            .Include(r => r.UserRoles)
+                .ThenInclude(ur => ur.User)
+            .FirstOrDefaultAsync(r => r.Name == roleName);
     }
 
     public override async Task<NovaERP.Application.Common.Models.PagedResult<NovaERP.Domain.Entities.Role>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
