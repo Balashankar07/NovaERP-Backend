@@ -205,7 +205,7 @@ export function WarehouseListPage() {
           <DialogHeader>
             <DialogTitle>Add Warehouse</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4 py-4">
+          <form onSubmit={handleCreate} className="space-y-4 pt-2">
             <div className="grid gap-2">
               <Label htmlFor="warehouseCode" className="after:content-['*'] after:ml-0.5 after:text-red-500">Warehouse Code</Label>
               <Input

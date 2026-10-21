@@ -1,4 +1,5 @@
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,16 +67,16 @@ export function Modal({
 
   if (!isVisible) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-150">
       <div
-        className="absolute inset-0 bg-background/80 backdrop-blur-md dark:bg-[#020617]/80"
+        className="fixed inset-0 bg-background/80 backdrop-blur-md dark:bg-[#020617]/80"
         onClick={handleClose}
       />
 
       <div
         className={cn(
-          "relative w-full bg-card text-card-foreground rounded-2xl shadow-2xl border border-border/50 overflow-hidden flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200",
+          "relative w-full bg-card text-card-foreground rounded-2xl shadow-2xl border border-border/50 overflow-hidden flex flex-col max-h-[90vh] z-10 animate-in zoom-in-95 duration-200",
           maxWidthClass,
           className
         )}
@@ -98,6 +99,7 @@ export function Modal({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

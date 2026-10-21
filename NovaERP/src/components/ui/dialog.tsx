@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Modal } from "./modal";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface DialogProps {
@@ -8,31 +9,42 @@ interface DialogProps {
   children: React.ReactNode;
 }
 
+const DialogContext = React.createContext<{ onClose: () => void }>({ onClose: () => {} });
+
 export const Dialog: React.FC<DialogProps> = ({ open, onOpenChange, children }) => {
+  const handleClose = React.useCallback(() => {
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleClose();
+    };
+    if (open) {
+      document.addEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "unset";
+    };
+  }, [open, handleClose]);
+
   if (!open) return null;
 
-  // Extract Header, Footer, and Title from children to construct clean Modal
-  let titleNode: React.ReactNode = null;
-  const contentChildren: React.ReactNode[] = [];
-
-  React.Children.forEach(children, (child) => {
-    if (React.isValidElement(child)) {
-      if (child.type === DialogContent) {
-        contentChildren.push(child);
-      }
-    }
-  });
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
-      <div
-        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
-        onClick={() => onOpenChange(false)}
-      />
-      <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh] z-10 animate-in zoom-in-95 duration-200 p-6">
-        {children}
+  return createPortal(
+    <DialogContext.Provider value={{ onClose: handleClose }}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm"
+          onClick={handleClose}
+        />
+        <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] z-10 animate-in zoom-in-95 duration-200 p-6 overflow-y-auto">
+          {children}
+        </div>
       </div>
-    </div>
+    </DialogContext.Provider>,
+    document.body
   );
 };
 
@@ -41,7 +53,19 @@ export const DialogContent: React.FC<{ children: React.ReactNode; className?: st
 };
 
 export const DialogHeader: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => {
-  return <div className={cn("pb-2 border-b border-slate-100 dark:border-slate-800", className)}>{children}</div>;
+  const { onClose } = React.useContext(DialogContext);
+  return (
+    <div className={cn("pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between", className)}>
+      <div className="flex-1">{children}</div>
+      <button
+        type="button"
+        onClick={onClose}
+        className="p-1.5 -mr-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  );
 };
 
 export const DialogTitle: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => {
