@@ -429,6 +429,64 @@ public static class DbSeeder
         await context.SaveChangesAsync();
 
         // ==========================
+        // Grant All Permissions to Super Admin Role
+        // ==========================
+        if (superAdminRole != null)
+        {
+            var existingSuperAdminPermIds = (await context.RolePermissions
+                .Where(rp => rp.RoleId == superAdminRole.Id)
+                .Select(rp => rp.PermissionId)
+                .ToListAsync())
+                .ToHashSet();
+
+            var missingPerms = allPermsDict.Values
+                .Where(p => !existingSuperAdminPermIds.Contains(p.Id))
+                .Select(p => new RolePermission
+                {
+                    RoleId = superAdminRole.Id,
+                    PermissionId = p.Id
+                })
+                .ToList();
+
+            if (missingPerms.Count > 0)
+            {
+                await context.RolePermissions.AddRangeAsync(missingPerms);
+                await context.SaveChangesAsync();
+            }
+        }
+
+        // ==========================
+        // Seed Super Admin User
+        // ==========================
+        var superAdmin = await context.Users.FirstOrDefaultAsync(u => u.Email == "admin@novaerp.com");
+        var defaultCompany = await context.Companies.FirstOrDefaultAsync();
+        if (superAdmin == null && defaultCompany != null)
+        {
+            superAdmin = new User
+            {
+                Email = "admin@novaerp.com",
+                FirstName = "Admin",
+                LastName = "User",
+                Phone = "+91 9999999999",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                IsActive = true,
+                CompanyId = defaultCompany.Id
+            };
+            await context.Users.AddAsync(superAdmin);
+            await context.SaveChangesAsync();
+        }
+
+        if (superAdmin != null && superAdminRole != null && !await context.UserRoles.AnyAsync(ur => ur.UserId == superAdmin.Id && ur.RoleId == superAdminRole.Id))
+        {
+            await context.UserRoles.AddAsync(new UserRole
+            {
+                UserId = superAdmin.Id,
+                RoleId = superAdminRole.Id
+            });
+            await context.SaveChangesAsync();
+        }
+
+        // ==========================
         // Seed Product Categories, Brands, Units
         // ==========================
         if (!await context.ProductCategories.AnyAsync())
