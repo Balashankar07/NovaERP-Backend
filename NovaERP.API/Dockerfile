@@ -23,6 +23,9 @@ COPY NovaERP.Application/ NovaERP.Application/
 COPY NovaERP.Domain/ NovaERP.Domain/
 COPY NovaERP.Infrastructure/ NovaERP.Infrastructure/
 
+# Ensure appsettings.json is available for build/publish
+RUN test -f NovaERP.API/appsettings.json || cp NovaERP.API/appsettings.Example.json NovaERP.API/appsettings.json
+
 WORKDIR "/src/NovaERP.API"
 RUN dotnet build "NovaERP.API.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
@@ -35,6 +38,9 @@ RUN dotnet publish "NovaERP.API.csproj" -c $BUILD_CONFIGURATION -o /app/publish 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+
+# Create logs directory
+RUN mkdir -p /app/Logs
 
 ENV ASPNETCORE_HTTP_PORTS=8080
 ENTRYPOINT ["dotnet", "NovaERP.API.dll"]

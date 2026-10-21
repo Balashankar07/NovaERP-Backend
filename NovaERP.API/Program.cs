@@ -14,13 +14,12 @@ public class Program
 {
     public static async Task Main(string[] args)
     {
-        // Configure Serilog
+        // Configure initial Console logger to capture any early startup errors
         Log.Logger = new LoggerConfiguration()
-            .ReadFrom.Configuration(
-                new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json")
-                    .Build())
-            .CreateLogger();
+            .MinimumLevel.Information()
+            .Enrich.FromLogContext()
+            .WriteTo.Console()
+            .CreateBootstrapLogger();
 
         try
         {
@@ -36,9 +35,12 @@ public class Program
                 builder.WebHost.UseUrls($"http://0.0.0.0:{renderPort}");
             }
 
-            // Configure Serilog
+            // Configure Serilog from Configuration (with fallback to Console)
             Log.Information("Configuring Serilog...");
-            builder.Host.UseSerilog();
+            builder.Host.UseSerilog((context, services, configuration) => configuration
+                .ReadFrom.Configuration(context.Configuration)
+                .Enrich.FromLogContext()
+                .WriteTo.Console());
 
             // Controllers
             Log.Information("Registering Controllers...");
@@ -131,6 +133,7 @@ public class Program
         catch (Exception ex)
         {
             Log.Fatal(ex, "NovaERP API terminated unexpectedly.");
+            throw;
         }
         finally
         {
