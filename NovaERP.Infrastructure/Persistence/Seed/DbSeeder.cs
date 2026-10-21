@@ -507,18 +507,18 @@ public static class DbSeeder
         var defaultCompany = await context.Companies.FirstOrDefaultAsync();
         if (defaultCompany != null)
         {
-            var canonicalUsers = new List<(string Email, string FirstName, string LastName, string RoleName, string Phone)>
+            var canonicalUsers = new List<(string Email, string FirstName, string LastName, string RoleName, string Phone, string Password)>
             {
-                ("admin@novaerp.com", "Admin", "User", "Super Admin", "+91 9999999999"),
-                ("production@novaerp.com", "Production", "Manager", "Production Manager", "+91 9999999991"),
-                ("procurement@novaerp.com", "Procurement", "Manager", "Procurement Manager", "+91 9999999992"),
-                ("warehouse@novaerp.com", "Warehouse", "Manager", "Warehouse Manager", "+91 9999999993"),
-                ("quality@novaerp.com", "Quality", "Engineer", "Quality Engineer", "+91 9999999994"),
-                ("sales@novaerp.com", "Sales", "Manager", "Sales Manager", "+91 9999999995"),
-                ("warranty@novaerp.com", "Warranty", "Executive", "Warranty Executive", "+91 9999999996")
+                ("admin@novaerp.com", "Admin", "User", "Super Admin", "+91 9999999999", "Admin@123"),
+                ("production@novaerp.com", "Production", "Manager", "Production Manager", "+91 9999999991", "Production@123"),
+                ("procurement@novaerp.com", "Procurement", "Manager", "Procurement Manager", "+91 9999999992", "Procurement@123"),
+                ("warehouse@novaerp.com", "Warehouse", "Manager", "Warehouse Manager", "+91 9999999993", "Warehouse@123"),
+                ("quality@novaerp.com", "Quality", "Engineer", "Quality Engineer", "+91 9999999994", "Quality@123"),
+                ("sales@novaerp.com", "Sales", "Manager", "Sales Manager", "+91 9999999995", "Sales@123"),
+                ("warranty@novaerp.com", "Warranty", "Executive", "Warranty Executive", "+91 9999999996", "Warranty@123")
             };
 
-            foreach (var (email, firstName, lastName, roleName, phone) in canonicalUsers)
+            foreach (var (email, firstName, lastName, roleName, phone, password) in canonicalUsers)
             {
                 var targetRole = allRoles.FirstOrDefault(r => r.Name == roleName) ?? 
                                  await context.Roles.FirstOrDefaultAsync(r => r.Name == roleName);
@@ -533,7 +533,7 @@ public static class DbSeeder
                         FirstName = firstName,
                         LastName = lastName,
                         Phone = phone,
-                        PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123"),
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
                         IsActive = true,
                         CompanyId = defaultCompany.Id
                     };
@@ -542,7 +542,7 @@ public static class DbSeeder
                 }
                 else
                 {
-                    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123");
+                    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
                     user.IsActive = true;
                     context.Users.Update(user);
                     await context.SaveChangesAsync();

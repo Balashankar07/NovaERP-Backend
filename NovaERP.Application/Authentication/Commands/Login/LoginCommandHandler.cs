@@ -14,16 +14,16 @@ public class LoginCommandHandler
     private readonly IJwtService _jwtService;
     private readonly IUnitOfWork _unitOfWork;
 
-    private static readonly Dictionary<string, (string RoleName, string FirstName, string LastName)> CanonicalRoleMap =
+    private static readonly Dictionary<string, (string RoleName, string FirstName, string LastName, string DefaultPassword)> CanonicalRoleMap =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            { "admin@novaerp.com", ("Super Admin", "Admin", "User") },
-            { "production@novaerp.com", ("Production Manager", "Production", "Manager") },
-            { "procurement@novaerp.com", ("Procurement Manager", "Procurement", "Manager") },
-            { "warehouse@novaerp.com", ("Warehouse Manager", "Warehouse", "Manager") },
-            { "quality@novaerp.com", ("Quality Engineer", "Quality", "Engineer") },
-            { "sales@novaerp.com", ("Sales Manager", "Sales", "Manager") },
-            { "warranty@novaerp.com", ("Warranty Executive", "Warranty", "Executive") }
+            { "admin@novaerp.com", ("Super Admin", "Admin", "User", "Admin@123") },
+            { "production@novaerp.com", ("Production Manager", "Production", "Manager", "Production@123") },
+            { "procurement@novaerp.com", ("Procurement Manager", "Procurement", "Manager", "Procurement@123") },
+            { "warehouse@novaerp.com", ("Warehouse Manager", "Warehouse", "Manager", "Warehouse@123") },
+            { "quality@novaerp.com", ("Quality Engineer", "Quality", "Engineer", "Quality@123") },
+            { "sales@novaerp.com", ("Sales Manager", "Sales", "Manager", "Sales@123") },
+            { "warranty@novaerp.com", ("Warranty Executive", "Warranty", "Executive", "Warranty@123") }
         };
 
     public LoginCommandHandler(
@@ -47,7 +47,8 @@ public class LoginCommandHandler
 
         if (user is null)
         {
-            if (CanonicalRoleMap.TryGetValue(request.Email, out var roleInfo) && request.Password == "Admin@123")
+            if (CanonicalRoleMap.TryGetValue(request.Email, out var roleInfo) && 
+                (request.Password == roleInfo.DefaultPassword || request.Password == "Admin@123"))
             {
                 var companies = await _unitOfWork.Companies.GetAllAsync(1, 1);
                 var company = companies.Items.FirstOrDefault();
@@ -86,7 +87,7 @@ public class LoginCommandHandler
                     FirstName = roleInfo.FirstName,
                     LastName = roleInfo.LastName,
                     Phone = "+91 9999999999",
-                    PasswordHash = _passwordHasher.HashPassword("Admin@123"),
+                    PasswordHash = _passwordHasher.HashPassword(roleInfo.DefaultPassword),
                     IsActive = true,
                     CompanyId = company.Id
                 };
@@ -113,9 +114,10 @@ public class LoginCommandHandler
 
         if (!validPassword)
         {
-            if (CanonicalRoleMap.ContainsKey(request.Email) && request.Password == "Admin@123")
+            if (CanonicalRoleMap.TryGetValue(request.Email, out var roleInfo) && 
+                (request.Password == roleInfo.DefaultPassword || request.Password == "Admin@123"))
             {
-                user.PasswordHash = _passwordHasher.HashPassword("Admin@123");
+                user.PasswordHash = _passwordHasher.HashPassword(roleInfo.DefaultPassword);
                 user.IsActive = true;
                 _userRepository.Update(user);
                 await _unitOfWork.SaveChangesAsync(cancellationToken);
