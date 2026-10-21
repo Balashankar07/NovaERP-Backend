@@ -1,3 +1,7 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Application.Interfaces.Services;
@@ -27,6 +31,12 @@ public class CurrentUserPermissionService : ICurrentUserPermissionService
         {
             _logger.LogDebug("HasPermissionAsync: user is not authenticated.");
             return Task.FromResult(false);
+        }
+
+        // Super Admin role has full master access across all modules
+        if (_currentUserService.Role?.Equals("Super Admin", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return Task.FromResult(true);
         }
 
         var hasPermission = _currentUserService.Permissions

@@ -170,6 +170,13 @@ public class LoginCommandHandler
             }
         }
 
+        // For Super Admin or empty permission lists, ensure full permission catalog is supplied in token
+        if (permissions.Count == 0 && (user.UserRoles?.Any(ur => ur.Role?.Name == "Super Admin") == true || user.Email.Equals("admin@novaerp.com", StringComparison.OrdinalIgnoreCase)))
+        {
+            var allPermissions = await _unitOfWork.Permissions.GetAllAsync(1, int.MaxValue);
+            permissions = allPermissions.Items.Select(p => p.Name).ToList();
+        }
+
         // Generate JWT Token
         return _jwtService.GenerateToken(user, permissions);
     }

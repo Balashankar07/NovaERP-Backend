@@ -101,6 +101,22 @@ public class Program
                 timestamp = DateTime.UtcNow
             }));
 
+            // On-demand seeding & migration endpoint
+            app.MapGet("/api/seed-database", async (AppDbContext context, IConfiguration config) =>
+            {
+                try
+                {
+                    Log.Information("Manual trigger: Seeding database...");
+                    await DbSeeder.SeedAsync(context, config);
+                    return Results.Ok(new { success = true, message = "Database seeded successfully!" });
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Manual trigger seed failed.");
+                    return Results.Problem(detail: ex.ToString(), title: "Seeding Failed");
+                }
+            });
+
             // Swagger (available in Development or enabled for review in Production)
             if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("EnableSwagger", true))
             {
