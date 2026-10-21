@@ -371,16 +371,36 @@ public class ProductService : IProductService
         return brand;
     }
 
+    private async Task<long> GetNextSequenceValueAsync(string sequenceName, long startWith = 1)
+    {
+#pragma warning disable EF1002
+        try
+        {
+            var result = await _context.Database
+                .SqlQueryRaw<long>($"SELECT nextval('\"{sequenceName}\"')")
+                .ToListAsync();
+            return result.First();
+        }
+        catch
+        {
+            // Auto-heal missing sequence if not yet created by migration or seeder
+            await _context.Database.ExecuteSqlRawAsync(
+                $"CREATE SEQUENCE IF NOT EXISTS \"{sequenceName}\" START WITH {startWith};");
+            var result = await _context.Database
+                .SqlQueryRaw<long>($"SELECT nextval('\"{sequenceName}\"')")
+                .ToListAsync();
+            return result.First();
+        }
+#pragma warning restore EF1002
+    }
+
     /// <summary>
     /// Generates the next ProductNumber using the existing PostgreSQL sequence (ProductNumberSeq).
     /// Format: PROD-XXXX (zero-padded to 4 digits).
     /// </summary>
     private async Task<string> GenerateProductNumberAsync()
     {
-        var result = await _context.Database
-            .SqlQueryRaw<long>("SELECT nextval('\"ProductNumberSeq\"')")
-            .ToListAsync();
-        var seq = result.First();
+        var seq = await GetNextSequenceValueAsync("ProductNumberSeq", 1);
         return $"PROD-{seq:D4}";
     }
 
@@ -390,10 +410,7 @@ public class ProductService : IProductService
     /// </summary>
     private async Task<string> GenerateProductCodeAsync()
     {
-        var result = await _context.Database
-            .SqlQueryRaw<long>("SELECT nextval('\"ProductCodeSeq\"')")
-            .ToListAsync();
-        var seq = result.First();
+        var seq = await GetNextSequenceValueAsync("ProductCodeSeq", 100);
         return $"PRD-{seq:D3}";
     }
 
@@ -402,10 +419,8 @@ public class ProductService : IProductService
     /// </summary>
     private async Task<string> GenerateBarcodeAsync()
     {
-        var result = await _context.Database
-            .SqlQueryRaw<long>("SELECT nextval('\"BarcodeSeq\"')")
-            .ToListAsync();
-        return result.First().ToString();
+        var seq = await GetNextSequenceValueAsync("BarcodeSeq", 100000000000);
+        return seq.ToString();
     }
 
     /// <summary>
@@ -413,10 +428,7 @@ public class ProductService : IProductService
     /// </summary>
     private async Task<long> GetNextSkuNumberAsync()
     {
-        var result = await _context.Database
-            .SqlQueryRaw<long>("SELECT nextval('\"SkuSeq\"')")
-            .ToListAsync();
-        return result.First();
+        return await GetNextSequenceValueAsync("SkuSeq", 1000);
     }
 
     /// <summary>

@@ -17,6 +17,9 @@ public static class DbSeeder
                 ALTER TABLE IF EXISTS ""Products"" ADD COLUMN IF NOT EXISTS ""Type"" integer NOT NULL DEFAULT 0;
                 ALTER TABLE IF EXISTS ""Products"" ADD COLUMN IF NOT EXISTS ""ProductNumber"" character varying(50) NOT NULL DEFAULT '';
                 CREATE SEQUENCE IF NOT EXISTS ""ProductNumberSeq"" START WITH 1;
+                CREATE SEQUENCE IF NOT EXISTS ""ProductCodeSeq"" START WITH 100;
+                CREATE SEQUENCE IF NOT EXISTS ""BarcodeSeq"" START WITH 100000000000;
+                CREATE SEQUENCE IF NOT EXISTS ""SkuSeq"" START WITH 1000;
                 ALTER TABLE IF EXISTS ""PurchaseOrderItems"" ADD COLUMN IF NOT EXISTS ""SupplierUnitPrice"" numeric(18,2);
             ");
         }
