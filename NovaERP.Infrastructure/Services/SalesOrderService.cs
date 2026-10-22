@@ -101,7 +101,7 @@ public class SalesOrderService : ISalesOrderService
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("Create", "SalesOrder", order.Id.ToString(), newValues: order.OrderNumber);
 
-        // Notify Sales Manager about new sales order
+        // Notify Sales Manager and Production Manager about new sales order
         try
         {
             await _notificationService.NotifyRoleUsersAsync(
@@ -113,6 +113,17 @@ public class SalesOrderService : ISalesOrderService
                 "SalesOrder", order.Id.ToString(),
                 $"/sales/orders",
                 $"so-created-{order.Id}"
+            );
+
+            await _notificationService.NotifyRoleUsersAsync(
+                "Production Manager",
+                NotificationType.ProductionAlert,
+                $"Sales Order Intake: {order.OrderNumber}",
+                $"New Sales Order {order.OrderNumber} created with {order.SalesOrderItems.Count} item(s). Review inventory availability and production capacity.",
+                NotificationPriority.Normal,
+                "SalesOrder", order.Id.ToString(),
+                $"/production",
+                $"so-created-prod-{order.Id}"
             );
         }
         catch { /* Non-critical */ }
@@ -225,18 +236,29 @@ public class SalesOrderService : ISalesOrderService
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("Approve", "SalesOrder", id.ToString(), oldValues: SalesOrderStatus.PendingApproval.ToString(), newValues: SalesOrderStatus.Approved.ToString());
 
-        // Notify Warehouse Manager about approved sales order for fulfillment
+        // Notify Warehouse Manager and Production Manager about approved sales order
         try
         {
             await _notificationService.NotifyRoleUsersAsync(
                 "Warehouse Manager",
                 NotificationType.ShipmentAlert,
                 $"Sales Order Approved — Ready for Fulfillment",
-                $"Sales Order has been approved and requires warehouse fulfillment.",
+                $"Sales Order {order.OrderNumber} has been approved and requires warehouse fulfillment.",
                 NotificationPriority.High,
                 "SalesOrder", id.ToString(),
                 $"/sales/orders",
                 $"so-approved-warehouse-{id}"
+            );
+
+            await _notificationService.NotifyRoleUsersAsync(
+                "Production Manager",
+                NotificationType.ProductionAlert,
+                $"Sales Order Demand: {order.OrderNumber}",
+                $"Sales Order {order.OrderNumber} has been approved. Check component readiness and release manufacturing plan if stock is short.",
+                NotificationPriority.High,
+                "SalesOrder", id.ToString(),
+                $"/production",
+                $"so-approved-prod-{id}"
             );
         }
         catch { /* Non-critical */ }

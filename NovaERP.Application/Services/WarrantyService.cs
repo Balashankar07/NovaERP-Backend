@@ -12,11 +12,13 @@ public class WarrantyService : IWarrantyService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
+    private readonly INotificationService _notificationService;
 
-    public WarrantyService(IUnitOfWork unitOfWork, IAuditLogger auditLogger)
+    public WarrantyService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
+        _notificationService = notificationService;
     }
 
     public async Task<WarrantyDto> GetWarrantyByIdAsync(Guid id)
@@ -170,6 +172,33 @@ public class WarrantyService : IWarrantyService
         await _unitOfWork.WarrantyClaims.AddAsync(claim);
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("Create", "WarrantyClaim", claim.Id.ToString());
+
+        try
+        {
+            var serial = string.IsNullOrWhiteSpace(warranty.SerialNumber) ? warranty.Id.ToString()[..8] : warranty.SerialNumber;
+            await _notificationService.NotifyRoleUsersAsync(
+                "Quality Engineer",
+                NotificationType.WarrantyAlert,
+                $"New Warranty Claim: SN {serial}",
+                $"Customer claim registered on warranty for Serial #{serial}: {claim.Complaint}. Review for defect evaluation.",
+                NotificationPriority.High,
+                "WarrantyClaim", claim.Id.ToString(),
+                $"/warranty",
+                $"claim-qa-{claim.Id}"
+            );
+
+            await _notificationService.NotifyRoleUsersAsync(
+                "Warehouse Manager",
+                NotificationType.ReturnAlert,
+                $"Warranty Return Alert: SN {serial}",
+                $"Customer filed warranty claim for Serial #{serial}. Prepare for potential RMA return receiving.",
+                NotificationPriority.Normal,
+                "WarrantyClaim", claim.Id.ToString(),
+                $"/distribution",
+                $"claim-wh-{claim.Id}"
+            );
+        }
+        catch { /* Non-critical */ }
 
         return MapClaimToDto(claim);
     }

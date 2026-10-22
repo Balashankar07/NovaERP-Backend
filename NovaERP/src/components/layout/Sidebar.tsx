@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { ROUTES } from "@/routes";
 import {
   LayoutDashboard,
+  Bell,
   Building2,
   Factory,
   Boxes,
@@ -43,6 +44,7 @@ interface SidebarNavItem {
 
 const sidebarNavItems: SidebarNavItem[] = [
   { title: "Enterprise Dashboard", href: ROUTES.DASHBOARD, icon: LayoutDashboard, permission: "Permissions.Dashboard.View" },
+  { title: "Notifications", href: ROUTES.NOTIFICATIONS, icon: Bell, permission: "Permissions.Notifications.View" },
   { 
     title: "Production", 
     icon: Factory, 

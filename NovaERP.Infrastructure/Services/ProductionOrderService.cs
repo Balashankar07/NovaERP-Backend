@@ -13,12 +13,18 @@ public class ProductionOrderService : IProductionOrderService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
     private readonly IInventoryMovementService _inventoryMovementService;
+    private readonly INotificationService _notificationService;
 
-    public ProductionOrderService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService)
+    public ProductionOrderService(
+        IUnitOfWork unitOfWork, 
+        IAuditLogger auditLogger, 
+        IInventoryMovementService inventoryMovementService,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
         _inventoryMovementService = inventoryMovementService;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResult<ProductionOrderDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -279,6 +285,34 @@ public class ProductionOrderService : IProductionOrderService
             await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: "InProgress", newValues: "Completed");
 
             await _unitOfWork.CommitTransactionAsync();
+
+            try
+            {
+                var prodName = order.Product?.Name ?? "Finished Goods";
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Sales Manager",
+                    NotificationType.ProductionAlert,
+                    $"Production Completed: {order.ProductionOrderNumber}",
+                    $"{completedQuantity} units of {prodName} completed and deposited into WH-FG. Ready for sales order allocation.",
+                    NotificationPriority.High,
+                    "ProductionOrder", order.Id.ToString(),
+                    $"/sales/orders",
+                    $"po-completed-sales-{order.Id}"
+                );
+
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Warehouse Manager",
+                    NotificationType.ProductionAlert,
+                    $"Finished Goods Received: {order.ProductionOrderNumber}",
+                    $"{completedQuantity} units of {prodName} received from Production into WH-FG.",
+                    NotificationPriority.Normal,
+                    "ProductionOrder", order.Id.ToString(),
+                    $"/inventory",
+                    $"po-completed-wh-{order.Id}"
+                );
+            }
+            catch { /* Non-critical notification */ }
+
             return MapToDto(order);
         }
         catch

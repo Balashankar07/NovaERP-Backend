@@ -12,12 +12,18 @@ public class GoodsReceiptService : IGoodsReceiptService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
     private readonly IInventoryMovementService _inventoryMovementService;
+    private readonly INotificationService _notificationService;
 
-    public GoodsReceiptService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService)
+    public GoodsReceiptService(
+        IUnitOfWork unitOfWork, 
+        IAuditLogger auditLogger, 
+        IInventoryMovementService inventoryMovementService,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
         _inventoryMovementService = inventoryMovementService;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResult<GoodsReceiptDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -269,6 +275,33 @@ public class GoodsReceiptService : IGoodsReceiptService
             await ProcessInventoryMovementAsync(grn);
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
+
+            try
+            {
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Quality Engineer",
+                    NotificationType.QualityAlert,
+                    $"Inbound Goods Arrived: {grn.GRNNumber}",
+                    $"Goods receipt {grn.GRNNumber} arrived for PO {po.PONumber}. Quality inspection required.",
+                    NotificationPriority.High,
+                    "GoodsReceipt", grn.Id.ToString(),
+                    $"/quality",
+                    $"grn-qa-{grn.Id}"
+                );
+
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Procurement Manager",
+                    NotificationType.ProcurementAlert,
+                    $"Goods Received: PO {po.PONumber}",
+                    $"Inbound shipment for PO {po.PONumber} has arrived at warehouse dock (GRN {grn.GRNNumber}).",
+                    NotificationPriority.Normal,
+                    "GoodsReceipt", grn.Id.ToString(),
+                    $"/procurement/goods-receipts",
+                    $"grn-proc-{grn.Id}"
+                );
+            }
+            catch { /* Non-critical */ }
+
             return MapToDto(grn);
         }
         catch

@@ -13,12 +13,18 @@ public class ShipmentService : IShipmentService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IInventoryMovementService _inventoryMovementService;
     private readonly IAuditLogger _auditLogger;
+    private readonly INotificationService _notificationService;
 
-    public ShipmentService(IUnitOfWork unitOfWork, IInventoryMovementService inventoryMovementService, IAuditLogger auditLogger)
+    public ShipmentService(
+        IUnitOfWork unitOfWork, 
+        IInventoryMovementService inventoryMovementService, 
+        IAuditLogger auditLogger,
+        INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _inventoryMovementService = inventoryMovementService;
         _auditLogger = auditLogger;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResult<ShipmentDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -221,6 +227,21 @@ public class ShipmentService : IShipmentService
             await _unitOfWork.SaveChangesAsync();
             await _unitOfWork.CommitTransactionAsync();
             await _auditLogger.LogAsync("Dispatch", "Shipment", id.ToString(), newValues: ShipmentStatus.Dispatched.ToString());
+
+            try
+            {
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Sales Manager",
+                    NotificationType.ShipmentAlert,
+                    $"Shipment Dispatched: {salesOrder.OrderNumber}",
+                    $"Sales Order {salesOrder.OrderNumber} has been dispatched via {shipment.CourierName} (Tracking: {shipment.TrackingNumber}).",
+                    NotificationPriority.Normal,
+                    "Shipment", shipment.Id.ToString(),
+                    $"/sales/orders",
+                    $"ship-dispatched-sales-{shipment.Id}"
+                );
+            }
+            catch { /* Non-critical */ }
         }
         catch(Exception ex)
         {
@@ -275,6 +296,33 @@ public class ShipmentService : IShipmentService
         await _unitOfWork.SaveChangesAsync();
 
         await _auditLogger.LogAsync("Deliver", "Shipment", id.ToString(), newValues: ShipmentStatus.Delivered.ToString());
+
+        try
+        {
+            var soNum = salesOrder?.OrderNumber ?? shipment.TrackingNumber;
+            await _notificationService.NotifyRoleUsersAsync(
+                "Sales Manager",
+                NotificationType.ShipmentAlert,
+                $"Delivery Confirmed: {soNum}",
+                $"Shipment {shipment.TrackingNumber} for {soNum} has been delivered. Sales Order marked Completed.",
+                NotificationPriority.Normal,
+                "Shipment", shipment.Id.ToString(),
+                $"/sales/orders",
+                $"ship-delivered-sales-{shipment.Id}"
+            );
+
+            await _notificationService.NotifyRoleUsersAsync(
+                "Warranty Executive",
+                NotificationType.WarrantyAlert,
+                $"Warranty Coverage Active: {soNum}",
+                $"Shipment {shipment.TrackingNumber} delivered. Customer products are now active under warranty coverage.",
+                NotificationPriority.Normal,
+                "Shipment", shipment.Id.ToString(),
+                $"/warranty",
+                $"ship-delivered-warranty-{shipment.Id}"
+            );
+        }
+        catch { /* Non-critical */ }
     }
 
     public async Task CancelAsync(Guid id, Guid currentUserId)
