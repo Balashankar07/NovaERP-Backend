@@ -86,8 +86,8 @@ export const ProductionPlanDetailsPage = () => {
   // Combine API returned shortages with client-side calculated shortages
   const displayedShortages = backendShortages.length > 0 
     ? backendShortages 
-    : requirements.filter(r => r.requiredQuantity > r.availableQuantity).map(r => ({
-        componentName: r.componentName,
+    : requirements.filter((r: any) => r.requiredQuantity > r.availableQuantity).map((r: any) => ({
+        componentName: r.componentName || r.productName || 'Component',
         required: r.requiredQuantity,
         available: r.availableQuantity,
         shortage: r.requiredQuantity - r.availableQuantity
@@ -225,18 +225,21 @@ export const ProductionPlanDetailsPage = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {requirements.map((req, idx) => {
+                  {requirements.map((req: any, idx: number) => {
+                    const compName = req.componentName || req.productName || `Component #${idx + 1}`;
+                    const compCode = req.componentCode || req.productCode || '';
+                    const unit = req.unit || req.unitName || 'pcs';
                     const shortage = Math.max(0, req.requiredQuantity - req.availableQuantity);
                     const isInsufficient = shortage > 0;
                     return (
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-slate-900">{req.componentName}</div>
-                          <div className="text-xs text-slate-500">{req.componentCode}</div>
+                          <div className="font-medium text-slate-900">{compName}</div>
+                          {compCode && <div className="text-xs text-slate-500">{compCode}</div>}
                         </td>
-                        <td className="px-4 py-3 text-right font-medium text-slate-700">{req.requiredQuantity} {req.unit}</td>
+                        <td className="px-4 py-3 text-right font-medium text-slate-700">{req.requiredQuantity} {unit}</td>
                         <td className={`px-4 py-3 text-right font-medium ${isInsufficient ? 'text-red-600' : 'text-slate-700'}`}>
-                          {req.availableQuantity} {req.unit}
+                          {req.availableQuantity} {unit}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${isInsufficient ? 'text-red-600' : 'text-slate-400'}`}>
                           {shortage > 0 ? shortage : '-'}
