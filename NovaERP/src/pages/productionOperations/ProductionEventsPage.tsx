@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 
 export const ProductionEventsPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -71,7 +72,14 @@ export const ProductionEventsPage: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.productionExecutionId || !formData.startTime) return;
+    if (!formData.productionExecutionId || !formData.startTime) {
+      toast.warning('Execution and Start Time are required.');
+      return;
+    }
+    if (formData.endTime && new Date(formData.endTime) < new Date(formData.startTime)) {
+      toast.error('Event end time cannot be earlier than start time.');
+      return;
+    }
     
     createMutation.mutate({
       ...formData,
@@ -266,6 +274,7 @@ export const ProductionEventsPage: React.FC = () => {
                   <Input
                     id="evEnd"
                     type="datetime-local"
+                    min={formData.startTime}
                     value={formData.endTime || ''}
                     onChange={(e) => setFormData({ ...formData, endTime: e.target.value || undefined })}
                   />

@@ -103,7 +103,15 @@ export function PurchaseRequestFormDialog({ isOpen, onClose, onSuccess }: Purcha
         <div className="bg-slate-50 p-5 rounded-xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <Label className="text-slate-700">Required By Date <span className="text-rose-500">*</span></Label>
-            <Input type="date" {...register("requiredByDate", { required: "Required" })} className="bg-white" />
+            <Input 
+              type="date" 
+              min={new Date().toISOString().split("T")[0]}
+              {...register("requiredByDate", { 
+                required: "Required",
+                validate: (val) => !val || new Date(val) >= new Date(new Date().setHours(0,0,0,0)) || "Required By date cannot be in the past"
+              })} 
+              className="bg-white" 
+            />
             {errors.requiredByDate && <p className="text-xs text-rose-500">{errors.requiredByDate.message}</p>}
           </div>
 

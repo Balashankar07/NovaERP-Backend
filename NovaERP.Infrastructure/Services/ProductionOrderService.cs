@@ -53,6 +53,9 @@ public class ProductionOrderService : IProductionOrderService
         var existingOrders = await _unitOfWork.ProductionOrders.GetByProductionPlanIdAsync(plan.Id);
         var totalPlanned = existingOrders.Where(x => x.Status != ProductionOrderStatus.Cancelled).Sum(x => x.PlannedQuantity);
 
+        if (dto.PlannedStartDate.HasValue && dto.PlannedEndDate.HasValue && dto.PlannedEndDate.Value < dto.PlannedStartDate.Value)
+            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
+
         if (totalPlanned + dto.PlannedQuantity > plan.PlannedQuantity)
             throw new BadRequestException($"Total Production Order quantities ({totalPlanned + dto.PlannedQuantity}) cannot exceed Production Plan quantity ({plan.PlannedQuantity}).");
 
@@ -96,6 +99,9 @@ public class ProductionOrderService : IProductionOrderService
 
         if (order.Status == ProductionOrderStatus.Completed || order.Status == ProductionOrderStatus.Cancelled)
             throw new BadRequestException($"Cannot update a {order.Status} Production Order.");
+
+        if (dto.PlannedStartDate.HasValue && dto.PlannedEndDate.HasValue && dto.PlannedEndDate.Value < dto.PlannedStartDate.Value)
+            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
 
         if (order.Status != ProductionOrderStatus.Draft && dto.PlannedQuantity != order.PlannedQuantity)
             throw new BadRequestException("Cannot change planned quantity after the order is released.");

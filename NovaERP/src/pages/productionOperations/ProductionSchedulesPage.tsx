@@ -78,6 +78,10 @@ export const ProductionSchedulesPage: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.productionOrderId || !formData.workCenterId || !formData.plannedStart || !formData.plannedEnd) return;
+    if (new Date(formData.plannedEnd) <= new Date(formData.plannedStart)) {
+      setErrorMsg("Planned end time must be after planned start time.");
+      return;
+    }
     setErrorMsg(null);
     createMutation.mutate(formData);
   };
@@ -288,6 +292,7 @@ export const ProductionSchedulesPage: React.FC = () => {
                   <Input
                     id="pEnd"
                     type="datetime-local"
+                    min={formData.plannedStart}
                     value={formData.plannedEnd}
                     onChange={(e) => setFormData({ ...formData, plannedEnd: e.target.value })}
                     required

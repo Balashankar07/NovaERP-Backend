@@ -10,7 +10,7 @@ public class UpdatePurchaseOrderDtoValidator : AbstractValidator<UpdatePurchaseO
         RuleFor(x => x.SupplierId).NotEmpty().WithMessage("Supplier is required.");
         
         RuleFor(x => x.ExpectedDeliveryDate)
-            .GreaterThanOrEqualTo(System.DateTime.UtcNow.Date)
+            .GreaterThanOrEqualTo(System.DateTime.UtcNow.Date.AddDays(-1))
             .WithMessage("Expected Delivery Date cannot be in the past.");
 
         RuleFor(x => x.Currency).NotEmpty().MaximumLength(3);

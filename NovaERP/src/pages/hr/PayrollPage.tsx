@@ -102,6 +102,10 @@ export function PayrollPage() {
       toast.warning("All fields are required");
       return;
     }
+    if (new Date(formData.periodEnd) < new Date(formData.periodStart)) {
+      toast.error("Period end date cannot be earlier than start date");
+      return;
+    }
     createPeriodMutation.mutate(formData);
   };
 
@@ -334,6 +338,7 @@ export function PayrollPage() {
               <Input
                 id="periodEnd"
                 type="date"
+                min={formData.periodStart}
                 value={formData.periodEnd}
                 onChange={(e) => setFormData({ ...formData, periodEnd: e.target.value })}
                 required

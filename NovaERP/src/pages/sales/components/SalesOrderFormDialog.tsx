@@ -226,7 +226,14 @@ export function SalesOrderFormDialog({
 
             <div className="space-y-1.5 min-w-0">
               <Label>Required Delivery Date</Label>
-              <Input type="date" {...register("requiredDeliveryDate")} />
+              <Input 
+                type="date" 
+                min={new Date().toISOString().split("T")[0]}
+                {...register("requiredDeliveryDate", {
+                  validate: (val) => !val || new Date(val) >= new Date(new Date().setHours(0,0,0,0)) || "Required delivery date cannot be in the past"
+                })} 
+              />
+              {errors.requiredDeliveryDate && <p className="text-xs text-rose-500 font-medium">{errors.requiredDeliveryDate.message}</p>}
             </div>
 
             <div className="space-y-1.5 min-w-0">

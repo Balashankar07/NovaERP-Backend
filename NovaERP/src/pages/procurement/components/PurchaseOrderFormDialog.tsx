@@ -506,7 +506,11 @@ export function PurchaseOrderFormDialog({ isOpen, onClose, onSuccess, initialPrI
               </Label>
               <Input 
                 type="date" 
-                {...register("expectedDeliveryDate", { required: "Required" })} 
+                min={new Date().toISOString().split("T")[0]}
+                {...register("expectedDeliveryDate", { 
+                  required: "Required",
+                  validate: (val) => !val || new Date(val) >= new Date(new Date().setHours(0,0,0,0)) || "Expected delivery date cannot be in the past"
+                })} 
                 className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 h-10 text-sm dark:text-slate-100" 
               />
               {errors.expectedDeliveryDate && <p className="text-xs text-rose-500 font-medium">{errors.expectedDeliveryDate.message}</p>}

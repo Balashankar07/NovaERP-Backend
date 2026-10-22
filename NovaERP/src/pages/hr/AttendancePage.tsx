@@ -71,6 +71,10 @@ export function AttendancePage() {
       toast.warning("Employee and date are required");
       return;
     }
+    if (new Date(formData.attendanceDate) > new Date()) {
+      toast.error("Attendance date cannot be in the future");
+      return;
+    }
     recordMutation.mutate(formData);
   };
 
@@ -230,6 +234,7 @@ export function AttendancePage() {
               <Input
                 id="attendanceDate"
                 type="date"
+                max={new Date().toISOString().split("T")[0]}
                 value={formData.attendanceDate}
                 onChange={(e) => setFormData({ ...formData, attendanceDate: e.target.value })}
                 required

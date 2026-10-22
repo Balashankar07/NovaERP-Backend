@@ -126,6 +126,10 @@ export function LeaveRequestsPage() {
       toast.warning("Please fill in all required fields");
       return;
     }
+    if (new Date(requestData.endDate) < new Date(requestData.startDate)) {
+      toast.error("Leave end date cannot be earlier than start date");
+      return;
+    }
     submitMutation.mutate(requestData);
   };
 
@@ -337,6 +341,7 @@ export function LeaveRequestsPage() {
               <Input
                 id="endDate"
                 type="date"
+                min={requestData.startDate}
                 value={requestData.endDate}
                 onChange={(e) => setRequestData({ ...requestData, endDate: e.target.value })}
                 required

@@ -103,6 +103,10 @@ export function BatchesListPage() {
       toast.warning("Please fill in all required fields");
       return;
     }
+    if (formData.manufactureDate && formData.expiryDate && new Date(formData.expiryDate) < new Date(formData.manufactureDate)) {
+      toast.error("Expiry date cannot be earlier than manufacturing date");
+      return;
+    }
     createMutation.mutate(formData);
   };
 
@@ -326,6 +330,7 @@ export function BatchesListPage() {
               <Input
                 id="expDate"
                 type="date"
+                min={formData.manufactureDate || undefined}
                 value={formData.expiryDate || ""}
                 onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
               />

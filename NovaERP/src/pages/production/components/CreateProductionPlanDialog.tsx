@@ -31,6 +31,12 @@ const formSchema = z.object({
   plannedQuantity: z.coerce.number().min(1, "Quantity must be at least 1"),
   plannedStartDate: z.string().min(1, "Start date is required"),
   plannedEndDate: z.string().min(1, "End date is required"),
+}).refine((data) => {
+  if (!data.plannedStartDate || !data.plannedEndDate) return true;
+  return new Date(data.plannedEndDate) >= new Date(data.plannedStartDate);
+}, {
+  message: "End date cannot be earlier than start date",
+  path: ["plannedEndDate"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -199,7 +205,7 @@ export const CreateProductionPlanDialog = ({
                   <FormItem>
                     <FormLabel>End Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="date" min={form.watch("plannedStartDate")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

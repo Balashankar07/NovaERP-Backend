@@ -8,7 +8,7 @@ public class CreatePurchaseRequestDtoValidator : AbstractValidator<CreatePurchas
     public CreatePurchaseRequestDtoValidator()
     {
         RuleFor(x => x.RequiredByDate)
-            .GreaterThanOrEqualTo(System.DateTime.UtcNow.Date)
+            .GreaterThanOrEqualTo(System.DateTime.UtcNow.Date.AddDays(-1))
             .WithMessage("Required By Date cannot be in the past.");
 
         RuleFor(x => x.Items)

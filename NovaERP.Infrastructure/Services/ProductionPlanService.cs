@@ -49,9 +49,12 @@ public class ProductionPlanService : IProductionPlanService
         if (product == null || !product.IsActive)
             throw new BadRequestException("Product must exist and be active.");
 
+        if (dto.PlannedEndDate < dto.PlannedStartDate)
+            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
+
         // Get selected BOM for the product
         var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
-        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow)
+        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow.AddMinutes(5))
             throw new BadRequestException("Product must have a valid, active, and effective BOM to create a Production Plan.");
 
         await _unitOfWork.BeginTransactionAsync();
@@ -128,8 +131,11 @@ public class ProductionPlanService : IProductionPlanService
         if (product == null || !product.IsActive)
             throw new BadRequestException("Product must exist and be active.");
 
+        if (dto.PlannedEndDate < dto.PlannedStartDate)
+            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
+
         var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
-        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow)
+        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow.AddMinutes(5))
             throw new BadRequestException("Product must have a valid, active, and effective BOM to create/update a Production Plan.");
 
         await _unitOfWork.BeginTransactionAsync();
