@@ -38,9 +38,16 @@ function SearchableSelect({ value, onValueChange, options, placeholder, searchPl
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between font-normal hover:bg-transparent">
-          {selectedOption ? selectedOption.label : <span className="text-muted-foreground">{placeholder}</span>}
-          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <Button 
+          variant="outline" 
+          role="combobox" 
+          aria-expanded={open} 
+          className="w-full justify-between font-normal hover:bg-transparent min-w-0 overflow-hidden text-left"
+        >
+          <span className="truncate flex-1 min-w-0 text-left mr-2" title={selectedOption ? selectedOption.label : placeholder}>
+            {selectedOption ? selectedOption.label : <span className="text-muted-foreground">{placeholder}</span>}
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width] p-0" align="start" sideOffset={4}>
@@ -194,16 +201,16 @@ export function SalesOrderFormDialog({
   };
 
   return (
-    <Modal isOpen={open} onClose={() => onOpenChange(false)} title={isEditing ? "Edit Sales Order" : "New Sales Order"} size="4xl">
-      <div className="max-h-[70vh] overflow-y-auto pr-2">
+    <Modal isOpen={open} onClose={() => onOpenChange(false)} title={isEditing ? "Edit Sales Order" : "New Sales Order"} size="5xl">
+      <div className="max-h-[75vh] overflow-y-auto pr-2">
         {apiError && (
           <div className="mb-4 rounded-md bg-destructive/15 p-3 text-sm text-destructive">
             {apiError}
           </div>
         )}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-1.5 min-w-0">
               <Label>Customer (Distributor) *</Label>
               <SearchableSelect
                 value={watch("distributorId")}
@@ -217,35 +224,35 @@ export function SalesOrderFormDialog({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5 min-w-0">
               <Label>Required Delivery Date</Label>
               <Input type="date" {...register("requiredDeliveryDate")} />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5 min-w-0">
               <Label>Currency</Label>
               <Input {...register("currency")} placeholder="USD" />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5 min-w-0">
               <Label>Billing Address</Label>
-              <Textarea {...register("billingAddress")} placeholder="Billing Address..." />
+              <Textarea rows={2} className="min-h-[52px] resize-none" {...register("billingAddress")} placeholder="Billing Address..." />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5 min-w-0">
               <Label>Shipping Address</Label>
-              <Textarea {...register("shippingAddress")} placeholder="Shipping Address..." />
+              <Textarea rows={2} className="min-h-[52px] resize-none" {...register("shippingAddress")} placeholder="Shipping Address..." />
             </div>
 
-            <div className="col-span-2 space-y-2">
+            <div className="col-span-2 space-y-1.5 min-w-0">
               <Label>Remarks</Label>
-              <Textarea {...register("remarks")} placeholder="Any specific instructions..." />
+              <Textarea rows={2} className="min-h-[52px] resize-none" {...register("remarks")} placeholder="Any specific instructions..." />
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Order Items</h3>
+              <h3 className="text-base font-semibold text-slate-800">Order Items</h3>
               <Button
                 type="button"
                 variant="outline"
@@ -257,15 +264,15 @@ export function SalesOrderFormDialog({
               </Button>
             </div>
 
-            <div className="border rounded-md divide-y">
-              <div className="grid grid-cols-12 gap-2 p-3 bg-slate-50 font-medium text-sm">
-                <div className="col-span-4">Product *</div>
-                <div className="col-span-2">Quantity *</div>
-                <div className="col-span-2">Unit Price *</div>
-                <div className="col-span-1">Disc.</div>
-                <div className="col-span-1">Tax</div>
-                <div className="col-span-1">Total</div>
-                <div className="col-span-1"></div>
+            <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100">
+              <div className="grid grid-cols-12 gap-2 px-3 py-2.5 bg-slate-50 font-medium text-xs text-slate-600 uppercase tracking-wider">
+                <div className="col-span-4 min-w-0">Product *</div>
+                <div className="col-span-2 min-w-0">Quantity *</div>
+                <div className="col-span-2 min-w-0">Unit Price *</div>
+                <div className="col-span-1 min-w-0 text-center">Disc.</div>
+                <div className="col-span-1 min-w-0 text-center">Tax</div>
+                <div className="col-span-1 min-w-0 text-right pr-1">Total</div>
+                <div className="col-span-1 min-w-0 text-center">Action</div>
               </div>
 
               {fields.map((field, index) => {
@@ -276,8 +283,8 @@ export function SalesOrderFormDialog({
                 const total = (qty * price) - discount + tax;
 
                 return (
-                  <div key={field.id} className="grid grid-cols-12 gap-2 p-3 items-center">
-                    <div className="col-span-4">
+                  <div key={field.id} className="grid grid-cols-12 gap-2 px-3 py-2 items-center hover:bg-slate-50/50 transition-colors">
+                    <div className="col-span-4 min-w-0">
                       <SearchableSelect
                         value={watch(`items.${index}.productId`)}
                         onValueChange={(val) => {
@@ -293,30 +300,31 @@ export function SalesOrderFormDialog({
                         }))}
                       />
                     </div>
-                    <div className="col-span-2">
-                      <Input type="number" min="0.01" step="0.01" {...register(`items.${index}.quantity`)} />
+                    <div className="col-span-2 min-w-0">
+                      <Input type="number" min="0.01" step="0.01" className="h-9" {...register(`items.${index}.quantity`)} />
                     </div>
-                    <div className="col-span-2">
-                      <Input type="number" min="0" step="0.01" {...register(`items.${index}.unitPrice`)} />
+                    <div className="col-span-2 min-w-0">
+                      <Input type="number" min="0" step="0.01" className="h-9" {...register(`items.${index}.unitPrice`)} />
                     </div>
-                    <div className="col-span-1">
-                      <Input type="number" min="0" step="0.01" {...register(`items.${index}.discount`)} />
+                    <div className="col-span-1 min-w-0">
+                      <Input type="number" min="0" step="0.01" className="h-9 text-center" {...register(`items.${index}.discount`)} />
                     </div>
-                    <div className="col-span-1">
-                      <Input type="number" min="0" step="0.01" {...register(`items.${index}.tax`)} />
+                    <div className="col-span-1 min-w-0">
+                      <Input type="number" min="0" step="0.01" className="h-9 text-center" {...register(`items.${index}.tax`)} />
                     </div>
-                    <div className="col-span-1 font-medium text-right pr-2">
+                    <div className="col-span-1 min-w-0 font-medium text-right text-sm text-slate-800 pr-1 truncate" title={total.toFixed(2)}>
                       {total.toFixed(2)}
                     </div>
-                    <div className="col-span-1 text-right">
+                    <div className="col-span-1 min-w-0 text-center">
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="icon"
+                        className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
                         onClick={() => remove(index)}
                         disabled={fields.length === 1}
                       >
-                        <Trash2 className="w-4 h-4 text-rose-500" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
                   </div>
@@ -325,11 +333,11 @@ export function SalesOrderFormDialog({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/90">
               {loading ? "Saving..." : "Save Order"}
             </Button>
           </div>
