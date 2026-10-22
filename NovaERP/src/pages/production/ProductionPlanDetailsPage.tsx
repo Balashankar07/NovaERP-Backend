@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, Navigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, AlertCircle, Loader2, Play } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +28,14 @@ import { usePermissions } from "@/hooks/use-permissions";
 export const ProductionPlanDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  // If user hits /production/plans alias, redirect to the list page immediately
+  if (id === "plans") {
+    return <Navigate to={ROUTES.PRODUCTION_PLANS} replace />;
+  }
+
+  const isValidGuid = !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
   const canRelease = hasPermission("Permissions.ProductionPlans.Release");
@@ -36,13 +44,13 @@ export const ProductionPlanDetailsPage = () => {
   const { data: planData, isLoading: isLoadingPlan, error: planError, refetch: refetchPlan } = useQuery({
     queryKey: ["production-plan", id],
     queryFn: () => productionApi.getPlanById(id!),
-    enabled: !!id,
+    enabled: !!id && isValidGuid,
   });
 
   const { data: reqData, isLoading: isLoadingReq, error: reqError, refetch: refetchReq } = useQuery({
     queryKey: ["production-plan-requirements", id],
     queryFn: () => productionApi.getPlanRequirements(id!),
-    enabled: !!id,
+    enabled: !!id && isValidGuid,
   });
 
   const releaseMutation = useMutation({
@@ -74,6 +82,21 @@ export const ProductionPlanDetailsPage = () => {
     }
   });
 
+  if (!isValidGuid) {
+    return (
+      <PageContainer className="max-w-5xl mx-auto pb-12">
+        <ErrorView
+          title="Plan Not Found"
+          description="The requested production plan identifier is invalid."
+          action={{
+            label: "Back to Production Plans",
+            onClick: () => navigate(ROUTES.PRODUCTION_PLANS)
+          }}
+        />
+      </PageContainer>
+    );
+  }
+
   if (isLoadingPlan || isLoadingReq) return <LoadingView title="Loading details..." className="h-[60vh]" />;
   if (planError) return <ErrorView title="Error" description="Failed to load plan details." onRetry={() => refetchPlan()} />;
 
@@ -96,7 +119,7 @@ export const ProductionPlanDetailsPage = () => {
   return (
     <PageContainer className="max-w-5xl mx-auto pb-12">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(ROUTES.PRODUCTION_ORDERS)}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(ROUTES.PRODUCTION_PLANS)}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <PageHeader

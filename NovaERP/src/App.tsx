@@ -1,5 +1,5 @@
 import React, { Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/providers/auth-provider";
 import { PublicRoute, ProtectedRoute } from "@/components/common";
 import { DashboardLayout } from "@/components/layout";
@@ -153,7 +153,9 @@ function App() {
                 <Route path={ROUTES.UNITS} element={<UnitsListPage />} />
                 <Route path={ROUTES.PRODUCTS} element={<ProductsListPage />} />
                 <Route path={ROUTES.BOM} element={<BOMListPage />} />
+                <Route path="/production" element={<Navigate to={ROUTES.PRODUCTION_PLANS} replace />} />
                 <Route path={ROUTES.PRODUCTION_PLANS} element={<ProductionPlansListPage />} />
+                <Route path="/production/plans/:id" element={<ProductionPlanDetailsPage />} />
                 <Route path="/production/:id" element={<ProductionPlanDetailsPage />} />
                 <Route path={ROUTES.PRODUCTION_ORDERS} element={<ProductionOrdersListPage />} />
                 <Route path="/production/orders/:id" element={<ProductionOrderDetailsPage />} />

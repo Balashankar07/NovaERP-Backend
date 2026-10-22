@@ -94,8 +94,8 @@ export const ROUTES = {
   STOCK_MOVEMENTS: "/inventory/transactions",
 
   // Production
-  PRODUCTION_PLANS: "/production",
-  PRODUCTION_PLAN_DETAIL: (id: string) => `/production/${id}`,
+  PRODUCTION_PLANS: "/production/plans",
+  PRODUCTION_PLAN_DETAIL: (id: string) => `/production/plans/${id}`,
   PRODUCTION_ORDERS: "/production/orders",
   PRODUCTION_ORDER_DETAIL: (id: string) => `/production/orders/${id}`,
   PRODUCTION_EXECUTIONS: "/production/executions",
