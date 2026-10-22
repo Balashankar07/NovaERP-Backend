@@ -34,10 +34,6 @@ public static class InfrastructureServiceRegistration
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString, npgsql =>
             {
-                npgsql.EnableRetryOnFailure(
-                    maxRetryCount: 5,
-                    maxRetryDelay: TimeSpan.FromSeconds(10),
-                    errorCodesToAdd: null);
                 npgsql.CommandTimeout(60);
             }));
 
