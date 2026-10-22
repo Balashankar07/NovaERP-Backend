@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { financeApi } from "@/api/finance.api";
 import { JournalEntry, JournalStatus, CreateJournalEntryDto, CreateJournalEntryLineDto } from "@/types/finance.types";
 import { formatCurrency, formatDate } from "@/utils/formatters";
-import { Plus, CheckCircle, Clock, RefreshCw } from "lucide-react";
+import { Plus, CheckCircle, Clock, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -65,6 +66,10 @@ export function JournalsListPage() {
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
       setIsCreateOpen(false);
       resetForm();
+      toast.success("Journal entry created successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to create journal entry");
     }
   });
 
@@ -74,6 +79,10 @@ export function JournalsListPage() {
       queryClient.invalidateQueries({ queryKey: ["journal-entries"] });
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
       queryClient.invalidateQueries({ queryKey: ["chart-of-accounts"] });
+      toast.success("Journal entry posted to General Ledger");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to post journal entry");
     }
   });
 

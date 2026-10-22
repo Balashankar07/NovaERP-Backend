@@ -4,7 +4,8 @@ import { financeApi } from "@/api/finance.api";
 import { suppliersApi } from "@/api/suppliers.api";
 import { SupplierInvoice, InvoiceStatus, CreateSupplierInvoiceDto } from "@/types/finance.types";
 import { formatCurrency, formatDate } from "@/utils/formatters";
-import { Plus, CheckCircle, XCircle, FileText, Clock, RefreshCw } from "lucide-react";
+import { Plus, CheckCircle, XCircle, FileText, Clock, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -73,6 +74,10 @@ export function SupplierInvoicesListPage() {
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
       setIsCreateOpen(false);
       resetForm();
+      toast.success("Supplier invoice created successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to create supplier invoice");
     }
   });
 
@@ -82,6 +87,10 @@ export function SupplierInvoicesListPage() {
       queryClient.invalidateQueries({ queryKey: ["supplier-invoices"] });
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
       queryClient.invalidateQueries({ queryKey: ["accounts-payable"] });
+      toast.success("Supplier invoice approved and posted to General Ledger");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to approve supplier invoice");
     }
   });
 
@@ -90,6 +99,10 @@ export function SupplierInvoicesListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["supplier-invoices"] });
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
+      toast.success("Supplier invoice cancelled");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to cancel supplier invoice");
     }
   });
 
@@ -103,13 +116,28 @@ export function SupplierInvoicesListPage() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supplierId || !itemDesc || itemQty <= 0 || itemPrice < 0) return;
+    if (!supplierId) {
+      toast.error("Please select a Supplier");
+      return;
+    }
+    if (!itemDesc.trim()) {
+      toast.error("Please enter a line item description");
+      return;
+    }
+    if (itemQty <= 0) {
+      toast.error("Quantity must be at least 1");
+      return;
+    }
+    if (itemPrice < 0) {
+      toast.error("Unit price cannot be negative");
+      return;
+    }
     createMutation.mutate({
       supplierId,
       taxRate: Number(taxRate),
       invoiceDate: new Date().toISOString(),
       dueDate: new Date(Date.now() + 30 * 86400000).toISOString(),
-      items: [{ description: itemDesc, quantity: Number(itemQty), unitPrice: Number(itemPrice) }]
+      items: [{ description: itemDesc.trim(), quantity: Number(itemQty), unitPrice: Number(itemPrice) }]
     });
   };
 
@@ -244,7 +272,10 @@ export function SupplierInvoicesListPage() {
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={createMutation.isPending}>Save Draft Invoice</Button>
+            <Button type="submit" disabled={createMutation.isPending} className="gap-2">
+              {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {createMutation.isPending ? "Saving..." : "Save Draft Invoice"}
+            </Button>
           </div>
         </form>
       </Modal>

@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { financeApi } from "@/api/finance.api";
 import { CustomerInvoice, InvoiceStatus, CreateCustomerInvoiceDto } from "@/types/finance.types";
 import { formatCurrency, formatDate } from "@/utils/formatters";
-import { Plus, CheckCircle, XCircle, FileText, Clock, RefreshCw } from "lucide-react";
+import { Plus, CheckCircle, XCircle, FileText, Clock, RefreshCw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -64,6 +65,10 @@ export function CustomerInvoicesListPage() {
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
       setIsCreateOpen(false);
       resetForm();
+      toast.success("Customer invoice created successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to create customer invoice");
     }
   });
 
@@ -73,6 +78,10 @@ export function CustomerInvoicesListPage() {
       queryClient.invalidateQueries({ queryKey: ["customer-invoices"] });
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
       queryClient.invalidateQueries({ queryKey: ["accounts-receivable"] });
+      toast.success("Customer invoice approved and posted to General Ledger");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to approve customer invoice");
     }
   });
 
@@ -81,6 +90,10 @@ export function CustomerInvoicesListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["customer-invoices"] });
       queryClient.invalidateQueries({ queryKey: ["finance-overview"] });
+      toast.success("Customer invoice cancelled");
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to cancel customer invoice");
     }
   });
 
@@ -95,14 +108,29 @@ export function CustomerInvoicesListPage() {
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName || !itemDesc || itemQty <= 0 || itemPrice < 0) return;
+    if (!customerName.trim()) {
+      toast.error("Please enter Customer Name");
+      return;
+    }
+    if (!itemDesc.trim()) {
+      toast.error("Please enter a line item description");
+      return;
+    }
+    if (itemQty <= 0) {
+      toast.error("Quantity must be at least 1");
+      return;
+    }
+    if (itemPrice < 0) {
+      toast.error("Unit price cannot be negative");
+      return;
+    }
     createMutation.mutate({
-      customerName,
-      customerAddress,
+      customerName: customerName.trim(),
+      customerAddress: customerAddress.trim(),
       taxRate: Number(taxRate),
       invoiceDate: new Date().toISOString(),
       dueDate: new Date(Date.now() + 30 * 86400000).toISOString(),
-      items: [{ description: itemDesc, quantity: Number(itemQty), unitPrice: Number(itemPrice) }]
+      items: [{ description: itemDesc.trim(), quantity: Number(itemQty), unitPrice: Number(itemPrice) }]
     });
   };
 
@@ -232,7 +260,10 @@ export function CustomerInvoicesListPage() {
           </div>
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={createMutation.isPending}>Save Draft Invoice</Button>
+            <Button type="submit" disabled={createMutation.isPending} className="gap-2">
+              {createMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+              {createMutation.isPending ? "Saving..." : "Save Draft Invoice"}
+            </Button>
           </div>
         </form>
       </Modal>
