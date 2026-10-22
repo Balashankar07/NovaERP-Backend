@@ -11,8 +11,8 @@ public class CreateShipmentDtoValidator : AbstractValidator<CreateShipmentDto>
             .NotEmpty().WithMessage("Sales Order ID is required.");
 
         RuleFor(x => x.TrackingNumber)
-            .NotEmpty().WithMessage("Tracking Number is required.")
-            .MaximumLength(100).WithMessage("Tracking Number must not exceed 100 characters.");
+            .MaximumLength(100).WithMessage("Tracking Number must not exceed 100 characters.")
+            .When(x => !string.IsNullOrEmpty(x.TrackingNumber));
 
         RuleFor(x => x.CourierName)
             .NotEmpty().WithMessage("Courier Name is required.")

@@ -7,9 +7,8 @@ public class CreateShipmentDto
     [Required]
     public Guid SalesOrderId { get; set; }
 
-    [Required]
     [MaxLength(100)]
-    public string TrackingNumber { get; set; } = string.Empty;
+    public string? TrackingNumber { get; set; }
 
     [Required]
     [MaxLength(100)]

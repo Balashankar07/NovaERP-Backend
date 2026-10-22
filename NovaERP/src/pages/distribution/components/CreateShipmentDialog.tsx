@@ -65,9 +65,13 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
         })
         .filter(i => i.maxQuantity > 0);
 
+      const dateStr = new Date().toISOString().replace(/\D/g, "").slice(0, 8);
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      const autoTracking = `TRK-${dateStr}-${randomSuffix}`;
+
       reset({
-        trackingNumber: "",
-        courierName: "",
+        trackingNumber: autoTracking,
+        courierName: "FedEx",
         items: initialItems
       });
     }
@@ -91,10 +95,11 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
 
     try {
       setLoading(true);
+      const trackingNumber = data.trackingNumber?.trim() || `TRK-${new Date().toISOString().replace(/\D/g, "").slice(0, 8)}-${Math.floor(1000 + Math.random() * 9000)}`;
       const payload: CreateShipmentDto = {
         salesOrderId: salesOrder.id,
-        trackingNumber: data.trackingNumber,
-        courierName: data.courierName,
+        trackingNumber: trackingNumber,
+        courierName: data.courierName?.trim() || "FedEx",
         shipmentItems: selectedItems.map(i => ({
           productId: i.productId,
           quantity: Number(i.quantity)
