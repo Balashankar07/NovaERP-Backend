@@ -244,6 +244,32 @@ public class ProductionOrderService : IProductionOrderService
 
             _unitOfWork.ProductionOrders.Update(order);
             await _unitOfWork.SaveChangesAsync();
+
+            if (completedQuantity > 0)
+            {
+                var fgWh = await _unitOfWork.Warehouses.GetByCodeAsync("WH-FG")
+                           ?? await _unitOfWork.Warehouses.GetDefaultWarehouseAsync();
+                if (fgWh == null)
+                {
+                    var allWh = await _unitOfWork.Warehouses.GetAllAsync();
+                    fgWh = allWh.Items?.FirstOrDefault(w => w.IsActive);
+                }
+
+                if (fgWh != null)
+                {
+                    await _inventoryMovementService.ReceiveAsync(
+                        order.ProductId,
+                        fgWh.Id,
+                        null,
+                        completedQuantity,
+                        InventoryReferenceType.Production,
+                        order.Id,
+                        $"Production Order Completed: {order.ProductionOrderNumber}",
+                        currentUserId
+                    );
+                }
+            }
+
             await _auditLogger.LogAsync("StatusChange", "ProductionOrder", order.Id.ToString(), oldValues: "InProgress", newValues: "Completed");
 
             await _unitOfWork.CommitTransactionAsync();

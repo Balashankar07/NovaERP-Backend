@@ -18,6 +18,11 @@ public class WarehouseRepository : Repository<Warehouse>, IWarehouseRepository
         return await _dbSet.AnyAsync(x => x.WarehouseCode == warehouseCode);
     }
 
+    public async Task<Warehouse?> GetByCodeAsync(string warehouseCode)
+    {
+        return await _dbSet.FirstOrDefaultAsync(x => x.WarehouseCode == warehouseCode);
+    }
+
     public async Task<bool> HasDefaultWarehouseAsync(Guid? excludeWarehouseId = null)
     {
         return await _dbSet.AnyAsync(x => x.IsDefault && x.Id != excludeWarehouseId);

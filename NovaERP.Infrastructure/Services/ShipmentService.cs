@@ -258,6 +258,20 @@ public class ShipmentService : IShipmentService
         shipment.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.Shipments.Update(shipment);
+
+        var salesOrder = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(shipment.SalesOrderId);
+        if (salesOrder != null)
+        {
+            bool allDelivered = salesOrder.SalesOrderItems.All(i => i.ShippedQuantity >= i.Quantity);
+            if (allDelivered)
+            {
+                salesOrder.Status = SalesOrderStatus.Completed;
+                salesOrder.UpdatedAt = DateTime.UtcNow;
+                salesOrder.UpdatedBy = currentUserId;
+                _unitOfWork.SalesOrders.Update(salesOrder);
+            }
+        }
+
         await _unitOfWork.SaveChangesAsync();
 
         await _auditLogger.LogAsync("Deliver", "Shipment", id.ToString(), newValues: ShipmentStatus.Delivered.ToString());

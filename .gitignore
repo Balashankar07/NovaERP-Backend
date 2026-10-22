@@ -445,3 +445,5 @@ docs/*.js
 
 # --- Automated browser test screenshots ---
 /browser_screenshots/
+
+selenium_tests/
