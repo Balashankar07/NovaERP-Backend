@@ -384,7 +384,10 @@ public class InventoryMovementService : IInventoryMovementService
 
         if (remainingToReserve > 0)
         {
-            throw new InvalidOperationException($"Insufficient inventory available to reserve required quantity for product {productId}. Shortfall: {remainingToReserve}");
+            var product = await _unitOfWork.Products.GetByIdAsync(productId);
+            var prodName = product != null ? $"{product.Name} ({product.SKU})" : productId.ToString();
+            var availableNow = quantityRequired - remainingToReserve;
+            throw new InvalidOperationException($"Insufficient inventory to reserve {prodName}. Available in stock: {availableNow}, Requested: {quantityRequired} (Shortfall: {remainingToReserve}). Initiate a Production Plan to manufacture additional units.");
         }
     }
 
