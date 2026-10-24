@@ -6,6 +6,7 @@ import { CreateSalesOrderDto, UpdateSalesOrderDto, SalesOrderDto } from "@/types
 import { distributorsApi } from "@/api/distributors.api";
 import { productsApi } from "@/api/products.api";
 import { ProductType } from "@/types/products.types";
+import { cn } from "@/lib/utils";
 
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,10 @@ interface SearchableSelectProps {
   options: { value: string; label: string }[];
   placeholder: string;
   searchPlaceholder: string;
+  error?: boolean;
 }
 
-function SearchableSelect({ value, onValueChange, options, placeholder, searchPlaceholder }: SearchableSelectProps) {
+function SearchableSelect({ value, onValueChange, options, placeholder, searchPlaceholder, error }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
@@ -41,7 +43,10 @@ function SearchableSelect({ value, onValueChange, options, placeholder, searchPl
           variant="outline" 
           role="combobox" 
           aria-expanded={open} 
-          className="w-full justify-between font-normal hover:bg-transparent min-w-0 overflow-hidden text-left"
+          className={cn(
+            "w-full justify-between font-normal hover:bg-transparent min-w-0 overflow-hidden text-left h-9 text-xs",
+            error ? "border-rose-500 ring-1 ring-rose-500 text-rose-900 bg-rose-50/20" : ""
+          )}
         >
           <span className="truncate flex-1 min-w-0 text-left mr-2" title={selectedOption ? selectedOption.label : placeholder}>
             {selectedOption ? selectedOption.label : <span className="text-muted-foreground">{placeholder}</span>}
@@ -91,6 +96,23 @@ interface SalesOrderFormDialogProps {
   onSuccess: () => void;
 }
 
+const getDefaultDeliveryDate = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  return d.toISOString().split("T")[0];
+};
+
+const parseDateForInput = (d?: string | Date | null) => {
+  if (!d) return getDefaultDeliveryDate();
+  try {
+    const parsed = new Date(d);
+    if (isNaN(parsed.getTime())) return getDefaultDeliveryDate();
+    return parsed.toISOString().split("T")[0];
+  } catch {
+    return getDefaultDeliveryDate();
+  }
+};
+
 export function SalesOrderFormDialog({
   open,
   onOpenChange,
@@ -107,7 +129,7 @@ export function SalesOrderFormDialog({
   const { register, control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<CreateSalesOrderDto>({
     defaultValues: {
       distributorId: "",
-      requiredDeliveryDate: "",
+      requiredDeliveryDate: getDefaultDeliveryDate(),
       currency: "USD",
       shippingAddress: "",
       billingAddress: "",
@@ -132,25 +154,27 @@ export function SalesOrderFormDialog({
 
         reset({
           distributorId: orderToEdit.distributorId,
-          requiredDeliveryDate: orderToEdit.requiredDeliveryDate?.substring(0, 10) || "",
+          requiredDeliveryDate: parseDateForInput(orderToEdit.requiredDeliveryDate),
           currency: orderToEdit.currency || "USD",
           shippingAddress: orderToEdit.shippingAddress || "",
           billingAddress: orderToEdit.billingAddress || "",
           remarks: orderToEdit.remarks || "",
-          items: orderToEdit.items.map(i => ({
-            productId: i.productId,
-            quantity: i.quantity,
-            unitPrice: i.unitPrice,
-            unit: i.unit || "ea",
-            discount: i.discount || 0,
-            tax: i.tax || 0,
-          })),
+          items: orderToEdit.items && orderToEdit.items.length > 0
+            ? orderToEdit.items.map(i => ({
+                productId: i.productId,
+                quantity: i.quantity,
+                unitPrice: i.unitPrice,
+                unit: i.unit || "ea",
+                discount: i.discount || 0,
+                tax: i.tax || 0,
+              }))
+            : [{ productId: "", quantity: 1, unitPrice: 0, unit: "ea", discount: 0, tax: 0 }],
         });
       } else {
         setSameAsBilling(false);
         reset({
           distributorId: "",
-          requiredDeliveryDate: "",
+          requiredDeliveryDate: getDefaultDeliveryDate(),
           currency: "USD",
           shippingAddress: "",
           billingAddress: "",
@@ -181,32 +205,38 @@ export function SalesOrderFormDialog({
     }
   };
 
+  const setDatePreset = (daysFromNow: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysFromNow);
+    const dateStr = d.toISOString().split("T")[0];
+    setValue("requiredDeliveryDate", dateStr, { shouldValidate: true });
+  };
+
   const handleCustomerChange = (val: string) => {
-    setValue("distributorId", val);
+    setValue("distributorId", val, { shouldValidate: true });
     const selectedDist = distributors.find(d => d.id === val);
     if (selectedDist && selectedDist.address) {
-      // Auto-populate addresses from distributor master record
       if (!watch("billingAddress") || watch("billingAddress") === "") {
-        setValue("billingAddress", selectedDist.address);
+        setValue("billingAddress", selectedDist.address, { shouldValidate: true });
       }
       if (sameAsBilling || !watch("shippingAddress") || watch("shippingAddress") === "") {
-        setValue("shippingAddress", selectedDist.address);
+        setValue("shippingAddress", selectedDist.address, { shouldValidate: true });
       }
     }
   };
 
   const handleBillingAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
-    setValue("billingAddress", val);
+    setValue("billingAddress", val, { shouldValidate: true });
     if (sameAsBilling) {
-      setValue("shippingAddress", val);
+      setValue("shippingAddress", val, { shouldValidate: true });
     }
   };
 
   const handleSameAsBillingToggle = (checked: boolean) => {
     setSameAsBilling(checked);
     if (checked) {
-      setValue("shippingAddress", watch("billingAddress"));
+      setValue("shippingAddress", watch("billingAddress") || "", { shouldValidate: true });
     }
   };
 
@@ -234,6 +264,18 @@ export function SalesOrderFormDialog({
       setApiError("Please select a Customer (Distributor).");
       return;
     }
+    if (!data.requiredDeliveryDate) {
+      setApiError("Please select a Required Delivery Date.");
+      return;
+    }
+    if (!data.billingAddress || data.billingAddress.trim().length < 5) {
+      setApiError("Please provide a valid Billing Address (at least 5 characters).");
+      return;
+    }
+    if (!data.shippingAddress || data.shippingAddress.trim().length < 5) {
+      setApiError("Please provide a valid Shipping Address (at least 5 characters).");
+      return;
+    }
     if (!data.items || data.items.length === 0) {
       setApiError("Please add at least one line item.");
       return;
@@ -253,24 +295,23 @@ export function SalesOrderFormDialog({
 
     setLoading(true);
     try {
-      if (data.requiredDeliveryDate) {
-        data.requiredDeliveryDate = new Date(data.requiredDeliveryDate).toISOString();
-      } else {
-        delete data.requiredDeliveryDate;
-      }
-      
-      data.items = data.items.map(i => ({
-        ...i,
-        quantity: Number(i.quantity),
-        unitPrice: Number(i.unitPrice),
-        discount: Number(i.discount || 0),
-        tax: Number(i.tax || 0),
-      }));
+      const payload = {
+        ...data,
+        currency: "USD",
+        requiredDeliveryDate: new Date(data.requiredDeliveryDate).toISOString(),
+        items: data.items.map(i => ({
+          ...i,
+          quantity: Number(i.quantity),
+          unitPrice: Number(i.unitPrice),
+          discount: Number(i.discount || 0),
+          tax: Number(i.tax || 0),
+        }))
+      };
 
       if (isEditing && orderToEdit) {
-        await salesApi.updateSalesOrder(orderToEdit.id, data as UpdateSalesOrderDto);
+        await salesApi.updateSalesOrder(orderToEdit.id, payload as UpdateSalesOrderDto);
       } else {
-        await salesApi.createSalesOrder(data);
+        await salesApi.createSalesOrder(payload);
       }
       onSuccess();
     } catch (err: any) {
@@ -293,57 +334,121 @@ export function SalesOrderFormDialog({
             {apiError}
           </div>
         )}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
           {/* Top Form Grid: Streamlined, Balanced & Compact */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {/* Row 1: Customer & Delivery Date */}
             <div className="space-y-1.5 min-w-0">
               <Label className="text-xs font-semibold text-slate-700">Customer (Distributor) *</Label>
               <SearchableSelect
                 value={watch("distributorId")}
                 onValueChange={handleCustomerChange}
-                placeholder="Select Customer"
+                error={!!errors.distributorId}
+                placeholder="Select Customer *"
                 searchPlaceholder="Search customers/distributors..."
                 options={distributors.map((d) => ({
                   value: d.id,
                   label: `${d.companyName} (${d.contactPerson})`
                 }))}
               />
+              <input type="hidden" {...register("distributorId", { required: "Customer (Distributor) is required" })} />
+              {errors.distributorId && (
+                <p className="text-xs text-rose-500 font-medium">{errors.distributorId.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5 min-w-0">
-              <Label className="text-xs font-semibold text-slate-700">Required Delivery Date</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-slate-700">Required Delivery Date *</Label>
+              </div>
               <Input 
                 type="date" 
-                min={new Date().toISOString().split("T")[0]}
+                className={cn(
+                  "h-9 text-xs",
+                  errors.requiredDeliveryDate ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                )}
                 {...register("requiredDeliveryDate", {
-                  validate: (val) => !val || new Date(val) >= new Date(new Date().setHours(0,0,0,0)) || "Required delivery date cannot be in the past"
+                  required: "Required delivery date is mandatory",
+                  validate: (val) => {
+                    if (!val) return "Required delivery date is mandatory";
+                    const dateVal = new Date(val);
+                    if (isNaN(dateVal.getTime())) return "Invalid date";
+                    if (!isEditing) {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      if (dateVal < today) return "Required delivery date cannot be in the past";
+                    }
+                    return true;
+                  }
                 })} 
               />
-              {errors.requiredDeliveryDate && <p className="text-xs text-rose-500 font-medium">{errors.requiredDeliveryDate.message}</p>}
+              {errors.requiredDeliveryDate && (
+                <p className="text-xs text-rose-500 font-medium">{errors.requiredDeliveryDate.message}</p>
+              )}
+              {/* Quick Lead Time Presets */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                <span className="text-[10px] text-slate-400 font-medium">Quick Lead Time:</span>
+                <button
+                  type="button"
+                  onClick={() => setDatePreset(3)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-medium transition-colors border border-slate-200"
+                >
+                  +3d (Rush)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatePreset(7)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-medium transition-colors border border-slate-200"
+                >
+                  +7d (Std)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatePreset(14)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-medium transition-colors border border-slate-200"
+                >
+                  +14d (Bulk)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDatePreset(30)}
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 font-medium transition-colors border border-slate-200"
+                >
+                  +30d (Sched)
+                </button>
+              </div>
             </div>
 
             {/* Row 2: Addresses Side-by-Side (Auto-populated & Same-as-Billing) */}
             <div className="space-y-1.5 min-w-0">
               <div className="flex items-center justify-between">
                 <Label htmlFor="billingAddress" className="text-xs font-semibold text-slate-700">
-                  Billing Address (Invoice / Accounts Payable)
+                  Billing Address (Invoice / Accounts Payable) *
                 </Label>
               </div>
               <Textarea 
                 id="billingAddress"
                 rows={2} 
-                className="min-h-[50px] resize-none text-xs" 
-                {...register("billingAddress")} 
+                className={cn(
+                  "min-h-[50px] resize-none text-xs",
+                  errors.billingAddress ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                )} 
+                {...register("billingAddress", {
+                  required: "Billing address is required for invoicing",
+                  minLength: { value: 5, message: "Billing address must be at least 5 characters" }
+                })} 
                 onChange={handleBillingAddressChange}
                 placeholder="Corporate headquarters or invoicing address..." 
               />
+              {errors.billingAddress && (
+                <p className="text-xs text-rose-500 font-medium">{errors.billingAddress.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5 min-w-0">
               <div className="flex items-center justify-between">
                 <Label htmlFor="shippingAddress" className="text-xs font-semibold text-slate-700">
-                  Shipping Address (Logistics Receiving Dock)
+                  Shipping Address (Logistics Receiving Dock) *
                 </Label>
                 <label className="flex items-center space-x-1.5 text-xs text-indigo-600 hover:text-indigo-700 cursor-pointer font-medium select-none">
                   <input
@@ -358,11 +463,21 @@ export function SalesOrderFormDialog({
               <Textarea 
                 id="shippingAddress"
                 rows={2} 
-                className={`min-h-[50px] resize-none text-xs ${sameAsBilling ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} 
-                {...register("shippingAddress")} 
+                className={cn(
+                  "min-h-[50px] resize-none text-xs",
+                  sameAsBilling ? "bg-slate-50 text-slate-500 cursor-not-allowed" : "",
+                  errors.shippingAddress ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                )} 
+                {...register("shippingAddress", {
+                  required: "Shipping address is required for logistics delivery",
+                  minLength: { value: 5, message: "Shipping address must be at least 5 characters" }
+                })} 
                 placeholder="Physical warehouse dock address for delivery..." 
                 disabled={sameAsBilling}
               />
+              {errors.shippingAddress && (
+                <p className="text-xs text-rose-500 font-medium">{errors.shippingAddress.message}</p>
+              )}
             </div>
 
             {/* Row 3: Remarks / Specific Instructions (Full Width) */}
@@ -414,39 +529,103 @@ export function SalesOrderFormDialog({
                 const tax = watch(`items.${index}.tax`) || 0;
                 const total = Math.max(0, (qty * price) - discount + tax);
 
+                const itemErrors = errors.items?.[index];
+
                 return (
                   <div key={field.id} className="grid grid-cols-12 gap-2 px-3 py-2 items-center hover:bg-slate-50/50 transition-colors">
                     <div className="col-span-4 min-w-0">
                       <SearchableSelect
                         value={watch(`items.${index}.productId`)}
                         onValueChange={(val) => {
-                          setValue(`items.${index}.productId`, val);
+                          setValue(`items.${index}.productId`, val, { shouldValidate: true });
                           const prod = products.find(p => p.id === val);
                           if (prod) {
-                            setValue(`items.${index}.unitPrice`, prod.sellingPrice || prod.price || 0);
+                            setValue(`items.${index}.unitPrice`, prod.sellingPrice || prod.price || 0, { shouldValidate: true });
                           }
                         }}
-                        placeholder="Select Product"
-                        searchPlaceholder="Search products..."
+                        error={!!itemErrors?.productId}
+                        placeholder="Select Product *"
+                        searchPlaceholder="Search finished goods..."
                         options={products.map((p) => ({
                           value: p.id,
                           label: `${p.name} (${p.sku})`
                         }))}
                       />
+                      <input
+                        type="hidden"
+                        {...register(`items.${index}.productId` as const, {
+                          required: "Product is required"
+                        })}
+                      />
+                      {itemErrors?.productId && (
+                        <p className="text-[10px] text-rose-500 font-medium mt-0.5 truncate">
+                          {itemErrors.productId.message}
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-2 min-w-0">
-                      <Input type="number" min="0.01" step="0.01" className="h-9" {...register(`items.${index}.quantity`)} />
+                      <Input 
+                        type="number" 
+                        min="0.01" 
+                        step="1" 
+                        className={cn(
+                          "h-9 text-xs",
+                          itemErrors?.quantity ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                        )} 
+                        {...register(`items.${index}.quantity` as const, {
+                          required: "Qty > 0",
+                          validate: (v) => Number(v) > 0 || "Must be > 0"
+                        })} 
+                      />
+                      {itemErrors?.quantity && (
+                        <p className="text-[10px] text-rose-500 font-medium mt-0.5 truncate">
+                          {itemErrors.quantity.message}
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-2 min-w-0">
-                      <Input type="number" min="0" step="0.01" className="h-9" {...register(`items.${index}.unitPrice`)} />
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        step="0.01" 
+                        className={cn(
+                          "h-9 text-xs",
+                          itemErrors?.unitPrice ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                        )} 
+                        {...register(`items.${index}.unitPrice` as const, {
+                          required: "Price >= 0",
+                          validate: (v) => Number(v) >= 0 || "Min 0"
+                        })} 
+                      />
+                      {itemErrors?.unitPrice && (
+                        <p className="text-[10px] text-rose-500 font-medium mt-0.5 truncate">
+                          {itemErrors.unitPrice.message}
+                        </p>
+                      )}
                     </div>
                     <div className="col-span-1 min-w-0">
-                      <Input type="number" min="0" step="0.01" className="h-9 text-center" {...register(`items.${index}.discount`)} />
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        step="0.01" 
+                        className="h-9 text-center text-xs" 
+                        {...register(`items.${index}.discount` as const, {
+                          min: { value: 0, message: "Min 0" }
+                        })} 
+                      />
                     </div>
                     <div className="col-span-1 min-w-0">
-                      <Input type="number" min="0" step="0.01" className="h-9 text-center" {...register(`items.${index}.tax`)} />
+                      <Input 
+                        type="number" 
+                        min="0" 
+                        step="0.01" 
+                        className="h-9 text-center text-xs" 
+                        {...register(`items.${index}.tax` as const, {
+                          min: { value: 0, message: "Min 0" }
+                        })} 
+                      />
                     </div>
-                    <div className="col-span-1 min-w-0 font-medium text-right text-sm text-slate-800 pr-1 truncate" title={total.toFixed(2)}>
+                    <div className="col-span-1 min-w-0 font-medium text-right text-xs text-slate-800 pr-1 truncate" title={total.toFixed(2)}>
                       {total.toFixed(2)}
                     </div>
                     <div className="col-span-1 min-w-0 text-center">
@@ -512,15 +691,21 @@ export function SalesOrderFormDialog({
             </div>
           </div>
 
-          {/* Modal Action Buttons */}
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+          {/* Sticky Modal Action Buttons (Always Visible) */}
+          <div className="sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-white/95 backdrop-blur border-t border-slate-200 flex justify-end gap-3 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+              className="text-xs h-9"
+            >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading} 
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-5 text-xs h-9 shadow-sm min-w-[130px]"
             >
               {loading ? "Saving Order..." : isEditing ? "Update Order" : "Save Order"}
             </Button>
