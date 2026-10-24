@@ -294,8 +294,8 @@ export function SalesOrderFormDialog({
           </div>
         )}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Top Form Grid: Symmetrical & Balanced */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Top Form Grid: Streamlined, Balanced & Compact */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Row 1: Customer & Delivery Date */}
             <div className="space-y-1.5 min-w-0">
               <Label className="text-xs font-semibold text-slate-700">Customer (Distributor) *</Label>
@@ -323,18 +323,7 @@ export function SalesOrderFormDialog({
               {errors.requiredDeliveryDate && <p className="text-xs text-rose-500 font-medium">{errors.requiredDeliveryDate.message}</p>}
             </div>
 
-            {/* Row 2: Currency & Remarks */}
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-xs font-semibold text-slate-700">Currency</Label>
-              <Input {...register("currency")} placeholder="USD" defaultValue="USD" />
-            </div>
-
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-xs font-semibold text-slate-700">Remarks / Specific Instructions</Label>
-              <Input {...register("remarks")} placeholder="e.g., Deliver to Gate 3, expedite shipping..." />
-            </div>
-
-            {/* Row 3: Addresses Side-by-Side (Balanced Layout) */}
+            {/* Row 2: Addresses Side-by-Side (Auto-populated & Same-as-Billing) */}
             <div className="space-y-1.5 min-w-0">
               <div className="flex items-center justify-between">
                 <Label htmlFor="billingAddress" className="text-xs font-semibold text-slate-700">
@@ -344,7 +333,7 @@ export function SalesOrderFormDialog({
               <Textarea 
                 id="billingAddress"
                 rows={2} 
-                className="min-h-[58px] resize-none" 
+                className="min-h-[50px] resize-none text-xs" 
                 {...register("billingAddress")} 
                 onChange={handleBillingAddressChange}
                 placeholder="Corporate headquarters or invoicing address..." 
@@ -369,11 +358,22 @@ export function SalesOrderFormDialog({
               <Textarea 
                 id="shippingAddress"
                 rows={2} 
-                className={`min-h-[58px] resize-none ${sameAsBilling ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} 
+                className={`min-h-[50px] resize-none text-xs ${sameAsBilling ? "bg-slate-50 text-slate-500 cursor-not-allowed" : ""}`} 
                 {...register("shippingAddress")} 
                 placeholder="Physical warehouse dock address for delivery..." 
                 disabled={sameAsBilling}
               />
+            </div>
+
+            {/* Row 3: Remarks / Specific Instructions (Full Width) */}
+            <div className="col-span-1 md:col-span-2 space-y-1.5 min-w-0">
+              <Label className="text-xs font-semibold text-slate-700">Remarks / Order Instructions</Label>
+              <Input 
+                {...register("remarks")} 
+                placeholder="e.g., Deliver to Gate 3, expedite shipping, customer PO reference..." 
+                className="h-9 text-xs"
+              />
+              <input type="hidden" {...register("currency")} defaultValue="USD" />
             </div>
           </div>
 
@@ -468,39 +468,45 @@ export function SalesOrderFormDialog({
           </div>
 
           {/* Financial Summary Card (Professional Grand Total) */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 pt-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-3 pt-2">
             <div className="text-xs text-slate-500 max-w-sm space-y-1">
               <p>• Commercial prices reflect agreed distributor tier.</p>
               <p>• Inventory reservation occurs automatically upon order approval.</p>
             </div>
             
-            <div className="w-full sm:w-80 bg-slate-50/90 border border-slate-200/90 rounded-xl p-3.5 space-y-2 text-sm shadow-sm">
+            <div className="w-full sm:w-80 bg-slate-50/90 border border-slate-200/90 rounded-xl p-3 space-y-1.5 text-xs shadow-sm">
+              <div className="flex justify-between items-center text-slate-500 pb-1 border-b border-slate-200/60">
+                <span>Pricing Currency:</span>
+                <span className="font-mono font-semibold px-2 py-0.5 rounded bg-slate-200/70 text-slate-800 text-[11px]">
+                  {currency || "USD"} ($)
+                </span>
+              </div>
               <div className="flex justify-between text-slate-600">
-                <span>Subtotal ({watchedItems.length} line item{watchedItems.length === 1 ? "" : "s"}):</span>
+                <span>Subtotal ({watchedItems.length} item{watchedItems.length === 1 ? "" : "s"}):</span>
                 <span className="font-semibold text-slate-900">
-                  {currency} {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {currency || "USD"} {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               {totalDiscount > 0 && (
-                <div className="flex justify-between text-emerald-600">
+                <div className="flex justify-between text-emerald-600 font-medium">
                   <span>Total Discount:</span>
-                  <span className="font-semibold">
-                    -{currency} {totalDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span>
+                    -{currency || "USD"} {totalDiscount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
               {totalTax > 0 && (
-                <div className="flex justify-between text-slate-600">
+                <div className="flex justify-between text-slate-600 font-medium">
                   <span>Total Tax / Duties:</span>
-                  <span className="font-semibold text-slate-900">
-                    +{currency} {totalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <span className="text-slate-900">
+                    +{currency || "USD"} {totalTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
-              <div className="pt-2 border-t border-slate-200 flex justify-between items-baseline">
-                <span className="text-sm font-bold text-slate-900">Grand Total:</span>
-                <span className="text-lg font-bold text-indigo-600">
-                  {currency} {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <div className="pt-1.5 border-t border-slate-200 flex justify-between items-baseline">
+                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">Grand Total:</span>
+                <span className="text-base font-bold text-indigo-600">
+                  {currency || "USD"} {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
