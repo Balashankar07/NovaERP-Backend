@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Trash2, AlertCircle, ShoppingCart, Info, Loader2, Building2, PackageCheck } from "lucide-react";
+import { Trash2, AlertCircle, ShoppingCart, Info, Loader2, Building2, PackageCheck, MapPin, User, Mail, CheckCircle } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -465,6 +465,8 @@ export function PurchaseOrderFormDialog({ isOpen, onClose, onSuccess, initialPrI
     return acc + (qty * price);
   }, 0);
 
+  const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
+
   return (
     <Modal
       isOpen={isOpen}
@@ -555,6 +557,64 @@ export function PurchaseOrderFormDialog({ isOpen, onClose, onSuccess, initialPrI
               placeholder="Optional notes or terms for the supplier..." 
             />
           </div>
+
+          {/* Automatically Loaded Supplier Facility & Contact Card */}
+          {selectedSupplier && (
+            <div className="bg-gradient-to-r from-indigo-50/90 via-slate-50 to-white dark:from-slate-800 dark:to-slate-900 border border-indigo-100 dark:border-slate-700 rounded-xl p-3.5 space-y-2 text-xs text-slate-700 dark:text-slate-300 shadow-sm animate-in fade-in-50 duration-200">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-indigo-100/70 dark:border-slate-700/80 pb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-sm">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-sm text-slate-900 dark:text-white">
+                      {selectedSupplier.companyName || selectedSupplier.supplierName}
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400 font-mono ml-2">
+                      ({selectedSupplier.supplierCode || "SUPPLIER"})
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                    <CheckCircle className="w-3.5 h-3.5 mr-1" /> Verified Vendor Facility
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="flex items-start gap-1.5 min-w-0">
+                  <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                  <div className="truncate">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">Dispatch Facility: </span>
+                    <span className="text-slate-600 dark:text-slate-400" title={[selectedSupplier.addressLine1, selectedSupplier.city, selectedSupplier.state, selectedSupplier.country].filter(Boolean).join(", ")}>
+                      {[selectedSupplier.addressLine1, selectedSupplier.city, selectedSupplier.state, selectedSupplier.country]
+                        .filter(Boolean)
+                        .join(", ") || "Main Facility Location"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-1.5 min-w-0">
+                  <User className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                  <div className="truncate">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">Key Account: </span>
+                    <span className="text-slate-600 dark:text-slate-400">{selectedSupplier.contactPerson || "Sales Dept"}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-1.5 min-w-0">
+                  <Mail className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                  <div className="truncate">
+                    <span className="font-semibold text-slate-700 dark:text-slate-200">Contact: </span>
+                    <span className="text-slate-600 dark:text-slate-400" title={[selectedSupplier.email, selectedSupplier.phone].filter(Boolean).join(" • ")}>
+                      {[selectedSupplier.email, selectedSupplier.phone].filter(Boolean).join(" • ") || "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Line Items Section */}

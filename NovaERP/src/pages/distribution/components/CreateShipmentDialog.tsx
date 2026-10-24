@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Building2, MapPin } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface CreateShipmentDialogProps {
@@ -125,6 +126,24 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
     <Modal isOpen={open} onClose={() => onOpenChange(false)} title="Create Shipment" size="3xl">
       <div className="max-h-[70vh] overflow-y-auto pr-2">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Destination Customer & Delivery Location Card */}
+          <div className="bg-gradient-to-r from-indigo-50/90 via-slate-50 to-white border border-indigo-100/90 rounded-xl p-3.5 space-y-1.5 text-xs text-slate-700 shadow-sm">
+            <div className="flex items-center justify-between border-b border-indigo-100/70 pb-2">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                <span>{salesOrder.distributorName || "Customer Destination"}</span>
+              </div>
+              <span className="font-mono text-slate-500 text-xs">Order: #{salesOrder.orderNumber}</span>
+            </div>
+            <div className="flex items-start gap-1.5 text-slate-600 pt-0.5">
+              <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+              <span>
+                <strong className="text-slate-700">Delivery Address: </strong>
+                {salesOrder.shippingAddress || salesOrder.billingAddress || "Main Logistics Warehouse Dock"}
+              </span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Tracking Number</Label>

@@ -27,7 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingView } from "@/components/ui/state-views";
-import { Save } from "lucide-react";
+import { Save, Building2, MapPin } from "lucide-react";
 
 interface LineItem {
   purchaseOrderItemId: string;
@@ -60,6 +60,7 @@ export function GoodsReceiptFormDialog({
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderDto[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
+  const [selectedPo, setSelectedPo] = useState<PurchaseOrderDto | null>(null);
 
   // Controlled form state
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
@@ -76,6 +77,7 @@ export function GoodsReceiptFormDialog({
       setWarehouseLocationId("");
       setRemarks("");
       setLineItems([]);
+      setSelectedPo(null);
       fetchPurchaseOrders();
       fetchWarehouses();
     }
@@ -91,6 +93,7 @@ export function GoodsReceiptFormDialog({
     purchaseOrdersApi.getById(purchaseOrderId)
       .then(po => {
         if (!po) return;
+        setSelectedPo(po);
         const items: LineItem[] = (po.items || []).map(item => {
           const outstanding = Math.max(0, item.quantity - (item.receivedQuantity || 0));
           return {
@@ -223,6 +226,26 @@ export function GoodsReceiptFormDialog({
       size="xl"
     >
       <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+        {selectedPo && (
+          <div className="bg-gradient-to-r from-indigo-50/90 via-slate-50 to-white border border-indigo-100/90 rounded-xl p-3.5 space-y-1.5 text-xs text-slate-700 shadow-sm animate-in fade-in-50 duration-200">
+            <div className="flex items-center justify-between border-b border-indigo-100/70 pb-2">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                <span>Inbound From: {selectedPo.supplierName}</span>
+              </div>
+              <span className="font-mono text-slate-500">PO: #{selectedPo.orderNumber}</span>
+            </div>
+            <div className="flex items-start gap-1.5 text-slate-600 pt-0.5">
+              <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0 mt-0.5" />
+              <span>
+                <strong className="text-slate-700">Dock Receiving Target: </strong>
+                {warehouses.find(w => w.id === warehouseId)?.name || "Central Receiving Warehouse"} 
+                {warehouses.find(w => w.id === warehouseId)?.address ? ` • ${warehouses.find(w => w.id === warehouseId).address}` : ""}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           {/* Purchase Order */}
           <div className="space-y-2">
