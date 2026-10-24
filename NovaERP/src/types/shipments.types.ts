@@ -25,6 +25,11 @@ export interface ShipmentDto {
   status: ShipmentStatus;
   createdAt: string;
   updatedAt: string | null;
+  orderNumber?: string;
+  customerName?: string;
+  shippingAddress?: string;
+  contactPerson?: string;
+  contactPhone?: string;
   shipmentItems: ShipmentItemDto[];
 }
 

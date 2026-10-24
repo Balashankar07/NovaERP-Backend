@@ -459,17 +459,21 @@ public static class DbSeeder
             ["Warehouse Manager"] = p => 
                 p.Contains("Warehouse") || p.Contains("Inventory") || p.Contains("GoodsReceipt") || 
                 p.Contains("Shipment") || p.Contains("LogisticsDocument") || p.Contains("Dashboard") || p.Contains("Notifications") || 
-                p == "Permissions.Products.View" || p == "Permissions.Reports.Inventory" || p == "Permissions.Reports.View",
+                p == "Permissions.Products.View" || p == "Permissions.Reports.Inventory" || p == "Permissions.Reports.View" ||
+                p == "Permissions.SalesOrders.View" || p == "Permissions.SalesOrders.Reserve",
             ["Quality Engineer"] = p => 
                 p.Contains("Quality") || p.Contains("NCR") || p.Contains("CAPA") || 
                 p.Contains("Scrap") || p.Contains("Rework") || p.Contains("Dashboard") || p.Contains("Notifications") || 
                 p == "Permissions.Products.View" || p == "Permissions.BOMs.View" || p == "Permissions.Reports.Quality" || p == "Permissions.Reports.View",
             ["Sales Manager"] = p => 
-                p.Contains("Sales") || p.Contains("Shipment") || p.Contains("Distributor") || 
-                p.Contains("LogisticsDocument") || p.Contains("Dashboard") || p.Contains("Notifications") || 
-                p == "Permissions.Products.View" || p == "Permissions.ProductCategories.View" || 
-                p == "Permissions.Brands.View" || p == "Permissions.Units.View" || 
-                p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View",
+                ((p.Contains("Sales") && p != "Permissions.SalesOrders.Reserve") || 
+                 p == "Permissions.Shipments.View" || 
+                 p.Contains("Distributor") || 
+                 p == "Permissions.LogisticsDocuments.View" || 
+                 p.Contains("Dashboard") || p.Contains("Notifications") || 
+                 p == "Permissions.Products.View" || p == "Permissions.ProductCategories.View" || 
+                 p == "Permissions.Brands.View" || p == "Permissions.Units.View" || 
+                 p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View"),
             ["Warranty Executive"] = p => 
                 p.Contains("Warrant") || p.Contains("Return") || p.Contains("Dashboard") || p.Contains("Notifications") || 
                 p == "Permissions.Products.View" || p == "Permissions.Reports.Warranty" || p == "Permissions.Reports.View"

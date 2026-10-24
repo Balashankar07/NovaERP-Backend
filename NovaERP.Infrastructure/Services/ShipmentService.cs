@@ -357,6 +357,11 @@ public class ShipmentService : IShipmentService
             Status = shipment.Status,
             CreatedAt = shipment.CreatedAt,
             UpdatedAt = shipment.UpdatedAt,
+            OrderNumber = shipment.SalesOrder?.OrderNumber,
+            CustomerName = shipment.SalesOrder?.Distributor?.CompanyName,
+            ShippingAddress = shipment.SalesOrder?.ShippingAddress,
+            ContactPerson = shipment.SalesOrder?.Distributor?.ContactPerson,
+            ContactPhone = shipment.SalesOrder?.Distributor?.Phone,
             ShipmentItems = shipment.ShipmentItems != null ? shipment.ShipmentItems.Select(i => new ShipmentItemDto
             {
                 Id = i.Id,

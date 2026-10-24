@@ -17,6 +17,7 @@ public class ShipmentRepository : Repository<Shipment>, IShipmentRepository
             .Include(s => s.ShipmentItems)
                 .ThenInclude(si => si.Product)
             .Include(s => s.SalesOrder)
+                .ThenInclude(so => so!.Distributor)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
     public async Task<int> GetCountAsync()
@@ -37,6 +38,10 @@ public class ShipmentRepository : Repository<Shipment>, IShipmentRepository
         
         // Sort by CreatedAt descending to show newest shipments first
         var items = await query
+            .Include(s => s.SalesOrder)
+                .ThenInclude(so => so!.Distributor)
+            .Include(s => s.ShipmentItems)
+                .ThenInclude(si => si.Product)
             .OrderByDescending(x => x.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)

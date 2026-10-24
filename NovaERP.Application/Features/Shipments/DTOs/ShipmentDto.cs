@@ -14,5 +14,11 @@ public class ShipmentDto
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
 
+    public string? OrderNumber { get; set; }
+    public string? CustomerName { get; set; }
+    public string? ShippingAddress { get; set; }
+    public string? ContactPerson { get; set; }
+    public string? ContactPhone { get; set; }
+
     public List<ShipmentItemDto> ShipmentItems { get; set; } = new();
 }
