@@ -214,6 +214,7 @@ function App() {
                 {/* Procurement */}
                 <Route path={ROUTES.PROCUREMENT} element={<ProcurementOverviewPage />} />
                 <Route path={ROUTES.PURCHASE_ORDERS} element={<PurchaseOrdersListPage />} />
+                <Route path="/procurement/purchase-orders" element={<Navigate to={ROUTES.PURCHASE_ORDERS} replace />} />
                 <Route path={ROUTES.PURCHASE_REQUESTS} element={<PurchaseRequestsListPage />} />
                 <Route path={ROUTES.GOODS_RECEIPTS} element={<GoodsReceiptsListPage />} />
                 <Route path={ROUTES.SUPPLIERS} element={<SuppliersListPage />} />
@@ -231,6 +232,7 @@ function App() {
                 <Route path={ROUTES.INVENTORY_TRACEABILITY_REPORTS} element={<WarehouseTraceabilityReportsPage />} />
                 {/* Quality & Compliance (Domain 5) */}
                 <Route path={ROUTES.QUALITY} element={<QualityInspectionsListPage />} />
+                <Route path="/quality/inspections" element={<Navigate to={ROUTES.QUALITY} replace />} />
                 <Route path="/quality/:id" element={<QualityInspectionDetailsPage />} />
                 <Route path={ROUTES.QUALITY_NCRS} element={<NCRListPage />} />
                 <Route path="/quality-compliance/ncrs/:id" element={<NCRDetailPage />} />

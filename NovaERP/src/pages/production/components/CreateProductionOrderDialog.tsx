@@ -33,12 +33,14 @@ interface CreateProductionOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  defaultPlanId?: string;
 }
 
 export const CreateProductionOrderDialog = ({
   open,
   onOpenChange,
   onSuccess,
+  defaultPlanId,
 }: CreateProductionOrderDialogProps) => {
   const queryClient = useQueryClient();
 
@@ -64,6 +66,12 @@ export const CreateProductionOrderDialog = ({
 
   // Watch plan selection to auto-fill details
   const selectedPlanId = form.watch("productionPlanId");
+
+  useEffect(() => {
+    if (open && defaultPlanId) {
+      form.setValue("productionPlanId", defaultPlanId);
+    }
+  }, [open, defaultPlanId, form]);
 
   useEffect(() => {
     if (selectedPlanId && releasedPlans.length > 0) {

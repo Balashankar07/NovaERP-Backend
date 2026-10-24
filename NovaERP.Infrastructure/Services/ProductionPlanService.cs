@@ -284,7 +284,7 @@ public class ProductionPlanService : IProductionPlanService
                     $"Production Plan {plan.PlanNumber} has been released and is ready for execution.",
                     NotificationPriority.Normal,
                     "ProductionPlan", plan.Id.ToString(),
-                    $"/production/plans",
+                    $"/production/plans/{plan.Id}",
                     $"pp-released-{plan.Id}"
                 );
                 

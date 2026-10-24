@@ -237,7 +237,7 @@ public class ShipmentService : IShipmentService
                     $"Sales Order {salesOrder.OrderNumber} has been dispatched via {shipment.CourierName} (Tracking: {shipment.TrackingNumber}).",
                     NotificationPriority.Normal,
                     "Shipment", shipment.Id.ToString(),
-                    $"/sales/orders",
+                    $"/distribution/shipments/{shipment.Id}",
                     $"ship-dispatched-sales-{shipment.Id}"
                 );
             }
@@ -307,7 +307,7 @@ public class ShipmentService : IShipmentService
                 $"Shipment {shipment.TrackingNumber} for {soNum} has been delivered. Sales Order marked Completed.",
                 NotificationPriority.Normal,
                 "Shipment", shipment.Id.ToString(),
-                $"/sales/orders",
+                $"/sales/orders/{salesOrder?.Id ?? shipment.SalesOrderId}",
                 $"ship-delivered-sales-{shipment.Id}"
             );
 

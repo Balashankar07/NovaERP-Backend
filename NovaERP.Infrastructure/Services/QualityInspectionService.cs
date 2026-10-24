@@ -92,7 +92,7 @@ public class QualityInspectionService : IQualityInspectionService
                 $"A new quality inspection {inspection.InspectionNumber} has been created for Product {inspection.ProductId} and requires your attention.",
                 NotificationPriority.Normal,
                 "QualityInspection", inspection.Id.ToString(),
-                $"/quality/inspections",
+                $"/quality/{inspection.Id}",
                 $"qi-created-{inspection.Id}"
             );
         }
@@ -263,7 +263,7 @@ public class QualityInspectionService : IQualityInspectionService
                         $"Quality inspection {inspection.InspectionNumber} finished with status {inspection.Status}. Failed quantity: {inspection.FailedQuantity}.",
                         NotificationPriority.Critical,
                         "QualityInspection", inspection.Id.ToString(),
-                        $"/quality/inspections",
+                        $"/quality/{inspection.Id}",
                         $"qi-failed-{inspection.Id}"
                     );
                 }

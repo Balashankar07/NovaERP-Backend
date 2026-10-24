@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link, Navigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, AlertCircle, Loader2, Play } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertCircle, Loader2, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { productionApi } from "@/api/production.api";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingView, ErrorView } from "@/components/ui/state-views";
 import { PageContainer, PageHeader, SectionCard } from "@/components/ui/page-shell";
+import { CreateProductionOrderDialog } from "./components/CreateProductionOrderDialog";
 
 // Maps backend ProductionPlanStatus string values (serialized via .ToString()):
 // Draft=1 → "Draft", Released=2 → "Released", Completed=3 → "Completed", Cancelled=4 → "Cancelled"
@@ -40,6 +41,7 @@ export const ProductionPlanDetailsPage = () => {
   const { hasPermission } = usePermissions();
   const canRelease = hasPermission("Permissions.ProductionPlans.Release");
   const [backendShortages, setBackendShortages] = useState<any[]>([]);
+  const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
   const { data: planData, isLoading: isLoadingPlan, error: planError, refetch: refetchPlan } = useQuery({
     queryKey: ["production-plan", id],
@@ -105,6 +107,7 @@ export const ProductionPlanDetailsPage = () => {
 
   const hasShortage = requirements.some(r => r.requiredQuantity > r.availableQuantity);
   const isDraft = String(plan?.status).toLowerCase() === '1' || String(plan?.status).toLowerCase() === 'draft';
+  const isReleased = String(plan?.status).toLowerCase() === '2' || String(plan?.status).toLowerCase() === 'released';
   
   // Combine API returned shortages with client-side calculated shortages
   const displayedShortages = backendShortages.length > 0 
@@ -132,6 +135,15 @@ export const ProductionPlanDetailsPage = () => {
               View Production Orders
             </Button>
           </Link>
+          {isReleased && (
+            <Button 
+              onClick={() => setIsCreateOrderOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Production Order
+            </Button>
+          )}
           {getStatusBadge(plan?.status || '')}
           {isDraft && canRelease && (
             <>
@@ -291,6 +303,16 @@ export const ProductionPlanDetailsPage = () => {
           </CardContent>
         </SectionCard>
       </div>
+
+      <CreateProductionOrderDialog
+        open={isCreateOrderOpen}
+        onOpenChange={setIsCreateOrderOpen}
+        defaultPlanId={plan?.id}
+        onSuccess={() => {
+          setIsCreateOrderOpen(false);
+          navigate(ROUTES.PRODUCTION_ORDERS);
+        }}
+      />
     </PageContainer>
   );
 };

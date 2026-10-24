@@ -307,7 +307,7 @@ public class ProductionOrderService : IProductionOrderService
                     $"{completedQuantity} units of {prodName} received from Production into WH-FG.",
                     NotificationPriority.Normal,
                     "ProductionOrder", order.Id.ToString(),
-                    $"/inventory",
+                    $"/production/orders/{order.Id}",
                     $"po-completed-wh-{order.Id}"
                 );
             }

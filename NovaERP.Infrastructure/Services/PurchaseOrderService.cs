@@ -312,7 +312,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                 $"Purchase Order {po.PONumber} (Total: {po.TotalAmount:C}) has been submitted for approval.",
                 NotificationPriority.High,
                 "PurchaseOrder", po.Id.ToString(),
-                $"/procurement/purchase-orders",
+                $"/procurement/orders",
                 $"po-approval-{po.Id}"
             );
         }
@@ -345,7 +345,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                 $"Purchase Order {po.PONumber} has been approved and is ready for processing.",
                 NotificationPriority.Normal,
                 "PurchaseOrder", po.Id.ToString(),
-                $"/procurement/purchase-orders",
+                $"/procurement/orders",
                 $"po-approved-{po.Id}"
             );
             await _notificationService.NotifyRoleUsersAsync(
@@ -388,7 +388,7 @@ public class PurchaseOrderService : IPurchaseOrderService
                 $"Purchase Order {po.PONumber} has been rejected. Please review and resubmit.",
                 NotificationPriority.High,
                 "PurchaseOrder", po.Id.ToString(),
-                $"/procurement/purchase-orders",
+                $"/procurement/orders",
                 $"po-rejected-{po.Id}"
             );
         }

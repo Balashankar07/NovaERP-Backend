@@ -111,7 +111,7 @@ public class SalesOrderService : ISalesOrderService
                 $"A new sales order {order.OrderNumber} has been created and is in draft.",
                 NotificationPriority.Normal,
                 "SalesOrder", order.Id.ToString(),
-                $"/sales/orders",
+                $"/sales/orders/{order.Id}",
                 $"so-created-{order.Id}"
             );
 
@@ -122,7 +122,7 @@ public class SalesOrderService : ISalesOrderService
                 $"New Sales Order {order.OrderNumber} created with {order.SalesOrderItems.Count} item(s). Review inventory availability and production capacity.",
                 NotificationPriority.Normal,
                 "SalesOrder", order.Id.ToString(),
-                $"/production",
+                $"/production/plans",
                 $"so-created-prod-{order.Id}"
             );
         }
@@ -246,7 +246,7 @@ public class SalesOrderService : ISalesOrderService
                 $"Sales Order {order.OrderNumber} has been approved and requires warehouse fulfillment.",
                 NotificationPriority.High,
                 "SalesOrder", id.ToString(),
-                $"/sales/orders",
+                $"/sales/orders/{id}",
                 $"so-approved-warehouse-{id}"
             );
 
@@ -257,7 +257,7 @@ public class SalesOrderService : ISalesOrderService
                 $"Sales Order {order.OrderNumber} has been approved. Check component readiness and release manufacturing plan if stock is short.",
                 NotificationPriority.High,
                 "SalesOrder", id.ToString(),
-                $"/production",
+                $"/production/plans",
                 $"so-approved-prod-{id}"
             );
         }
