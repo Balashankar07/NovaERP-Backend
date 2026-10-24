@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Edit, Trash2, Send, CheckCircle, XCircle, FileText, ShoppingCart, Clock, CheckCircle2, FileArchive, Box, Truck } from "lucide-react";
+import { toast } from "sonner";
 import { salesApi } from "@/api/sales.api";
 import { SalesOrderDto, SalesOrderStatus } from "@/types/sales.types";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -80,8 +81,9 @@ export function SalesOrderDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ["shipments"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       await loadOrder();
+      toast.success("Action completed successfully.");
     } catch (err: any) {
-      alert("Action failed: " + (err.message || "Unknown error"));
+      toast.error(err.message || "Action failed.");
     } finally {
       setActionLoading(false);
     }

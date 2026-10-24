@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Edit2, Trash2, Eye, Box, Download, Upload, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, Box, RefreshCw } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useCrudTable } from "@/hooks/use-crud-table";
 import { toast } from "@/utils/toast";
@@ -211,28 +211,21 @@ export default function ProductsListPage() {
         title="Products Management"
         description="Manage master products, variants, and pricing."
         actions={
-          <>
-            <PermissionButton permission="Permissions.Products.Export" variant="outline" size="sm" className="h-9">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </PermissionButton>
-            <PermissionButton permission="Permissions.Products.Import" variant="outline" size="sm" className="h-9">
-              <Upload className="w-4 h-4 mr-2" />
-              Import
-            </PermissionButton>
+          <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="h-9" onClick={refresh} title="Refresh Data">
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw className="w-4 h-4 mr-1.5" />
+              Refresh
             </Button>
             <PermissionButton 
               permission="Permissions.Products.Create"
               onClick={() => openForm()} 
               aria-label="Add Product"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-9 ml-2"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm h-9"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Product
             </PermissionButton>
-          </>
+          </div>
         }
       />
 

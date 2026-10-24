@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Search, Sparkles, Moon, Sun, Settings, User, LogOut } from "lucide-react";
+import { Sparkles, Moon, Sun, Settings, User, LogOut } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "@/routes";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/providers/theme-provider";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -47,25 +46,13 @@ export function Header() {
   return (
     <header className="sticky top-0 z-40 flex h-[64px] w-full items-center justify-between border-b border-border/40 bg-card/80 backdrop-blur-xl backdrop-saturate-150 text-card-foreground px-6 transition-all duration-300 shadow-[0_1px_3px_0_rgba(0,0,0,0.02)]">
       
-      {/* Left section: Global Search & Enterprise Breadcrumb */}
-      <div className="flex w-full max-w-xl items-center gap-5">
-        <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-muted/60 border border-border/40 text-xs text-muted-foreground font-medium">
+      {/* Left section: Enterprise Breadcrumb */}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/60 border border-border/40 text-xs text-muted-foreground font-medium">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-semibold text-foreground">NovaERP</span>
           <span className="opacity-40">/</span>
           <span>Enterprise HQ</span>
-        </div>
-
-        <div className="relative w-full max-w-md group">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" strokeWidth={2} />
-          <Input
-            type="search"
-            placeholder="Search products, orders, or suppliers..."
-            className="h-9.5 w-full rounded-lg border border-border/60 bg-background/80 pl-9 pr-12 shadow-xs focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all text-xs placeholder:text-muted-foreground/70"
-          />
-          <kbd className="pointer-events-none absolute right-2.5 top-2.5 inline-flex h-4.5 select-none items-center gap-0.5 rounded border border-border bg-muted/50 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-            /
-          </kbd>
         </div>
       </div>
 
@@ -95,16 +82,6 @@ export function Header() {
           ) : (
             <Moon className="h-[18px] w-[18px] text-slate-700 transition-transform rotate-0 hover:-rotate-12" strokeWidth={2} />
           )}
-        </Button>
-
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={() => navigate(ROUTES.USERS)}
-          title="Settings"
-          className="relative h-9 w-9 text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-lg"
-        >
-          <Settings className="h-[18px] w-[18px]" strokeWidth={2} />
         </Button>
 
         <NotificationBell />

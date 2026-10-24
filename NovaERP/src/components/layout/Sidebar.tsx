@@ -186,8 +186,7 @@ const sidebarNavItems: SidebarNavItem[] = [
       { title: "Audit Logs", href: ROUTES.ADMIN_AUDIT_LOGS, permission: "Permissions.Reports.Audit" },
       { title: "Security", href: ROUTES.ADMIN_SECURITY, permission: "Permissions.Users.View" },
       { title: "Module Status", href: ROUTES.ADMIN_MODULE_STATUS, permission: "Permissions.Users.View" },
-      { title: "System", href: ROUTES.ADMIN_SYSTEM, permission: "Permissions.Users.View" },
-      { title: "Notifications", href: ROUTES.NOTIFICATIONS, permission: "Permissions.Notifications.View" }
+      { title: "System", href: ROUTES.ADMIN_SYSTEM, permission: "Permissions.Users.View" }
     ]
   }
 ];

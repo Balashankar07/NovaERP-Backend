@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Truck, CheckCircle, XCircle, Send, PackageCheck, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import { shipmentsApi } from "@/api/shipments.api";
 import { ShipmentDto, ShipmentStatus, DeliverShipmentDto } from "@/types/shipments.types";
 import { formatDate } from "@/utils/formatters";
@@ -62,8 +63,9 @@ export function ShipmentDetailsPage() {
       queryClient.invalidateQueries({ queryKey: ["warranties"] });
       queryClient.invalidateQueries({ queryKey: ["reports"] });
       await loadShipment();
+      toast.success("Action completed successfully.");
     } catch (err: any) {
-      alert("Action failed: " + (err.message || "Unknown error"));
+      toast.error(err.message || "Action failed.");
     } finally {
       setActionLoading(false);
     }
