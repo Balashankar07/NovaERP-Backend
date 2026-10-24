@@ -182,14 +182,19 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
                       <TableCell className="text-right">{maxQty}</TableCell>
                       <TableCell>
                         <Input
-                          type="number"
-                          step="1"
-                          min="1"
-                          max={maxQty}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          className="text-center font-medium"
                           disabled={!watchItems[index]?.selected}
-                          {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                          value={watchItems[index]?.quantity ?? 1}
+                          onChange={(e) => {
+                            const digitsOnly = e.target.value.replace(/\D/g, "");
+                            const val = digitsOnly === "" ? 1 : Math.min(maxQty, Math.max(1, parseInt(digitsOnly, 10)));
+                            setValue(`items.${index}.quantity`, val, { shouldValidate: true, shouldDirty: true });
+                          }}
                           onKeyDown={(e) => {
-                            if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-") {
+                            if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+") {
                               e.preventDefault();
                             }
                           }}

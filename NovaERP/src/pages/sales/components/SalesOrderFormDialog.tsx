@@ -162,11 +162,11 @@ export function SalesOrderFormDialog({
           items: orderToEdit.items && orderToEdit.items.length > 0
             ? orderToEdit.items.map(i => ({
                 productId: i.productId,
-                quantity: i.quantity,
-                unitPrice: i.unitPrice,
+                quantity: Math.max(1, Math.floor(Number(i.quantity) || 1)),
+                unitPrice: Number(i.unitPrice),
                 unit: i.unit || "ea",
-                discount: i.discount || 0,
-                tax: i.tax || 0,
+                discount: Number(i.discount) || 0,
+                tax: Number(i.tax) || 0,
               }))
             : [{ productId: "", quantity: 1, unitPrice: 0, unit: "ea", discount: 0, tax: 0 }],
         });
@@ -565,13 +565,34 @@ export function SalesOrderFormDialog({
                     </div>
                     <div className="col-span-2 min-w-0">
                       <Input 
-                        type="number" 
-                        min="1" 
-                        step="1" 
+                        type="text" 
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         className={cn(
-                          "h-9 text-xs",
+                          "h-9 text-xs text-center font-medium",
                           itemErrors?.quantity ? "border-rose-500 focus-visible:ring-rose-500" : ""
                         )} 
+                        value={watch(`items.${index}.quantity`) ?? 1}
+                        onChange={(e) => {
+                          const digitsOnly = e.target.value.replace(/\D/g, "");
+                          const num = digitsOnly === "" ? 1 : Math.max(1, parseInt(digitsOnly, 10));
+                          setValue(`items.${index}.quantity`, num, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+") {
+                            e.preventDefault();
+                          }
+                        }}
+                        onPaste={(e) => {
+                          e.preventDefault();
+                          const pasteData = e.clipboardData.getData("text").replace(/\D/g, "");
+                          if (pasteData) {
+                            setValue(`items.${index}.quantity`, Math.max(1, parseInt(pasteData, 10)), { shouldValidate: true, shouldDirty: true });
+                          }
+                        }}
+                      />
+                      <input 
+                        type="hidden" 
                         {...register(`items.${index}.quantity` as const, {
                           required: "Qty is required",
                           validate: (v) => {
@@ -581,11 +602,6 @@ export function SalesOrderFormDialog({
                             return true;
                           }
                         })} 
-                        onKeyDown={(e) => {
-                          if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-") {
-                            e.preventDefault();
-                          }
-                        }}
                       />
                       {itemErrors?.quantity && (
                         <p className="text-[10px] text-rose-500 font-medium mt-0.5 truncate">
