@@ -50,6 +50,18 @@ const bomSchema = z.object({
   effectiveDate: z.string().min(1, "Effective Date is required"),
   isActive: z.boolean(),
   items: z.array(bomItemSchema).min(1, "At least one BOM item is required"),
+}).refine((data) => {
+  if (!data.productId) return true;
+  return !data.items.some(i => i.rawMaterialProductId === data.productId);
+}, {
+  message: "Finished good cannot be used as its own component in the BOM",
+  path: ["items"],
+}).refine((data) => {
+  const componentIds = data.items.map(i => i.rawMaterialProductId).filter(Boolean);
+  return new Set(componentIds).size === componentIds.length;
+}, {
+  message: "Duplicate components are not allowed in the same BOM",
+  path: ["items"],
 });
 
 type BOMFormValues = z.infer<typeof bomSchema>;
@@ -290,7 +302,18 @@ export function BOMFormDialog({ isOpen, onClose, onSubmit, bom }: BOMFormDialogP
                           render={({ field: itemField }) => (
                             <FormItem>
                               <FormLabel className="text-xs text-slate-500 font-medium">Product</FormLabel>
-                              <Select onValueChange={itemField.onChange} defaultValue={itemField.value} value={itemField.value} disabled={isSubmitting}>
+                              <Select
+                                onValueChange={(val) => {
+                                  itemField.onChange(val);
+                                  const prod = products.find(p => p.id === val);
+                                  if (prod?.unitId) {
+                                    form.setValue(`items.${index}.unitId`, prod.unitId, { shouldValidate: true });
+                                  }
+                                }}
+                                value={itemField.value}
+                                disabled={isSubmitting}
+                              >
+
                                 <FormControl>
                                   <SelectTrigger className="bg-white w-full">
                                     <SelectValue placeholder="Component" className="truncate" />

@@ -28,11 +28,11 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const formSchema = z.object({
-  firstName: z.string().min(2, "First name is required"),
-  lastName: z.string().min(2, "Last name is required"),
+  firstName: z.string().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().min(2, "Last name must be at least 2 characters"),
   email: z.string().email("Invalid email address"),
-  phone: z.string().optional().default(""),
-  companyId: z.string().uuid("Invalid company ID").optional().or(z.literal("")),
+  phone: z.string().min(1, "Phone number is required").max(20, "Phone number cannot exceed 20 characters"),
+  companyId: z.string().optional().default(""),
   roleIds: z.array(z.string()).default([]),
   isActive: z.boolean().default(true),
   googleSubjectId: z.string().optional().default(""),
@@ -67,7 +67,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserForm
     },
   });
 
-  const { isSubmitting, errors: formErrors, withValidation } = useFormValidation(form);
+  const { isSubmitting, globalErrors: formErrors, withValidation } = useFormValidation({ form });
 
   useEffect(() => {
     if (open) {
@@ -268,7 +268,7 @@ export function UserFormDialog({ open, onOpenChange, user, onSuccess }: UserForm
               name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone (Optional)</FormLabel>
+                  <FormLabel>Phone Number *</FormLabel>
                   <FormControl>
                     <Input placeholder="+1 234 567 8900" {...field} />
                   </FormControl>

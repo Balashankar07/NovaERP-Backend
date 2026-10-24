@@ -78,7 +78,7 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
   }, [open, salesOrder, reset]);
 
   const onSubmit = async (data: FormValues) => {
-    const selectedItems = data.items.filter(i => i.selected && i.quantity > 0);
+    const selectedItems = data.items.filter(i => i.selected);
     
     if (selectedItems.length === 0) {
       toast.error("Please select at least one item to ship.");
@@ -87,7 +87,12 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
 
     // Validate quantities
     for (const item of selectedItems) {
-      if (item.quantity > item.maxQuantity) {
+      const qty = Number(item.quantity);
+      if (isNaN(qty) || qty <= 0) {
+        toast.error(`Quantity for ${item.productName} must be greater than 0.`);
+        return;
+      }
+      if (qty > item.maxQuantity) {
         toast.error(`Quantity for ${item.productName} exceeds maximum allowed (${item.maxQuantity}).`);
         return;
       }

@@ -21,9 +21,9 @@ import {
 import { userApi } from "@/api/user.api";
 
 const personalInfoSchema = z.object({
-  firstName: z.string().min(1, "First Name is required"),
-  lastName: z.string().min(1, "Last Name is required"),
-  phone: z.string().min(1, "Phone is required"),
+  firstName: z.string().trim().min(1, "First Name is required"),
+  lastName: z.string().trim().min(1, "Last Name is required"),
+  phone: z.string().trim().min(1, "Phone is required").max(20, "Phone number cannot exceed 20 characters"),
   // Read-only fields for context
   email: z.string(),
   roleIds: z.array(z.string()),

@@ -398,8 +398,23 @@ export function PurchaseOrderFormDialog({ isOpen, onClose, onSuccess, initialPrI
   }, [initialPrId, isOpen, approvedComponents, selectedSupplierId]);
 
   const onSubmit = async (data: CreatePurchaseOrderDto) => {
+    if (!data.supplierId) {
+      toast.error("Please select a supplier.");
+      return;
+    }
+
     if (data.items.length === 0) {
       toast.error("Add at least one item to the purchase order.");
+      return;
+    }
+
+    if (data.items.some(item => !item.quantity || isNaN(Number(item.quantity)) || Number(item.quantity) <= 0)) {
+      toast.error("All item quantities must be greater than 0.");
+      return;
+    }
+
+    if (data.items.some(item => isNaN(Number(item.unitPrice)) || Number(item.unitPrice) < 0)) {
+      toast.error("Item unit price cannot be negative.");
       return;
     }
 

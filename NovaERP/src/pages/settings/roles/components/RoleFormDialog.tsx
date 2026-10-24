@@ -52,7 +52,7 @@ export function RoleFormDialog({ open, onOpenChange, role, onSuccess }: RoleForm
     },
   });
 
-  const { isSubmitting, errors: formErrors, withValidation } = useFormValidation(form);
+  const { isSubmitting, globalErrors: formErrors, withValidation } = useFormValidation({ form });
 
   useEffect(() => {
     if (open) {

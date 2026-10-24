@@ -7,9 +7,10 @@ interface UseFormValidationOptions<TFieldValues extends Record<string, any>> {
   form: UseFormReturn<TFieldValues>;
 }
 
-export function useFormValidation<TFieldValues extends Record<string, any>>({ 
-  form 
-}: UseFormValidationOptions<TFieldValues>) {
+export function useFormValidation<TFieldValues extends Record<string, any>>(
+  optionsOrForm: UseFormValidationOptions<TFieldValues> | UseFormReturn<TFieldValues>
+) {
+  const form = "getValues" in optionsOrForm ? optionsOrForm : optionsOrForm.form;
   const [globalErrors, setGlobalErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -18,6 +19,7 @@ export function useFormValidation<TFieldValues extends Record<string, any>>({
   }, []);
 
   const handleApiError = useCallback((error: unknown) => {
+    if (!form) return;
     if (error instanceof ApiError) {
       if (error.type === "ValidationError" || error.type === "BusinessRuleError") {
         const unmappedErrors: string[] = [];
@@ -94,6 +96,7 @@ export function useFormValidation<TFieldValues extends Record<string, any>>({
 
   return {
     globalErrors,
+    errors: globalErrors, // Backwards-compatible alias for dialogs destructuring `errors`
     setGlobalErrors,
     clearGlobalErrors,
     handleApiError,

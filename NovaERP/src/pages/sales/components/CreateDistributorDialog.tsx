@@ -38,7 +38,10 @@ export function CreateDistributorDialog({ open, onOpenChange, onSuccess }: Creat
           <Label htmlFor="companyName">Company Name *</Label>
           <Input 
             id="companyName" 
-            {...register("companyName", { required: "Company Name is required" })} 
+            {...register("companyName", { 
+              required: "Company Name is required",
+              validate: (val) => !!val?.trim() || "Company Name cannot be blank"
+            })} 
             placeholder="Enter company name"
           />
           {errors.companyName && <span className="text-sm text-red-500">{errors.companyName.message}</span>}
@@ -49,7 +52,10 @@ export function CreateDistributorDialog({ open, onOpenChange, onSuccess }: Creat
             <Label htmlFor="contactPerson">Contact Person *</Label>
             <Input 
               id="contactPerson" 
-              {...register("contactPerson", { required: "Contact Person is required" })} 
+              {...register("contactPerson", { 
+                required: "Contact Person is required",
+                validate: (val) => !!val?.trim() || "Contact Person cannot be blank"
+              })} 
               placeholder="e.g. John Doe"
             />
             {errors.contactPerson && <span className="text-sm text-red-500">{errors.contactPerson.message}</span>}
@@ -59,7 +65,13 @@ export function CreateDistributorDialog({ open, onOpenChange, onSuccess }: Creat
             <Input 
               id="email" 
               type="email"
-              {...register("email", { required: "Email is required" })} 
+              {...register("email", { 
+                required: "Email is required",
+                pattern: {
+                  value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                  message: "Invalid email format"
+                }
+              })} 
               placeholder="e.g. john@company.com"
             />
             {errors.email && <span className="text-sm text-red-500">{errors.email.message}</span>}

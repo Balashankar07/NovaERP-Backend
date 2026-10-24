@@ -169,8 +169,30 @@ export function SalesOrderFormDialog({
   };
 
   const onSubmit = async (data: CreateSalesOrderDto) => {
-    setLoading(true);
     setApiError(null);
+
+    if (!data.distributorId) {
+      setApiError("Please select a Customer (Distributor).");
+      return;
+    }
+    if (!data.items || data.items.length === 0) {
+      setApiError("Please add at least one line item.");
+      return;
+    }
+    if (data.items.some(i => !i.productId)) {
+      setApiError("Please select a product for all line items.");
+      return;
+    }
+    if (data.items.some(i => !i.quantity || isNaN(Number(i.quantity)) || Number(i.quantity) <= 0)) {
+      setApiError("All item quantities must be greater than 0.");
+      return;
+    }
+    if (data.items.some(i => isNaN(Number(i.unitPrice)) || Number(i.unitPrice) < 0)) {
+      setApiError("Unit price cannot be negative.");
+      return;
+    }
+
+    setLoading(true);
     try {
       // Format date
       if (data.requiredDeliveryDate) {

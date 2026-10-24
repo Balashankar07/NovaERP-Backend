@@ -77,6 +77,11 @@ export function PurchaseRequestFormDialog({ isOpen, onClose, onSuccess }: Purcha
       return;
     }
 
+    if (data.items.some(item => !item.requestedQuantity || isNaN(Number(item.requestedQuantity)) || Number(item.requestedQuantity) <= 0)) {
+      toast.error("All requested quantities must be greater than 0.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await purchaseRequestsApi.create(data);

@@ -22,8 +22,8 @@ import {
 import { UnitDto, CreateUnitDto, UpdateUnitDto } from "@/types/units.types";
 
 const unitSchema = z.object({
-  name: z.string().min(1, "Unit name is required"),
-  abbreviation: z.string().min(1, "Abbreviation is required"),
+  name: z.string().trim().min(1, "Unit name is required"),
+  abbreviation: z.string().trim().min(1, "Abbreviation is required"),
   description: z.string().nullable(),
   isActive: z.boolean(),
 });

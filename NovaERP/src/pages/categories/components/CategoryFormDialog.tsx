@@ -22,7 +22,7 @@ import {
 import { CategoryDto, CreateCategoryDto, UpdateCategoryDto } from "@/types/categories.types";
 
 const categorySchema = z.object({
-  name: z.string().min(1, "Category name is required"),
+  name: z.string().trim().min(1, "Category name is required"),
   description: z.string().nullable(),
   isActive: z.boolean(),
 });

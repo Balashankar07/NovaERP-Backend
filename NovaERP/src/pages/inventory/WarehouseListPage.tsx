@@ -48,14 +48,20 @@ export function WarehouseListPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.warehouseCode || !formData.warehouseName) {
-      toast.error("Please fill in required fields (Code, Name)");
+    if (!formData.warehouseCode.trim() || !formData.warehouseName.trim()) {
+      toast.error("Warehouse Code and Name are required.");
       return;
     }
     
     setIsSubmitting(true);
     try {
-      await warehousesApi.create(formData);
+      await warehousesApi.create({
+        ...formData,
+        warehouseCode: formData.warehouseCode.trim(),
+        warehouseName: formData.warehouseName.trim(),
+        address: formData.address?.trim() || "",
+        managerName: formData.managerName?.trim() || "",
+      });
       toast.success("Warehouse created successfully");
       setIsCreateOpen(false);
       fetchWarehouses();

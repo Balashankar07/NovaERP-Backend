@@ -43,22 +43,22 @@ import { useFieldArray } from "react-hook-form";
 import { Plus, Trash2 } from "lucide-react";
 
 const productSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().trim().min(1, "Name is required"),
   description: z.string().optional(),
   productType: z.coerce.number().min(1, "Product Type is required"),
   categoryId: z.string().min(1, "Category is required"),
   brandId: z.string().min(1, "Brand is required"),
   unitId: z.string().min(1, "Unit is required"),
-  costPrice: z.coerce.number().min(0, "Cost Price must be positive"),
-  sellingPrice: z.coerce.number().min(0, "Selling Price must be positive"),
-  minimumStock: z.coerce.number().min(0, "Must be positive"),
-  maximumStock: z.coerce.number().min(0, "Must be positive"),
-  reorderLevel: z.coerce.number().min(0, "Must be positive"),
+  costPrice: z.coerce.number().min(0, "Cost Price must be 0 or greater"),
+  sellingPrice: z.coerce.number().min(0, "Selling Price must be 0 or greater"),
+  minimumStock: z.coerce.number().min(0, "Minimum stock must be 0 or greater"),
+  maximumStock: z.coerce.number().min(0, "Maximum stock must be 0 or greater"),
+  reorderLevel: z.coerce.number().min(0, "Reorder level must be 0 or greater"),
   imageUrl: z.string().optional(),
   specifications: z.array(z.object({
     id: z.string().optional(),
-    attributeName: z.string().min(1, "Required"),
-    value: z.string().min(1, "Required"),
+    attributeName: z.string().trim().min(1, "Attribute name is required"),
+    value: z.string().trim().min(1, "Value is required"),
     displayOrder: z.number().default(0)
   })).default([]),
   isActive: z.boolean(),
@@ -199,16 +199,12 @@ export function ProductFormDialog({
   };
 
   const handleSubmit = withValidation(async (data) => {
-    try {
-      if (imageFile) {
-        const uploadRes = await productsApi.uploadImage(imageFile);
-        data.imageUrl = uploadRes.url;
-      }
-      
-      await onSubmit(data as any);
-    } catch (error) {
-      console.error("Failed to upload image or save product", error);
+    if (imageFile) {
+      const uploadRes = await productsApi.uploadImage(imageFile);
+      data.imageUrl = uploadRes.url;
     }
+    
+    await onSubmit(data as any);
   });
 
   return (

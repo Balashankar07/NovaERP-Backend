@@ -114,6 +114,22 @@ export const CreateProductionPlanDialog = ({
     new Date(b.effectiveDate) <= new Date()
   );
 
+  useEffect(() => {
+    if (selectedProductId) {
+      const bomsForProduct = (bomsData?.items ?? []).filter(b => 
+        b.productId === selectedProductId && 
+        b.isActive && 
+        new Date(b.effectiveDate) <= new Date()
+      );
+      const currentBom = form.getValues("bomId");
+      if (!bomsForProduct.some(b => b.id === currentBom)) {
+        form.setValue("bomId", bomsForProduct.length === 1 ? bomsForProduct[0].id : "");
+      }
+    } else {
+      form.setValue("bomId", "");
+    }
+  }, [selectedProductId, bomsData, form]);
+
   return (
     <Modal
       isOpen={open}
