@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using NovaERP.API.Authorization;
 using NovaERP.Application.Common.Models;
 using NovaERP.Application.DTOs.Sales;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Domain.Entities;
+using NovaERP.Infrastructure.Persistence.Context;
 
 namespace NovaERP.API.Controllers;
 
@@ -14,10 +16,12 @@ namespace NovaERP.API.Controllers;
 public class DistributorsController : ControllerBase
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly AppDbContext _context;
 
-    public DistributorsController(IUnitOfWork unitOfWork)
+    public DistributorsController(IUnitOfWork unitOfWork, AppDbContext context)
     {
         _unitOfWork = unitOfWork;
+        _context = context;
     }
 
     [HttpGet]
@@ -73,6 +77,7 @@ public class DistributorsController : ControllerBase
 
         return Ok(ApiResponse.SuccessResponse("Distributor retrieved successfully.", dto));
     }
+
     [HttpPost]
     [HasPermission("Permissions.SalesOrders.Create")]
     public async Task<IActionResult> Create([FromBody] CreateDistributorDto dto)
@@ -82,11 +87,11 @@ public class DistributorsController : ControllerBase
 
         var distributor = new Distributor
         {
-            CompanyName = dto.CompanyName,
-            ContactPerson = dto.ContactPerson,
-            Email = dto.Email,
-            Phone = dto.Phone,
-            Address = dto.Address,
+            CompanyName = dto.CompanyName.Trim(),
+            ContactPerson = dto.ContactPerson?.Trim() ?? string.Empty,
+            Email = dto.Email?.Trim() ?? string.Empty,
+            Phone = dto.Phone?.Trim() ?? string.Empty,
+            Address = dto.Address?.Trim() ?? string.Empty,
             IsActive = true
         };
 
@@ -105,5 +110,75 @@ public class DistributorsController : ControllerBase
         };
 
         return CreatedAtAction(nameof(GetById), new { id = distributor.Id }, ApiResponse.SuccessResponse("Distributor created successfully.", resultDto));
+    }
+
+    [HttpPut("{id:guid}")]
+    [HasPermission("Permissions.SalesOrders.Update")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateDistributorDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.CompanyName))
+            return BadRequest(ApiResponse.ErrorResponse<DistributorDto>("Company Name is required.", null!));
+
+        var distributor = await _unitOfWork.Distributors.GetByIdAsync(id);
+        if (distributor == null)
+            return NotFound(ApiResponse.ErrorResponse<DistributorDto>("Distributor not found.", null!));
+
+        distributor.CompanyName = dto.CompanyName.Trim();
+        distributor.ContactPerson = dto.ContactPerson?.Trim() ?? string.Empty;
+        distributor.Email = dto.Email?.Trim() ?? string.Empty;
+        distributor.Phone = dto.Phone?.Trim() ?? string.Empty;
+        distributor.Address = dto.Address?.Trim() ?? string.Empty;
+        distributor.IsActive = dto.IsActive;
+
+        _unitOfWork.Distributors.Update(distributor);
+        await _unitOfWork.SaveChangesAsync();
+
+        var resultDto = new DistributorDto
+        {
+            Id = distributor.Id,
+            CompanyName = distributor.CompanyName,
+            ContactPerson = distributor.ContactPerson,
+            Email = distributor.Email,
+            Phone = distributor.Phone,
+            Address = distributor.Address,
+            IsActive = distributor.IsActive
+        };
+
+        return Ok(ApiResponse.SuccessResponse("Distributor updated successfully.", resultDto));
+    }
+
+    [HttpPatch("{id:guid}/toggle-status")]
+    [HasPermission("Permissions.SalesOrders.Update")]
+    public async Task<IActionResult> ToggleStatus(Guid id)
+    {
+        var distributor = await _unitOfWork.Distributors.GetByIdAsync(id);
+        if (distributor == null)
+            return NotFound(ApiResponse.ErrorResponse("Distributor not found."));
+
+        distributor.IsActive = !distributor.IsActive;
+        _unitOfWork.Distributors.Update(distributor);
+        await _unitOfWork.SaveChangesAsync();
+
+        return Ok(ApiResponse.SuccessResponse($"Distributor {(distributor.IsActive ? "activated" : "deactivated")} successfully."));
+    }
+
+    [HttpDelete("{id:guid}")]
+    [HasPermission("Permissions.SalesOrders.Delete")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        var distributor = await _unitOfWork.Distributors.GetByIdAsync(id);
+        if (distributor == null)
+            return NotFound(ApiResponse.ErrorResponse("Distributor not found."));
+
+        var isReferenced = await _context.SalesOrders.AnyAsync(so => so.DistributorId == id);
+        if (isReferenced)
+        {
+            return Conflict(ApiResponse.ErrorResponse("Distributor cannot be deleted because it is referenced by existing sales orders. Deactivate the distributor instead."));
+        }
+
+        _unitOfWork.Distributors.Delete(distributor);
+        await _unitOfWork.SaveChangesAsync();
+
+        return NoContent();
     }
 }
