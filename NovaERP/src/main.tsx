@@ -18,7 +18,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "333025909649-j9qhvacjb02h109entf37t06915epqpv.apps.googleusercontent.com";
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>
