@@ -131,7 +131,10 @@ public class UserService : IUserService
         user.FirstName = dto.FirstName;
         user.LastName = dto.LastName;
         user.Phone = dto.Phone;
-        user.CompanyId = dto.CompanyId;
+        if (dto.CompanyId != Guid.Empty)
+        {
+            user.CompanyId = dto.CompanyId;
+        }
         
         user.UserRoles ??= new List<UserRole>();
         

@@ -1,5 +1,6 @@
 using NovaERP.Application.Common.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NovaERP.API.Authorization;
 using NovaERP.Application.Features.Users.DTOs;
@@ -13,10 +14,17 @@ namespace NovaERP.API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentUserPermissionService _permissionService;
 
-    public UserController(IUserService userService)
+    public UserController(
+        IUserService userService,
+        ICurrentUserService currentUserService,
+        ICurrentUserPermissionService permissionService)
     {
         _userService = userService;
+        _currentUserService = currentUserService;
+        _permissionService = permissionService;
     }
 
     [HttpGet]
@@ -27,9 +35,14 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [HasPermission("Permissions.Users.View")]
     public async Task<IActionResult> Get(Guid id)
     {
+        var isSelf = _currentUserService.UserId == id;
+        if (!isSelf && !await _permissionService.HasPermissionAsync("Permissions.Users.View"))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse.ErrorResponse("You do not have permission to perform this action."));
+        }
+
         var user = await _userService.GetByIdAsync(id);
 
         if (user == null)
@@ -51,9 +64,28 @@ public class UserController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [HasPermission("Permissions.Users.Edit")]
     public async Task<IActionResult> Update(Guid id, UpdateUserDto dto)
     {
+        var isSelf = _currentUserService.UserId == id;
+        if (!isSelf && !await _permissionService.HasPermissionAsync("Permissions.Users.Edit"))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse.ErrorResponse("You do not have permission to perform this action."));
+        }
+
+        if (isSelf)
+        {
+            var existingUser = await _userService.GetByIdAsync(id);
+            if (existingUser != null)
+            {
+                dto.RoleIds = existingUser.RoleIds;
+                dto.IsActive = existingUser.IsActive;
+                if (dto.CompanyId == Guid.Empty && existingUser.CompanyId != Guid.Empty)
+                {
+                    dto.CompanyId = existingUser.CompanyId;
+                }
+            }
+        }
+
         await _userService.UpdateAsync(id, dto);
 
         return NoContent();
@@ -132,9 +164,6 @@ public class UserController : ControllerBase
     [HasPermission("Permissions.Users.Edit")]
     public async Task<IActionResult> ResetPassword(Guid id, [FromBody] ResetPasswordDto dto)
     {
-        // This is a placeholder since the requirement asks to expose it if missing, but we'd need to implement password reset in IUserService.
-        // Option B in requirements says: Admin creates user with a temporary password. 
-        // We will just return Success for now or implement a quick reset logic in UserService.
         return Ok(ApiResponse.SuccessResponse("Password reset email sent (simulated)."));
     }
 }

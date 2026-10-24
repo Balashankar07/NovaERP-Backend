@@ -18,7 +18,7 @@ public class UpdateUserDtoValidator : AbstractValidator<UpdateUserDto>
         RuleFor(x => x.FirstName).NotEmpty().MaximumLength(100);
         RuleFor(x => x.LastName).NotEmpty().MaximumLength(100);
         RuleFor(x => x.Phone).NotEmpty().MaximumLength(20);
-        RuleFor(x => x.CompanyId).NotEmpty();
+        RuleFor(x => x.CompanyId).NotEmpty().When(x => x.CompanyId != Guid.Empty);
 
         RuleFor(x => x.RoleIds)
             .MustAsync(RolesMustExistAndBeActive).When(x => x.RoleIds != null && x.RoleIds.Any())

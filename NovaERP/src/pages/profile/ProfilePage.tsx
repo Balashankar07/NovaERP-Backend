@@ -31,21 +31,9 @@ export default function ProfilePage() {
     
     setIsLoading(true);
     try {
-      if (hasPermission("Permissions.Users.View")) {
+
         const data = await userApi.getById(currentUser.userId);
         setFullUser(data);
-      } else {
-        setFullUser({
-          id: currentUser.userId,
-          firstName: "",
-          lastName: "",
-          email: currentUser.email,
-          phone: "",
-          companyId: currentUser.companyId || "",
-          roleIds: [],
-          isActive: true,
-        });
-      }
     } catch (err: any) {
       setFullUser({
         id: currentUser.userId,

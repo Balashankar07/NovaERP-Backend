@@ -5,6 +5,7 @@ import * as z from "zod";
 import { Loader2 } from "lucide-react";
 import { toast } from "@/utils/toast";
 import type { User, UpdateUserRequest } from "@/types";
+import { useAuth } from "@/hooks/use-auth";
 
 import { useFormValidation } from "@/hooks/use-form-validation";
 import { ValidationSummary } from "@/components/ui/ValidationSummary";
@@ -37,6 +38,8 @@ interface PersonalInfoTabProps {
 }
 
 export function PersonalInfoTab({ user, onUpdate }: PersonalInfoTabProps) {
+  const { user: authUser } = useAuth();
+
   const form = useForm<PersonalInfoValues>({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: {
@@ -73,6 +76,11 @@ export function PersonalInfoTab({ user, onUpdate }: PersonalInfoTabProps) {
     toast.success("Personal information updated successfully.");
     onUpdate();
   });
+
+  const displayRole =
+    user.assignedRoles?.map((r) => r.roleName).filter(Boolean).join(", ") ||
+    authUser?.role ||
+    "User";
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200/60 p-6 md:p-8">
@@ -143,18 +151,16 @@ export function PersonalInfoTab({ user, onUpdate }: PersonalInfoTabProps) {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="roleIds"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Role(s) (Read Only)</FormLabel>
-                  <FormControl>
-                    <Input value={field.value?.join(", ")} disabled className="bg-slate-50 text-slate-500 cursor-not-allowed" />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            <FormItem>
+              <FormLabel>Role(s) (Read Only)</FormLabel>
+              <FormControl>
+                <Input
+                  value={displayRole}
+                  disabled
+                  className="bg-slate-50 text-slate-500 cursor-not-allowed font-medium"
+                />
+              </FormControl>
+            </FormItem>
           </div>
 
           <div className="flex justify-end pt-4">
