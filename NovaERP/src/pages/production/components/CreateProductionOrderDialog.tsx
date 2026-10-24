@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 const formSchema = z.object({
   productionPlanId: z.string().min(1, "Production Plan is required"),
-  plannedQuantity: z.coerce.number().min(0.01, "Quantity must be greater than zero"),
+  plannedQuantity: z.coerce.number().int("Quantity must be a whole number").min(1, "Quantity must be at least 1"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -158,7 +158,17 @@ export const CreateProductionOrderDialog = ({
                   <FormItem>
                     <FormLabel>Planned Quantity <span className="text-red-500">*</span></FormLabel>
                     <FormControl>
-                      <Input type="number" step="0.01" min="0.01" {...field} />
+                      <Input 
+                        type="number" 
+                        step="1" 
+                        min="1" 
+                        {...field} 
+                        onKeyDown={(e) => {
+                          if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-") {
+                            e.preventDefault();
+                          }
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

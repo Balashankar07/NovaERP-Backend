@@ -284,8 +284,8 @@ export function SalesOrderFormDialog({
       setApiError("Please select a product for all line items.");
       return;
     }
-    if (data.items.some(i => !i.quantity || isNaN(Number(i.quantity)) || Number(i.quantity) <= 0)) {
-      setApiError("All item quantities must be greater than 0.");
+    if (data.items.some(i => !i.quantity || isNaN(Number(i.quantity)) || Number(i.quantity) < 1 || !Number.isInteger(Number(i.quantity)))) {
+      setApiError("All item quantities must be whole positive integers (e.g., 1, 2, 3). Decimals are not permitted.");
       return;
     }
     if (data.items.some(i => isNaN(Number(i.unitPrice)) || Number(i.unitPrice) < 0)) {
@@ -301,7 +301,7 @@ export function SalesOrderFormDialog({
         requiredDeliveryDate: new Date(data.requiredDeliveryDate).toISOString(),
         items: data.items.map(i => ({
           ...i,
-          quantity: Number(i.quantity),
+          quantity: Math.floor(Number(i.quantity)),
           unitPrice: Number(i.unitPrice),
           discount: Number(i.discount || 0),
           tax: Number(i.tax || 0),
@@ -566,16 +566,26 @@ export function SalesOrderFormDialog({
                     <div className="col-span-2 min-w-0">
                       <Input 
                         type="number" 
-                        min="0.01" 
+                        min="1" 
                         step="1" 
                         className={cn(
                           "h-9 text-xs",
                           itemErrors?.quantity ? "border-rose-500 focus-visible:ring-rose-500" : ""
                         )} 
                         {...register(`items.${index}.quantity` as const, {
-                          required: "Qty > 0",
-                          validate: (v) => Number(v) > 0 || "Must be > 0"
+                          required: "Qty is required",
+                          validate: (v) => {
+                            const num = Number(v);
+                            if (!v || isNaN(num) || num < 1) return "Min quantity is 1";
+                            if (!Number.isInteger(num)) return "Decimals not allowed";
+                            return true;
+                          }
                         })} 
+                        onKeyDown={(e) => {
+                          if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-") {
+                            e.preventDefault();
+                          }
+                        }}
                       />
                       {itemErrors?.quantity && (
                         <p className="text-[10px] text-rose-500 font-medium mt-0.5 truncate">

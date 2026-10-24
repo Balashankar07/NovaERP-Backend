@@ -183,11 +183,16 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
                       <TableCell>
                         <Input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="1"
+                          min="1"
                           max={maxQty}
                           disabled={!watchItems[index]?.selected}
                           {...register(`items.${index}.quantity`, { valueAsNumber: true })}
+                          onKeyDown={(e) => {
+                            if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-") {
+                              e.preventDefault();
+                            }
+                          }}
                         />
                       </TableCell>
                     </TableRow>
