@@ -28,7 +28,7 @@ export const NotificationBell: React.FC = () => {
     queryKey: ['notifications-unread-count'],
     queryFn: () => notificationsApi.getUnreadCount(),
     enabled: canViewNotifications && !!user,
-    refetchInterval: canViewNotifications ? 60000 : false,
+    refetchInterval: canViewNotifications ? 5000 : false,
   });
 
   // Trigger toast popup when unread count increases
