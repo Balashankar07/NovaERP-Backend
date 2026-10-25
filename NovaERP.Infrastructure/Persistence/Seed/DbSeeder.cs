@@ -136,6 +136,7 @@ public static class DbSeeder
             "Warehouse Manager",
             "Quality Engineer",
             "Sales Manager",
+            "Sales Representative",
             "Warranty Executive"
         };
 
@@ -474,6 +475,17 @@ public static class DbSeeder
                  p == "Permissions.Products.View" || p == "Permissions.ProductCategories.View" || 
                  p == "Permissions.Brands.View" || p == "Permissions.Units.View" || 
                  p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View"),
+            ["Sales Representative"] = p => 
+                (p == "Permissions.SalesOrders.View" || 
+                 p == "Permissions.SalesOrders.Create" || 
+                 p == "Permissions.SalesOrders.Update" || 
+                 p == "Permissions.SalesOrders.Submit" || 
+                 p == "Permissions.Shipments.View" || 
+                 p.Contains("Dashboard") || p.Contains("Notifications") || 
+                 p == "Permissions.Products.View" || p == "Permissions.ProductCategories.View" || 
+                 p == "Permissions.Brands.View" || p == "Permissions.Units.View" || 
+                 p == "Companies.View" || 
+                 p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View"),
             ["Warranty Executive"] = p => 
                 p.Contains("Warrant") || p.Contains("Return") || p.Contains("Dashboard") || p.Contains("Notifications") || 
                 p == "Permissions.Products.View" || p == "Permissions.Reports.Warranty" || p == "Permissions.Reports.View"
@@ -522,6 +534,7 @@ public static class DbSeeder
                 ("warehouse@novaerp.com", "Warehouse", "Manager", "Warehouse Manager", "+91 9999999993", "Warehouse@123"),
                 ("quality@novaerp.com", "Quality", "Engineer", "Quality Engineer", "+91 9999999994", "Quality@123"),
                 ("sales@novaerp.com", "Sales", "Manager", "Sales Manager", "+91 9999999995", "Sales@123"),
+                ("salesrep@novaerp.com", "Sales", "Representative", "Sales Representative", "+91 9999999997", "Salesrep@123"),
                 ("warranty@novaerp.com", "Warranty", "Executive", "Warranty Executive", "+91 9999999996", "Warranty@123")
             };
 
