@@ -228,13 +228,8 @@ public class SalesOrderService : ISalesOrderService
         if (order == null) throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
         if (order.Status != SalesOrderStatus.PendingApproval) throw new BadRequestException("Only PendingApproval orders can be approved.");
 
-        // Segregation of Duties (SoD) & 4-Eyes Principle
-        bool isSuperAdmin = _currentUserService.Role?.Contains("Super Admin", StringComparison.OrdinalIgnoreCase) ?? false;
-        if (!isSuperAdmin && order.CreatedBy.HasValue && currentUserId.HasValue && order.CreatedBy == currentUserId)
-        {
-            throw new BadRequestException("Segregation of Duties (SoD): You cannot approve a Sales Order that you created yourself (4-Eyes Principle). Another authorized manager must approve this commercial order.");
-        }
-
+        // Commercial Sign-Off: Authorized commercial leaders (Sales Manager, Super Admin) approve sales orders.
+        // Segregation of Duties (SoD) is strictly enforced between Sales (commercial) and Warehouse (inventory allocation & logistics dispatch).
         order.Status = SalesOrderStatus.Approved;
         order.UpdatedBy = currentUserId;
         order.UpdatedAt = DateTime.UtcNow;

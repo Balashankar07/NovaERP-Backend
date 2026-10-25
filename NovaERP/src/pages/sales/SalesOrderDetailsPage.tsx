@@ -60,9 +60,8 @@ export function SalesOrderDetailsPage() {
   const currentUserId = user?.userId ? String(user.userId).toLowerCase() : "";
   const orderCreatedBy = order?.createdBy ? String(order.createdBy).toLowerCase() : "";
   const isCreator = !!currentUserId && !!orderCreatedBy && currentUserId === orderCreatedBy;
-  const isSuperAdmin = user?.role?.toLowerCase().includes("admin") || false;
-  // Under Option 1 (4-Eyes Principle), creator cannot approve their own order unless Super Admin
-  const canApprove = (!isCreator || isSuperAdmin);
+  // Commercial authority: Sales Managers and authorized roles can approve sales orders directly
+  const canApprove = hasPermission("Permissions.SalesOrders.Approve");
 
   useEffect(() => {
     if (id) loadOrder();
@@ -188,16 +187,16 @@ export function SalesOrderDetailsPage() {
                   </>
                 ) : (
                   <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs shadow-xs">
-                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                    <Clock className="w-4 h-4 text-amber-600 shrink-0" />
                     <div className="text-left">
                       <div className="font-semibold flex items-center gap-1.5">
-                        <span>Awaiting 2nd Manager Approval (4-Eyes Principle)</span>
+                        <span>Awaiting Commercial Approval</span>
                         <Badge variant="outline" className="bg-amber-100/60 text-amber-800 border-amber-300 text-[10px] py-0 px-1.5 h-4">
-                          SoD Enforced
+                          Sales Manager
                         </Badge>
                       </div>
                       <p className="text-[11px] text-amber-700/90 mt-0.5">
-                        You created this order. An independent manager or Admin must review & approve it.
+                        Commercial sign-off is required from the Sales Manager before inventory reservation.
                       </p>
                     </div>
                   </div>
@@ -206,25 +205,61 @@ export function SalesOrderDetailsPage() {
             )}
 
             {isApproved && (
-              <PermissionButton
-                permission="Permissions.SalesOrders.Reserve"
-                onClick={() => handleAction(() => salesApi.reserveSalesOrder(order.id))}
-                disabled={actionLoading}
-              >
-                <Box className="w-4 h-4 mr-2" />
-                Reserve Stock
-              </PermissionButton>
+              <>
+                <PermissionButton
+                  permission="Permissions.SalesOrders.Reserve"
+                  onClick={() => handleAction(() => salesApi.reserveSalesOrder(order.id))}
+                  disabled={actionLoading}
+                >
+                  <Box className="w-4 h-4 mr-2" />
+                  Reserve Stock
+                </PermissionButton>
+                {!hasPermission("Permissions.SalesOrders.Reserve") && (
+                  <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-blue-50/90 border border-blue-200/80 text-blue-900 text-xs shadow-xs">
+                    <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+                    <div className="text-left">
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <span>Order Approved — Ready for Warehouse</span>
+                        <Badge variant="outline" className="bg-blue-100/60 text-blue-800 border-blue-300 text-[10px] py-0 px-1.5 h-4">
+                          Warehouse Fulfillment
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-blue-700/90 mt-0.5">
+                        Commercial approval complete. Stock reservation and shipping dispatch are fulfilled by the Warehouse Manager.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {(isReserved || isPartiallyShipped) && (
-              <PermissionButton
-                permission="Permissions.Shipments.Create"
-                onClick={() => setIsCreateShipmentOpen(true)}
-                disabled={actionLoading}
-              >
-                <Truck className="w-4 h-4 mr-2" />
-                Create Shipment
-              </PermissionButton>
+              <>
+                <PermissionButton
+                  permission="Permissions.Shipments.Create"
+                  onClick={() => setIsCreateShipmentOpen(true)}
+                  disabled={actionLoading}
+                >
+                  <Truck className="w-4 h-4 mr-2" />
+                  Create Shipment
+                </PermissionButton>
+                {!hasPermission("Permissions.Shipments.Create") && (
+                  <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-indigo-50/90 border border-indigo-200/80 text-indigo-900 text-xs shadow-xs">
+                    <Truck className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div className="text-left">
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <span>Stock Reserved — Ready for Dispatch</span>
+                        <Badge variant="outline" className="bg-indigo-100/60 text-indigo-800 border-indigo-300 text-[10px] py-0 px-1.5 h-4">
+                          Logistics Dispatch
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-indigo-700/90 mt-0.5">
+                        Inventory allocated in warehouse bins. Outbound dispatch is managed by Warehouse & Logistics.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {!isCancelled && !isCompleted && !isPartiallyShipped && (
@@ -362,9 +397,9 @@ export function SalesOrderDetailsPage() {
                 </span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                <span className="text-slate-500">4-Eyes Principle:</span>
+                <span className="text-slate-500">Commercial Authority:</span>
                 <span className="font-semibold text-emerald-700 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Active (Strict)
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Sales Manager Sign-off
                 </span>
               </div>
               <div className="flex justify-between items-center pb-2 border-b border-slate-100">
@@ -375,14 +410,14 @@ export function SalesOrderDetailsPage() {
                       <CheckCircle2 className="w-3.5 h-3.5" /> Authorized Sign-off
                     </span>
                   ) : (
-                    <span className="text-amber-700 font-medium">Pending 2nd Manager</span>
+                    <span className="text-amber-700 font-medium">Pending Sales Manager Sign-off</span>
                   )}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Warehouse Hand-off:</span>
                 <span className="text-slate-700 font-medium">
-                  {isReserved || isPartiallyShipped || isCompleted ? "Stock Allocated" : "Awaiting Approval"}
+                  {isReserved || isPartiallyShipped || isCompleted ? "Stock Allocated (Warehouse)" : isApproved ? "Ready for Reservation" : "Awaiting Commercial Approval"}
                 </span>
               </div>
             </div>
@@ -419,16 +454,16 @@ export function SalesOrderDetailsPage() {
         <Modal
           isOpen={isPolicyModalOpen}
           onClose={() => setIsPolicyModalOpen(false)}
-          title="Commercial Approval Policy & Governance"
+          title="Commercial & Operational Governance Policy"
           size="lg"
         >
           <div className="space-y-4 text-xs">
             <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-start gap-3">
               <Shield className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
               <div>
-                <h4 className="font-semibold text-indigo-950 text-sm">Strict Enterprise Governance (Option 1)</h4>
+                <h4 className="font-semibold text-indigo-950 text-sm">Role-Based Operational Segregation</h4>
                 <p className="text-indigo-800/90 text-xs mt-0.5 leading-relaxed">
-                  NovaERP enforces Segregation of Duties (SoD) and the 4-Eyes Principle. Commercial, inventory, and logistics operations are partitioned across roles to satisfy SOX 404 and ISO 9001 compliance.
+                  NovaERP partitions commercial commitments and physical inventory operations across specialized departments to satisfy SOX 404, ISO 9001, and anti-fraud operational controls without administrative bottlenecks.
                 </p>
               </div>
             </div>
@@ -436,31 +471,31 @@ export function SalesOrderDetailsPage() {
             <div className="space-y-3 pt-2">
               <div className="p-3 border border-slate-200 rounded-xl space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-800 text-sm">1. 4-Eyes Principle (Self-Approval Restriction)</span>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Enforced</Badge>
+                  <span className="font-semibold text-slate-800 text-sm">1. Commercial Authority (Sales Manager)</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Authorized</Badge>
                 </div>
                 <p className="text-slate-600 text-xs leading-relaxed">
-                  The person who drafts or submits a Sales Order cannot approve it. An independent Sales Manager or Super Admin must provide commercial sign-off to eliminate fraudulent pricing or unauthorized discounts.
+                  The Sales Manager holds departmental sign-off authority for pricing, contract terms, and order approval. No IT/Admin intervention is needed for standard commercial operations.
                 </p>
               </div>
 
               <div className="p-3 border border-slate-200 rounded-xl space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-800 text-sm">2. Inventory Allocation Boundary</span>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Restricted to Warehouse</Badge>
+                  <span className="font-semibold text-slate-800 text-sm">2. Inventory Allocation Boundary (Warehouse Manager)</span>
+                  <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-[11px]">Restricted to Warehouse</Badge>
                 </div>
                 <p className="text-slate-600 text-xs leading-relaxed">
-                  Sales personnel cannot reserve physical warehouse bins or stock. Only authorized Warehouse Managers can allocate inventory upon commercial approval.
+                  Sales personnel cannot touch physical inventory or reserve warehouse bins. Physical inventory reservation is strictly segregated and executed by the Warehouse Manager after commercial sign-off.
                 </p>
               </div>
 
               <div className="p-3 border border-slate-200 rounded-xl space-y-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-800 text-sm">3. Logistics Freight Dispatch</span>
-                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Restricted to Logistics</Badge>
+                  <span className="font-semibold text-slate-800 text-sm">3. Logistics Freight Dispatch (Warehouse Manager)</span>
+                  <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200 text-[11px]">Restricted to Logistics</Badge>
                 </div>
                 <p className="text-slate-600 text-xs leading-relaxed">
-                  Outbound shipment creation, Bill of Lading (BOL) generation, and dock dispatching are restricted to Warehouse & Logistics coordinators.
+                  Outbound shipment creation, Bill of Lading (BOL) generation, packing lists, and loading dock dispatching are strictly handled by Warehouse and Logistics personnel.
                 </p>
               </div>
             </div>
