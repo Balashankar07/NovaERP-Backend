@@ -380,6 +380,10 @@ public class SalesOrderService : ISalesOrderService
             BillingAddress = entity.BillingAddress,
             Remarks = entity.Remarks,
             Status = entity.Status,
+            CreatedBy = entity.CreatedBy,
+            UpdatedBy = entity.UpdatedBy,
+            CreatedAt = entity.CreatedAt,
+            UpdatedAt = entity.UpdatedAt,
             Items = entity.SalesOrderItems.Select(i => new SalesOrderItemDto
             {
                 Id = i.Id,

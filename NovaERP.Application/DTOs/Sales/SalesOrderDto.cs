@@ -19,6 +19,10 @@ public class SalesOrderDto
     public string? ShippingAddress { get; set; }
     public string? BillingAddress { get; set; }
     public string? Remarks { get; set; }
+    public Guid? CreatedBy { get; set; }
+    public Guid? UpdatedBy { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
     
     public List<SalesOrderItemDto> Items { get; set; } = new List<SalesOrderItemDto>();
 }

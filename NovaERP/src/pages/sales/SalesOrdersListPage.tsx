@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Plus, Eye, ShoppingCart, CheckCircle, FileText, Clock, XCircle, FileArchive, RefreshCw, Box, AlertCircle } from "lucide-react";
+import { Plus, Eye, ShoppingCart, CheckCircle, FileText, Clock, XCircle, FileArchive, RefreshCw, Box, AlertCircle, Sliders, Shield } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
 import { salesApi } from "@/api/sales.api";
 import { SalesOrderDto, SalesOrderStatus } from "@/types/sales.types";
 import { useCrudTable } from "@/hooks/use-crud-table";
@@ -68,6 +69,7 @@ export function SalesOrdersListPage() {
   const navigate = useNavigate();
 
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isPolicyOpen, setIsPolicyOpen] = useState(false);
 
   const {
     viewState,
@@ -159,19 +161,29 @@ export function SalesOrdersListPage() {
         title="Sales Orders" 
         description="Manage B2B customer sales orders, stock reservations, and fulfillment."
         actions={
-          <>
-            <Button variant="outline" size="sm" onClick={refresh} className="mr-2">
-              <RefreshCw className={`w-4 h-4 mr-2 ${viewState === 'loading' ? 'animate-spin' : ''}`} />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPolicyOpen(true)}
+              className="h-9 text-xs gap-1.5"
+            >
+              <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+              Approval Policy
+            </Button>
+            <Button variant="outline" size="sm" onClick={refresh} className="h-9 text-xs">
+              <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${viewState === 'loading' ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
             <PermissionButton
               permission="Permissions.SalesOrders.Create"
               onClick={() => setIsFormOpen(true)}
+              className="bg-indigo-600 hover:bg-indigo-700 h-9 text-xs"
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1.5" />
               New Order
             </PermissionButton>
-          </>
+          </div>
         }
       />
 
@@ -220,6 +232,70 @@ export function SalesOrdersListPage() {
             refresh();
           }}
         />
+      )}
+
+      {/* Commercial Approval Policy Modal */}
+      {isPolicyOpen && (
+        <Modal
+          isOpen={isPolicyOpen}
+          onClose={() => setIsPolicyOpen(false)}
+          title="Commercial Approval Policy & Governance"
+          size="lg"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-start gap-3">
+              <Shield className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-indigo-950 text-sm">Strict Enterprise Governance (Option 1 Active)</h4>
+                <p className="text-indigo-800/90 text-xs mt-0.5 leading-relaxed">
+                  NovaERP enforces Segregation of Duties (SoD) and the 4-Eyes Principle. Commercial, inventory, and logistics operations are partitioned across roles to satisfy SOX 404 and ISO 9001 compliance.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="p-3 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 text-sm">1. 4-Eyes Principle (Self-Approval Restriction)</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Enforced</Badge>
+                </div>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  The person who drafts or submits a Sales Order cannot approve it. An independent Sales Manager or Super Admin must provide commercial sign-off to eliminate fraudulent pricing or unauthorized discounts.
+                </p>
+              </div>
+
+              <div className="p-3 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 text-sm">2. Inventory Allocation Boundary</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Restricted to Warehouse</Badge>
+                </div>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  Sales personnel cannot reserve physical warehouse bins or stock. Only authorized Warehouse Managers can allocate inventory upon commercial approval.
+                </p>
+              </div>
+
+              <div className="p-3 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 text-sm">3. Logistics Freight Dispatch</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Restricted to Logistics</Badge>
+                </div>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  Outbound shipment creation, Bill of Lading (BOL) generation, and dock dispatching are restricted to Warehouse & Logistics coordinators.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <Button
+                size="sm"
+                onClick={() => setIsPolicyOpen(false)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Close Policy Guide
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </PageContainer>
   );

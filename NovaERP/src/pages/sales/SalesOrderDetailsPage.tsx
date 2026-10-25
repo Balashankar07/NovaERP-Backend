@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Edit, Trash2, Send, CheckCircle, XCircle, FileText, ShoppingCart, Clock, CheckCircle2, FileArchive, Box, Truck } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Send, CheckCircle, XCircle, FileText, ShoppingCart, Clock, CheckCircle2, FileArchive, Box, Truck, ShieldAlert, ShieldCheck, Sliders, Shield, UserCheck } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
+import { Modal } from "@/components/ui/modal";
 import { toast } from "sonner";
 import { salesApi } from "@/api/sales.api";
 import { SalesOrderDto, SalesOrderStatus } from "@/types/sales.types";
@@ -52,6 +54,15 @@ export function SalesOrderDetailsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isCreateShipmentOpen, setIsCreateShipmentOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+
+  const { user } = useAuth();
+  const currentUserId = user?.userId ? String(user.userId).toLowerCase() : "";
+  const orderCreatedBy = order?.createdBy ? String(order.createdBy).toLowerCase() : "";
+  const isCreator = !!currentUserId && !!orderCreatedBy && currentUserId === orderCreatedBy;
+  const isSuperAdmin = user?.role?.toLowerCase().includes("admin") || false;
+  // Under Option 1 (4-Eyes Principle), creator cannot approve their own order unless Super Admin
+  const canApprove = (!isCreator || isSuperAdmin);
 
   useEffect(() => {
     if (id) loadOrder();
@@ -142,26 +153,55 @@ export function SalesOrderDetailsPage() {
               </>
             )}
 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsPolicyModalOpen(true)}
+              className="h-9 text-xs gap-1.5 text-slate-600 hover:text-slate-900"
+            >
+              <Sliders className="w-3.5 h-3.5 text-indigo-500" />
+              Approval Policy
+            </Button>
+
             {isPending && (
               <>
-                <PermissionButton
-                  permission="Permissions.SalesOrders.Approve"
-                  variant="outline"
-                  className="text-rose-600 border-rose-200 hover:bg-rose-50"
-                  onClick={() => handleAction(() => salesApi.rejectSalesOrder(order.id))}
-                  disabled={actionLoading}
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Reject
-                </PermissionButton>
-                <PermissionButton
-                  permission="Permissions.SalesOrders.Approve"
-                  onClick={() => handleAction(() => salesApi.approveSalesOrder(order.id))}
-                  disabled={actionLoading}
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Approve
-                </PermissionButton>
+                {canApprove ? (
+                  <>
+                    <PermissionButton
+                      permission="Permissions.SalesOrders.Approve"
+                      variant="outline"
+                      className="text-rose-600 border-rose-200 hover:bg-rose-50"
+                      onClick={() => handleAction(() => salesApi.rejectSalesOrder(order.id))}
+                      disabled={actionLoading}
+                    >
+                      <XCircle className="w-4 h-4 mr-2" />
+                      Reject
+                    </PermissionButton>
+                    <PermissionButton
+                      permission="Permissions.SalesOrders.Approve"
+                      onClick={() => handleAction(() => salesApi.approveSalesOrder(order.id))}
+                      disabled={actionLoading}
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Approve
+                    </PermissionButton>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs shadow-xs">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div className="text-left">
+                      <div className="font-semibold flex items-center gap-1.5">
+                        <span>Awaiting 2nd Manager Approval (4-Eyes Principle)</span>
+                        <Badge variant="outline" className="bg-amber-100/60 text-amber-800 border-amber-300 text-[10px] py-0 px-1.5 h-4">
+                          SoD Enforced
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-amber-700/90 mt-0.5">
+                        You created this order. An independent manager or Admin must review & approve it.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -311,6 +351,42 @@ export function SalesOrderDetailsPage() {
               </div>
             </div>
           </SectionCard>
+
+          {/* Commercial Governance & Audit Card */}
+          <SectionCard title="Commercial Governance & Audit">
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                <span className="text-slate-500">Order Creator:</span>
+                <span className="font-semibold text-slate-800 font-mono">
+                  {isCreator ? "You (Sales Manager)" : (order.createdByName || "Sales Department")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                <span className="text-slate-500">4-Eyes Principle:</span>
+                <span className="font-semibold text-emerald-700 flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Active (Strict)
+                </span>
+              </div>
+              <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                <span className="text-slate-500">Approval Sign-off:</span>
+                <span className="font-medium">
+                  {isApproved || isReserved || isPartiallyShipped || isCompleted ? (
+                    <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Authorized Sign-off
+                    </span>
+                  ) : (
+                    <span className="text-amber-700 font-medium">Pending 2nd Manager</span>
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500">Warehouse Hand-off:</span>
+                <span className="text-slate-700 font-medium">
+                  {isReserved || isPartiallyShipped || isCompleted ? "Stock Allocated" : "Awaiting Approval"}
+                </span>
+              </div>
+            </div>
+          </SectionCard>
         </div>
       </div>
 
@@ -336,6 +412,70 @@ export function SalesOrderDetailsPage() {
             loadOrder();
           }}
         />
+      )}
+
+      {/* Commercial Approval Policy & Governance Modal */}
+      {isPolicyModalOpen && (
+        <Modal
+          isOpen={isPolicyModalOpen}
+          onClose={() => setIsPolicyModalOpen(false)}
+          title="Commercial Approval Policy & Governance"
+          size="lg"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-start gap-3">
+              <Shield className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="font-semibold text-indigo-950 text-sm">Strict Enterprise Governance (Option 1)</h4>
+                <p className="text-indigo-800/90 text-xs mt-0.5 leading-relaxed">
+                  NovaERP enforces Segregation of Duties (SoD) and the 4-Eyes Principle. Commercial, inventory, and logistics operations are partitioned across roles to satisfy SOX 404 and ISO 9001 compliance.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="p-3 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 text-sm">1. 4-Eyes Principle (Self-Approval Restriction)</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Enforced</Badge>
+                </div>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  The person who drafts or submits a Sales Order cannot approve it. An independent Sales Manager or Super Admin must provide commercial sign-off to eliminate fraudulent pricing or unauthorized discounts.
+                </p>
+              </div>
+
+              <div className="p-3 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 text-sm">2. Inventory Allocation Boundary</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Restricted to Warehouse</Badge>
+                </div>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  Sales personnel cannot reserve physical warehouse bins or stock. Only authorized Warehouse Managers can allocate inventory upon commercial approval.
+                </p>
+              </div>
+
+              <div className="p-3 border border-slate-200 rounded-xl space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-800 text-sm">3. Logistics Freight Dispatch</span>
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[11px]">Restricted to Logistics</Badge>
+                </div>
+                <p className="text-slate-600 text-xs leading-relaxed">
+                  Outbound shipment creation, Bill of Lading (BOL) generation, and dock dispatching are restricted to Warehouse & Logistics coordinators.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <Button
+                size="sm"
+                onClick={() => setIsPolicyModalOpen(false)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white"
+              >
+                Close Policy Guide
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </PageContainer>
   );

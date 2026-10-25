@@ -41,6 +41,11 @@ export interface SalesOrderDto {
   billingAddress?: string;
   remarks?: string;
   status: SalesOrderStatus;
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdByName?: string;
   items: SalesOrderItemDto[];
 }
 
