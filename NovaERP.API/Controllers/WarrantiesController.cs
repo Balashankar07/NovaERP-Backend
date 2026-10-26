@@ -47,6 +47,15 @@ public class WarrantiesController : ControllerBase
         return Ok(ApiResponse.SuccessResponse("Eligible delivered shipments retrieved successfully.", result));
     }
 
+    [HttpGet("next-serial-number")]
+    [HasPermission("Permissions.Warranties.Create")]
+    [ProducesResponseType(typeof(ApiResponse<string>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetNextSerialNumber([FromQuery] Guid productId)
+    {
+        var result = await _warrantyService.GetNextSerialNumberAsync(productId);
+        return Ok(ApiResponse.SuccessResponse("Next serial number generated successfully.", result));
+    }
+
     [HttpGet("{id:guid}")]
     [HasPermission("Permissions.Warranties.View")]
     [ProducesResponseType(typeof(ApiResponse<WarrantyDto>), StatusCodes.Status200OK)]

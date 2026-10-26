@@ -72,6 +72,8 @@ export const warrantiesApi = {
     api.get<PagedResult<WarrantyDto>>(API_ENDPOINTS.WARRANTIES.BASE, { params }),
   getEligibleShipments: () =>
     api.get<EligibleShipmentDto[]>('/Warranties/eligible-shipments'),
+  getNextSerialNumber: (productId: string) =>
+    api.get<string>('/Warranties/next-serial-number', { params: { productId } }),
   getById: (id: string) =>
     api.get<WarrantyDto>(API_ENDPOINTS.WARRANTIES.BY_ID(id)),
   create: (data: CreateWarrantyRequest) =>

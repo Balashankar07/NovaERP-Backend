@@ -130,6 +130,41 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
 
   const activeShipment = deliveredShipments.find((s) => s.id === selectedShipmentId);
 
+  // Fetch Auto-Incremented Serial Number for selected Product
+  const {
+    data: nextSerialData,
+    isLoading: isLoadingSerial,
+    error: serialError,
+    refetch: refetchSerial,
+  } = useQuery({
+    queryKey: ["next-serial-number", selectedProductId],
+    queryFn: async () => {
+      if (!selectedProductId) return "";
+      try {
+        const res: any = await warrantiesApi.getNextSerialNumber(selectedProductId);
+        if (typeof res === "string") return res;
+        if (res?.data?.serialNumber) return res.data.serialNumber;
+        if (typeof res?.data === "string") return res.data;
+        if (res?.serialNumber) return res.serialNumber;
+        return "";
+      } catch (err: any) {
+        throw new Error(
+          err?.response?.data?.message || err?.message || "Failed to generate serial number"
+        );
+      }
+    },
+    enabled: open && !!selectedProductId,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    if (nextSerialData) {
+      setSerialNumber(nextSerialData);
+    } else if (!selectedProductId) {
+      setSerialNumber("");
+    }
+  }, [nextSerialData, selectedProductId]);
+
   // Pre-select product when active shipment changes
   useEffect(() => {
     if (activeShipment?.items && activeShipment.items.length > 0) {
@@ -177,7 +212,9 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
       queryClient.invalidateQueries({ queryKey: ["warranties"] });
       queryClient.invalidateQueries({ queryKey: ["warranty", "summary"] });
       queryClient.invalidateQueries({ queryKey: ["eligible-shipments-for-warranty"] });
+      queryClient.invalidateQueries({ queryKey: ["next-serial-number"] });
       refetchShipments();
+      refetchSerial();
       onOpenChange(false);
       if (onSuccess) onSuccess();
       // Reset form
@@ -189,6 +226,7 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
         err?.message ||
         "Failed to register warranty. Please check the details.";
       setErrorMessage(msg);
+      refetchSerial();
     },
   });
 
@@ -204,8 +242,12 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
       setErrorMessage("Please select a product from the delivered shipment.");
       return;
     }
+    if (isLoadingSerial) {
+      setErrorMessage("Please wait while the serial number is being allocated.");
+      return;
+    }
     if (!serialNumber.trim()) {
-      setErrorMessage("Serial number is required to register commercial warranty.");
+      setErrorMessage("Serial number could not be allocated. Please re-select the product.");
       return;
     }
     if (!startDate || !endDate) {
@@ -319,20 +361,39 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
             </Select>
           </div>
 
-          {/* Serial Number */}
+          {/* Serial Number (Auto-Incremented & Read-Only) */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              Serial Number <span className="text-rose-500">*</span>
-            </Label>
-            <Input
-              placeholder="e.g. SN-IOT-20261026-0001"
-              value={serialNumber}
-              onChange={(e) => setSerialNumber(e.target.value)}
-              className="h-9 text-xs font-mono"
-              required
-            />
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Serial Number <span className="text-rose-500">*</span>
+              </Label>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                Auto-Incremented
+              </span>
+            </div>
+            <div className="relative">
+              <Input
+                value={serialNumber}
+                readOnly
+                disabled={isLoadingSerial}
+                placeholder={
+                  isLoadingSerial
+                    ? "Allocating serial number..."
+                    : selectedProductId
+                    ? "Generating sequence..."
+                    : "Select a product above"
+                }
+                className="h-9 text-xs font-mono font-semibold bg-slate-50 dark:bg-slate-900/60 cursor-not-allowed select-none text-slate-800 dark:text-slate-200"
+                required
+              />
+              {isLoadingSerial && (
+                <div className="absolute right-2.5 top-2.5">
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                </div>
+              )}
+            </div>
             <p className="text-[11px] text-slate-500">
-              Enter the unique unit serial number verified from physical packaging or label.
+              Unique sequential serial number generated automatically from product code. Read-only.
             </p>
           </div>
 
@@ -405,7 +466,10 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
                 registerMutation.isPending ||
                 deliveredShipments.length === 0 ||
                 !selectedShipmentId ||
-                !selectedProductId
+                !selectedProductId ||
+                isLoadingSerial ||
+                !serialNumber ||
+                Boolean(serialError)
               }
             >
               {registerMutation.isPending ? (

@@ -1809,6 +1809,226 @@ public class Program
 				pagedWarranties.Items.Any(w => w.SerialNumber == serialUnit1) &&
 				pagedWarranties.Items.Any(w => w.SerialNumber == serialUnit2));
 
+			// =========================================================================
+			// SCENARIO 18: Auto-Increment Warranty Serial Number & Prefix Tracking
+			// =========================================================================
+			Console.WriteLine("\n[SCENARIO 18] Auto-Increment Warranty Serial Number, Prefix Formatting & Concurrency Integrity...");
+
+			// 18.1 Product prefix extraction formatting for distinct products
+			string prefixIot = NovaERP.Application.Services.WarrantyService.GetProductPrefix("FG-IOT-001", "Nova Pro IoT Gateway Controller");
+			string prefixSmart = NovaERP.Application.Services.WarrantyService.GetProductPrefix("FG-SMART-002", "Nova Smart Metering Energy Monitor");
+			string prefixBts = NovaERP.Application.Services.WarrantyService.GetProductPrefix("PRD-BTS-001", "Bluetooth Speaker");
+			string prefixUps = NovaERP.Application.Services.WarrantyService.GetProductPrefix("FG-UPS-003", "Nova PureSine Industrial UPS 2KW");
+
+			Assert("18.1 Product prefix extraction correctly resolves IOT, SMART, BTS, and UPS prefixes",
+				prefixIot == "IOT" && prefixSmart == "SMART" && prefixBts == "BTS" && prefixUps == "UPS",
+				$"IOT={prefixIot}, SMART={prefixSmart}, BTS={prefixBts}, UPS={prefixUps}");
+
+			// 18.2 Reopening dialog or querying next serial number does NOT consume sequence numbers or create warranties
+			Product smartProduct = await db.Products.FirstOrDefaultAsync(p => p.ProductCode == "FG-SMART-002");
+			if (smartProduct == null)
+			{
+				smartProduct = new Product
+				{
+					ProductNumber = "PRD-FG-002",
+					ProductCode = "FG-SMART-002",
+					SKU = "SKU-FG-SMART-002",
+					Name = "Nova Smart Metering Energy Monitor",
+					Description = "3-Phase Digital Smart Meter with LCD & MODBUS Remote Telemetry",
+					CategoryId = (await db.ProductCategories.FirstAsync()).Id,
+					BrandId = (await db.Brands.FirstAsync()).Id,
+					UnitId = (await db.Units.FirstAsync()).Id,
+					Type = ProductType.FinishedGood,
+					CostPrice = 145.00m,
+					SellingPrice = 240.00m,
+					MinimumStock = 5,
+					MaximumStock = 100,
+					ReorderLevel = 15,
+					IsActive = true
+				};
+				await db.Products.AddAsync(smartProduct);
+				await db.SaveChangesAsync();
+			}
+
+			int initialWarrantyCount = await db.Warranties.CountAsync(w => w.ProductId == smartProduct.Id);
+			string preview1 = await s16WarrantyService.GetNextSerialNumberAsync(smartProduct.Id);
+			string preview2 = await s16WarrantyService.GetNextSerialNumberAsync(smartProduct.Id);
+			string preview3 = await s16WarrantyService.GetNextSerialNumberAsync(smartProduct.Id);
+			int afterPreviewWarrantyCount = await db.Warranties.CountAsync(w => w.ProductId == smartProduct.Id);
+
+			Assert("18.2 Multiple previews/dialog openings do NOT consume sequence numbers or create warranty records",
+				preview1 == preview2 && preview2 == preview3 &&
+				preview1.StartsWith("SN-SMART-") &&
+				initialWarrantyCount == afterPreviewWarrantyCount,
+				$"Preview: {preview1}, Warranties before: {initialWarrantyCount}, after: {afterPreviewWarrantyCount}");
+
+			// 18.3 Distinct product prefixes produce distinct sequential serial numbers
+			string previewIot = await s16WarrantyService.GetNextSerialNumberAsync(iotItem!.ProductId);
+			Assert("18.3 Distinct products receive distinct prefix formats (SN-IOT- vs SN-SMART-)",
+				previewIot.StartsWith("SN-IOT-") && preview1.StartsWith("SN-SMART-") && previewIot != preview1,
+				$"IOT: {previewIot}, SMART: {preview1}");
+
+			// 18.4 Create delivered shipment with 2 units of Smart Meter product
+			Distributor defaultDistributor = await db.Distributors.FirstAsync();
+			SalesOrder soSmart = new SalesOrder
+			{
+				OrderNumber = $"SO-TEST-SMART-{Guid.NewGuid().ToString().Substring(0, 6)}",
+				DistributorId = defaultDistributor.Id,
+				OrderDate = DateTime.UtcNow,
+				RequiredDeliveryDate = DateTime.UtcNow.AddDays(2),
+				Status = SalesOrderStatus.Completed,
+				Currency = "USD",
+				Subtotal = 480.00m,
+				TotalAmount = 480.00m,
+				ShippingAddress = "200 Smart Grid Ave",
+				SalesOrderItems = new List<SalesOrderItem>
+				{
+					new SalesOrderItem
+					{
+						ProductId = smartProduct.Id,
+						Quantity = 2m,
+						UnitPrice = 240.00m,
+						TotalPrice = 480.00m,
+						Unit = "pcs"
+					}
+				}
+			};
+			await db.SalesOrders.AddAsync(soSmart);
+			await db.SaveChangesAsync();
+
+			Shipment smartShipment = new Shipment
+			{
+				TrackingNumber = $"TRK-SMART-{Guid.NewGuid().ToString().Substring(0, 6)}",
+				SalesOrderId = soSmart.Id,
+				CourierName = "DHL Express",
+				DispatchDate = DateTime.UtcNow.AddDays(-1),
+				DeliveryDate = DateTime.UtcNow,
+				Status = ShipmentStatus.Delivered,
+				ShipmentItems = new List<ShipmentItem>
+				{
+					new ShipmentItem
+					{
+						ProductId = smartProduct.Id,
+						Quantity = 2m,
+						DeliveredQuantity = 2m
+					}
+				}
+			};
+			await db.Shipments.AddAsync(smartShipment);
+			await db.SaveChangesAsync();
+
+			// 18.4 Unit 1 registration auto-allocates next serial number
+			WarrantyDto smartUnit1 = await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+			{
+				ProductId = smartProduct.Id,
+				ShipmentId = smartShipment.Id,
+				SerialNumber = string.Empty, // Test auto-allocation when empty
+				WarrantyType = "Standard Commercial",
+				StartDate = DateTime.UtcNow,
+				EndDate = DateTime.UtcNow.AddYears(1)
+			});
+
+			Assert("18.4 Unit 1 registration auto-allocates sequential serial number with Status=Active",
+				smartUnit1.Status == WarrantyStatus.Active &&
+				smartUnit1.SerialNumber.StartsWith("SN-SMART-") &&
+				smartUnit1.SerialNumber.Length == 15, // SN-SMART-000001
+				$"Allocated: {smartUnit1.SerialNumber}");
+
+			// 18.5 Unit 2 registration on same shipment receives NEXT sequential serial number
+			string nextPreview = await s16WarrantyService.GetNextSerialNumberAsync(smartProduct.Id);
+			WarrantyDto smartUnit2 = await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+			{
+				ProductId = smartProduct.Id,
+				ShipmentId = smartShipment.Id,
+				SerialNumber = nextPreview, // Pass previewed serial from UI
+				WarrantyType = "Standard Commercial",
+				StartDate = DateTime.UtcNow,
+				EndDate = DateTime.UtcNow.AddYears(1)
+			});
+
+			// Verify Unit 1 and Unit 2 have consecutive sequential numbers
+			int unit1Seq = int.Parse(smartUnit1.SerialNumber.Split('-')[2]);
+			int unit2Seq = int.Parse(smartUnit2.SerialNumber.Split('-')[2]);
+
+			Assert("18.5 Unit 2 registration allocates strictly consecutive sequence number (Unit2 = Unit1 + 1)",
+				unit2Seq == unit1Seq + 1 && smartUnit1.SerialNumber != smartUnit2.SerialNumber,
+				$"Unit 1: {smartUnit1.SerialNumber} (#{unit1Seq}), Unit 2: {smartUnit2.SerialNumber} (#{unit2Seq})");
+
+			// 18.6 Delivered quantity limit is strictly enforced (Unit 3 beyond 2 units is rejected)
+			bool unit3OverCapacityRejected = false;
+			try
+			{
+				await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = smartProduct.Id,
+					ShipmentId = smartShipment.Id,
+					SerialNumber = string.Empty,
+					WarrantyType = "Standard Commercial",
+					StartDate = DateTime.UtcNow,
+					EndDate = DateTime.UtcNow.AddYears(1)
+				});
+			}
+			catch (ConflictException ex) when (ex.Message.Contains("already have registered warranties") || ex.Message.Contains("already exists"))
+			{
+				unit3OverCapacityRejected = true;
+			}
+			Assert("18.6 Registering Unit 3 beyond delivered quantity (2) is strictly rejected with ConflictException",
+				unit3OverCapacityRejected);
+
+			// 18.7 Duplicate serial registration prevention
+			bool duplicateSmartSerialRejected = false;
+			try
+			{
+				await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = smartProduct.Id,
+					ShipmentId = smartShipment.Id,
+					SerialNumber = smartUnit1.SerialNumber,
+					WarrantyType = "Standard Commercial",
+					StartDate = DateTime.UtcNow,
+					EndDate = DateTime.UtcNow.AddYears(1)
+				});
+			}
+			catch (ConflictException ex) when (ex.Message.Contains("already exists"))
+			{
+				duplicateSmartSerialRejected = true;
+			}
+			Assert("18.7 Duplicate warranty registration with existing Serial Number is strictly blocked",
+				duplicateSmartSerialRejected);
+
+			// 18.8 Failed registration preserves integrity and does not reuse existing serial numbers
+			bool failedDateRejected = false;
+			try
+			{
+				await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = smartProduct.Id,
+					ShipmentId = smartShipment.Id,
+					SerialNumber = "SN-SMART-FAILTEST",
+					WarrantyType = "Standard Commercial",
+					StartDate = DateTime.UtcNow,
+					EndDate = DateTime.UtcNow.AddDays(-5) // Invalid EndDate
+				});
+			}
+			catch (BadRequestException)
+			{
+				failedDateRejected = true;
+			}
+			Assert("18.8 Failed registration with invalid date is rejected without creating a warranty record",
+				failedDateRejected && !await db.Warranties.AnyAsync(w => w.SerialNumber == "SN-SMART-FAILTEST"));
+
+			// 18.9 Concurrent serial generation uniqueness across scoped service providers
+			var concurrentTasks = Enumerable.Range(1, 5).Select(async _ =>
+			{
+				using var cScope = provider.CreateScope();
+				var cWarrantyService = cScope.ServiceProvider.GetRequiredService<IWarrantyService>();
+				return await cWarrantyService.GetNextSerialNumberAsync(smartProduct.Id);
+			}).ToList();
+			var concurrentResults = await Task.WhenAll(concurrentTasks);
+			Assert("18.9 Concurrent previews are consistent without sequence corruption",
+				concurrentResults.All(r => r == concurrentResults[0]),
+				$"Sample: {concurrentResults[0]}");
+
 			Console.WriteLine("\n================================================================================");
 			Console.WriteLine($"  TEST RUN COMPLETED: {passedCount} PASSED, {failedCount} FAILED");
 			Console.WriteLine("================================================================================\n");

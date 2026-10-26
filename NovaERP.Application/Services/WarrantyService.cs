@@ -82,6 +82,57 @@ public class WarrantyService : IWarrantyService
         return result;
     }
 
+    public static string GetProductPrefix(string? productCode, string? productName = null)
+    {
+        if (string.IsNullOrWhiteSpace(productCode))
+        {
+            if (!string.IsNullOrWhiteSpace(productName))
+            {
+                var words = productName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var initials = string.Concat(words.Where(w => char.IsLetterOrDigit(w[0])).Take(3).Select(w => char.ToUpper(w[0])));
+                if (!string.IsNullOrEmpty(initials)) return initials;
+            }
+            return "GEN";
+        }
+
+        var parts = productCode.Split(new[] { '-', '_', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1)
+        {
+            return parts[0].ToUpperInvariant();
+        }
+
+        // Filter out category/type prefixes like FG, PRD, CMP, RAW, SKU if there are other descriptive tokens
+        var candidate = parts.FirstOrDefault(p =>
+            !p.Equals("FG", StringComparison.OrdinalIgnoreCase) &&
+            !p.Equals("PRD", StringComparison.OrdinalIgnoreCase) &&
+            !p.Equals("CMP", StringComparison.OrdinalIgnoreCase) &&
+            !p.Equals("RAW", StringComparison.OrdinalIgnoreCase) &&
+            !p.Equals("SKU", StringComparison.OrdinalIgnoreCase) &&
+            !int.TryParse(p, out _));
+
+        if (!string.IsNullOrEmpty(candidate))
+        {
+            return candidate.ToUpperInvariant();
+        }
+
+        var nonNumeric = parts.FirstOrDefault(p => !int.TryParse(p, out _));
+        return (nonNumeric ?? parts[0]).ToUpperInvariant();
+    }
+
+    public async Task<string> GetNextSerialNumberAsync(Guid productId)
+    {
+        var product = await _unitOfWork.Products.GetByIdAsync(productId);
+        if (product == null)
+            throw new BadRequestException("Invalid Product ID.");
+
+        var prefix = GetProductPrefix(product.ProductCode, product.Name);
+        var maxInDb = await _unitOfWork.Warranties.GetMaxSequenceNumberForPrefixAsync(prefix);
+        var peek = await _unitOfWork.Warranties.PeekNextSequenceValueAsync(prefix, maxInDb + 1);
+        var nextSeq = Math.Max(maxInDb + 1, peek);
+
+        return $"SN-{prefix}-{nextSeq:D6}";
+    }
+
     public async Task<WarrantyDto> CreateWarrantyAsync(CreateWarrantyDto request)
     {
         // 1. Validate Product
@@ -89,14 +140,16 @@ public class WarrantyService : IWarrantyService
         if (product == null)
             throw new BadRequestException("Invalid Product ID.");
 
-        // 2. Validate Serial Number Uniqueness
+        var prefix = GetProductPrefix(product.ProductCode, product.Name);
         var serialTrimmed = request.SerialNumber?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(serialTrimmed))
-            throw new BadRequestException("Serial number is required.");
 
-        var exists = await _unitOfWork.Warranties.ExistsBySerialNumberAsync(serialTrimmed);
-        if (exists)
-            throw new ConflictException($"Warranty with Serial Number '{serialTrimmed}' already exists.");
+        // 2. Validate Serial Number Uniqueness if provided
+        if (!string.IsNullOrWhiteSpace(serialTrimmed))
+        {
+            var exists = await _unitOfWork.Warranties.ExistsBySerialNumberAsync(serialTrimmed);
+            if (exists)
+                throw new ConflictException($"Warranty with Serial Number '{serialTrimmed}' already exists.");
+        }
 
         // 3. Validate Shipment with Details and Ensure it is Delivered
         var shipment = await _unitOfWork.Shipments.GetShipmentWithDetailsAsync(request.ShipmentId);
@@ -119,6 +172,29 @@ public class WarrantyService : IWarrantyService
         var registeredCount = await _unitOfWork.Warranties.GetCountForProductAndShipmentAsync(request.ProductId, request.ShipmentId);
         if (registeredCount >= shipmentItem.Quantity)
             throw new ConflictException($"All {shipmentItem.Quantity} unit(s) for product '{shipmentItem.Product?.Name ?? product.Name}' in shipment {shipment.TrackingNumber} already have registered warranties. A warranty already exists for all delivered units.");
+
+        // 7. Auto-allocate Serial Number if not provided
+        if (string.IsNullOrWhiteSpace(serialTrimmed))
+        {
+            var maxInDb = await _unitOfWork.Warranties.GetMaxSequenceNumberForPrefixAsync(prefix);
+            var nextSeq = await _unitOfWork.Warranties.GetNextSequenceValueAsync(prefix, maxInDb + 1);
+            serialTrimmed = $"SN-{prefix}-{nextSeq:D6}";
+
+            while (await _unitOfWork.Warranties.ExistsBySerialNumberAsync(serialTrimmed))
+            {
+                nextSeq = await _unitOfWork.Warranties.GetNextSequenceValueAsync(prefix, nextSeq + 1);
+                serialTrimmed = $"SN-{prefix}-{nextSeq:D6}";
+            }
+        }
+        else
+        {
+            // If provided serial matches sequence pattern, keep database sequence advanced past it
+            var parts = serialTrimmed.Split('-');
+            if (parts.Length == 3 && parts[1].Equals(prefix, StringComparison.OrdinalIgnoreCase) && long.TryParse(parts[2], out var providedSeq))
+            {
+                await _unitOfWork.Warranties.SetSequenceValueIfLowerAsync(prefix, providedSeq + 1);
+            }
+        }
 
         var warranty = new Warranty
         {
