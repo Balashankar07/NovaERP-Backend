@@ -1083,5 +1083,123 @@ public static class DbSeeder
             }
             await context.SaveChangesAsync();
         }
+
+        // Seed Bluetooth Speaker Product & Delivered Shipment TRK-20261025-2594 with registered Commercial Warranty
+        var btProduct = await context.Products.FirstOrDefaultAsync(p => p.Name == "Bluetooth Speaker")
+            ?? await context.Products.FirstOrDefaultAsync(p => p.ProductCode == "PRD-BTS-001");
+
+        if (btProduct == null)
+        {
+            var electronicsCat = await context.ProductCategories.FirstOrDefaultAsync(c => c.Name == "Electronics")
+                ?? await context.ProductCategories.FirstAsync();
+            var novaBrand = await context.Brands.FirstOrDefaultAsync(b => b.Name == "Nova")
+                ?? await context.Brands.FirstAsync();
+            var unitPcs = await context.Units.FirstOrDefaultAsync(u => u.Abbreviation == "pcs")
+                ?? await context.Units.FirstAsync();
+
+            btProduct = new Product
+            {
+                ProductNumber = "PRD-BTS-001",
+                ProductCode = "PRD-BTS-001",
+                SKU = "SKU-BTS-001",
+                Name = "Bluetooth Speaker",
+                Description = "High Fidelity Portable Bluetooth Speaker",
+                CategoryId = electronicsCat.Id,
+                BrandId = novaBrand.Id,
+                UnitId = unitPcs.Id,
+                Type = ProductType.FinishedGood,
+                CostPrice = 60.00m,
+                SellingPrice = 120.00m,
+                MinimumStock = 5,
+                MaximumStock = 100,
+                ReorderLevel = 10,
+                IsActive = true
+            };
+            await context.Products.AddAsync(btProduct);
+            await context.SaveChangesAsync();
+        }
+
+        var so2025 = await context.SalesOrders
+            .Include(s => s.SalesOrderItems)
+            .FirstOrDefaultAsync(s => s.OrderNumber == "SO-20261025-0054");
+
+        if (so2025 == null)
+        {
+            so2025 = new SalesOrder
+            {
+                OrderNumber = "SO-20261025-0054",
+                DistributorId = defaultDistributor.Id,
+                OrderDate = DateTime.SpecifyKind(new DateTime(2026, 10, 25, 9, 0, 0), DateTimeKind.Utc),
+                RequiredDeliveryDate = DateTime.SpecifyKind(new DateTime(2026, 10, 25, 18, 0, 0), DateTimeKind.Utc),
+                Status = SalesOrderStatus.Completed,
+                Currency = "USD",
+                Subtotal = 120.00m,
+                TaxAmount = 0m,
+                TotalAmount = 120.00m,
+                ShippingAddress = "500 Logistics Way, Bay 4",
+                Remarks = "Commercial Delivery for Bluetooth Speaker",
+                SalesOrderItems = new List<SalesOrderItem>
+                {
+                    new SalesOrderItem
+                    {
+                        ProductId = btProduct.Id,
+                        Quantity = 1m,
+                        UnitPrice = 120.00m,
+                        TotalPrice = 120.00m,
+                        Unit = "pcs"
+                    }
+                }
+            };
+            await context.SalesOrders.AddAsync(so2025);
+            await context.SaveChangesAsync();
+        }
+
+        var targetShipment2594 = await context.Shipments
+            .Include(s => s.ShipmentItems)
+            .FirstOrDefaultAsync(s => s.TrackingNumber == "TRK-20261025-2594");
+
+        if (targetShipment2594 == null)
+        {
+            targetShipment2594 = new Shipment
+            {
+                TrackingNumber = "TRK-20261025-2594",
+                SalesOrderId = so2025.Id,
+                CourierName = "DHL Express",
+                DispatchDate = DateTime.SpecifyKind(new DateTime(2026, 10, 25, 10, 0, 0), DateTimeKind.Utc),
+                DeliveryDate = DateTime.SpecifyKind(new DateTime(2026, 10, 25, 16, 0, 0), DateTimeKind.Utc),
+                Status = ShipmentStatus.Delivered,
+                ShipmentItems = new List<ShipmentItem>
+                {
+                    new ShipmentItem
+                    {
+                        ProductId = btProduct.Id,
+                        Quantity = 1,
+                        DeliveredQuantity = 1
+                    }
+                }
+            };
+            await context.Shipments.AddAsync(targetShipment2594);
+            await context.SaveChangesAsync();
+        }
+
+        // Seed initial commercial warranty for TRK-20261025-2594
+        var existingWarranty2594 = await context.Warranties
+            .FirstOrDefaultAsync(w => w.SerialNumber == "SN-BTS-20261025-0054");
+
+        if (existingWarranty2594 == null)
+        {
+            var seedWarranty = new Warranty
+            {
+                ProductId = btProduct.Id,
+                ShipmentId = targetShipment2594.Id,
+                SerialNumber = "SN-BTS-20261025-0054",
+                WarrantyType = "Standard Commercial",
+                StartDate = targetShipment2594.DeliveryDate ?? DateTime.UtcNow,
+                EndDate = (targetShipment2594.DeliveryDate ?? DateTime.UtcNow).AddYears(1),
+                Status = WarrantyStatus.Active
+            };
+            await context.Warranties.AddAsync(seedWarranty);
+            await context.SaveChangesAsync();
+        }
     }
 }

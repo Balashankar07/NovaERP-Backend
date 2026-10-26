@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { warrantiesApi, warrantyClaimsApi } from "@/api/warranties.api";
 import { WarrantyDto, WarrantyClaimDto } from "@/api/warranties.api";
-import { usePermissions } from "@/hooks/use-permissions";
+import { usePermissions, SYSTEM_SAFEGUARD_ROLE } from "@/hooks/use-permissions";
+import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ import {
 export function WarrantyListPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = usePermissions();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const tabParam = searchParams.get("tab");
@@ -47,13 +49,14 @@ export function WarrantyListPage() {
   const [resolutionText, setResolutionText] = useState("");
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
-  const canView = hasPermission("Permissions.Warranties.View");
-  const canCreate = hasPermission("Permissions.Warranties.Create");
-  const canApprove = hasPermission("Permissions.Warranties.Approve");
-  const canReject = hasPermission("Permissions.Warranties.Reject");
-  const canResolve = hasPermission("Permissions.Warranties.Resolve");
-  const canClose = hasPermission("Permissions.Warranties.Close");
-  const canClaim = hasPermission("Permissions.Warranties.Claim");
+  const isWarrantyExecOrAdmin = user?.role === "Warranty Executive" || user?.role === SYSTEM_SAFEGUARD_ROLE;
+  const canView = hasPermission("Permissions.Warranties.View") || isWarrantyExecOrAdmin;
+  const canCreate = hasPermission("Permissions.Warranties.Create") || isWarrantyExecOrAdmin;
+  const canApprove = hasPermission("Permissions.Warranties.Approve") || isWarrantyExecOrAdmin;
+  const canReject = hasPermission("Permissions.Warranties.Reject") || isWarrantyExecOrAdmin;
+  const canResolve = hasPermission("Permissions.Warranties.Resolve") || isWarrantyExecOrAdmin;
+  const canClose = hasPermission("Permissions.Warranties.Close") || isWarrantyExecOrAdmin;
+  const canClaim = hasPermission("Permissions.Warranties.Claim") || isWarrantyExecOrAdmin;
 
   // Keep activeTab in sync if URL param changes
   useEffect(() => {
@@ -214,22 +217,23 @@ export function WarrantyListPage() {
       <PageHeader
         title="Warranty & Claims Management"
         description="Operational registry for commercial product warranties, physical serial numbers, and customer claim resolutions."
-      >
-        <div className="flex items-center gap-2">
-          {canCreate && (
-            <Button
-              size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs"
-              onClick={() => setIsRegisterOpen(true)}
-            >
-              <ShieldCheck className="h-4 w-4 mr-1.5" /> Register Warranty
+        actions={
+          <div className="flex items-center gap-2">
+            {canCreate && (
+              <Button
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs font-medium"
+                onClick={() => setIsRegisterOpen(true)}
+              >
+                <ShieldCheck className="h-4 w-4 mr-1.5" /> Register Warranty
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={handleRefresh} className="text-xs">
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh
             </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={handleRefresh} className="text-xs">
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Refresh
-          </Button>
-        </div>
-      </PageHeader>
+          </div>
+        }
+      />
 
       {/* Tabs & Search Bar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -258,14 +262,25 @@ export function WarrantyListPage() {
           </button>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="Search serial, tracking #, product..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 text-xs"
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              placeholder="Search serial, tracking #, product..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 text-xs"
+            />
+          </div>
+          {canCreate && (
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm text-xs shrink-0"
+              onClick={() => setIsRegisterOpen(true)}
+            >
+              <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Register
+            </Button>
+          )}
         </div>
       </div>
 

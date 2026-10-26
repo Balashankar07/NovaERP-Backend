@@ -23,6 +23,7 @@ interface PageHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   breadcrumbs?: React.ReactNode
   actions?: React.ReactNode
   badge?: React.ReactNode
+  children?: React.ReactNode
 }
 
 export function PageHeader({ 
@@ -32,10 +33,12 @@ export function PageHeader({
   breadcrumbs, 
   actions, 
   badge,
+  children,
   className,
   ...props 
 }: PageHeaderProps) {
   const displayDescription = subtitle || description;
+  const headerActions = actions || children;
   return (
     <div className={cn("flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-6 border-b border-border/40", className)} {...props}>
       <div className="flex flex-col gap-1.5 min-w-0">
@@ -46,9 +49,9 @@ export function PageHeader({
         </div>
         {displayDescription && <p className="text-[13px] text-muted-foreground/80 max-w-3xl leading-relaxed mt-0.5">{displayDescription}</p>}
       </div>
-      {actions && (
+      {headerActions && (
         <div className="flex items-center gap-2.5 mt-2 md:mt-0 shrink-0 flex-wrap">
-          {actions}
+          {headerActions}
         </div>
       )}
     </div>

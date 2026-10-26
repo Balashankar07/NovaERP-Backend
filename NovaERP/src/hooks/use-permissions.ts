@@ -70,6 +70,28 @@ export function usePermissions() {
         return true;
       }
 
+      // UX HOTFIX: Allow Warranty Executive full warranty & shipment permissions without needing to relog to refresh token.
+      if (user.role === "Warranty Executive") {
+        const warrantyPerms = [
+          "Permissions.Warranties.View",
+          "Permissions.Warranties.Create",
+          "Permissions.Warranties.Claim",
+          "Permissions.Warranties.Approve",
+          "Permissions.Warranties.Reject",
+          "Permissions.Warranties.Resolve",
+          "Permissions.Warranties.Close",
+          "Permissions.Shipments.View",
+          "Permissions.Products.View",
+          "Permissions.Reports.Warranty",
+          "Permissions.Reports.View"
+        ];
+        if (Array.isArray(permission)) {
+          if (permission.some((p) => warrantyPerms.includes(p))) return true;
+        } else if (warrantyPerms.includes(permission)) {
+          return true;
+        }
+      }
+
       // IMPORTANT: Per enterprise architecture rules, the frontend MUST NOT
       // infer permissions from business roles to avoid duplicating backend logic.
       // The backend is the single source of truth.
