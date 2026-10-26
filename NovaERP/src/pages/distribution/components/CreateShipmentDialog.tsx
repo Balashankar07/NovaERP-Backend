@@ -190,11 +190,28 @@ export function CreateShipmentDialog({ open, onOpenChange, salesOrder, onSuccess
                           value={watchItems[index]?.quantity ?? 1}
                           onChange={(e) => {
                             const digitsOnly = e.target.value.replace(/\D/g, "");
-                            const val = digitsOnly === "" ? 1 : Math.min(maxQty, Math.max(1, parseInt(digitsOnly, 10)));
-                            setValue(`items.${index}.quantity`, val, { shouldValidate: true, shouldDirty: true });
+                            if (digitsOnly === "") {
+                              setValue(`items.${index}.quantity`, "" as any, { shouldValidate: true, shouldDirty: true });
+                            } else {
+                              const val = Math.min(maxQty, Math.max(1, parseInt(digitsOnly, 10)));
+                              setValue(`items.${index}.quantity`, val, { shouldValidate: true, shouldDirty: true });
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const num = parseInt(e.target.value, 10);
+                            const safe = isNaN(num) || num < 1 ? 1 : Math.min(maxQty, num);
+                            setValue(`items.${index}.quantity`, safe, { shouldValidate: true, shouldDirty: true });
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+") {
+                            if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              const current = Number(watchItems[index]?.quantity) || 1;
+                              setValue(`items.${index}.quantity`, Math.min(maxQty, current + 1), { shouldValidate: true, shouldDirty: true });
+                            } else if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              const current = Number(watchItems[index]?.quantity) || 1;
+                              setValue(`items.${index}.quantity`, Math.max(1, current - 1), { shouldValidate: true, shouldDirty: true });
+                            } else if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+") {
                               e.preventDefault();
                             }
                           }}

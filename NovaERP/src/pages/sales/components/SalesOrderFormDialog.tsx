@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Plus, Trash2, ChevronDown, Search } from "lucide-react";
+import { Plus, Minus, Trash2, ChevronDown, Search } from "lucide-react";
 import { salesApi } from "@/api/sales.api";
 import { CreateSalesOrderDto, UpdateSalesOrderDto, SalesOrderDto } from "@/types/sales.types";
 import { distributorsApi } from "@/api/distributors.api";
@@ -564,33 +564,83 @@ export function SalesOrderFormDialog({
                       )}
                     </div>
                     <div className="col-span-2 min-w-0">
-                      <Input 
-                        type="text" 
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        className={cn(
-                          "h-9 text-xs text-center font-medium",
-                          itemErrors?.quantity ? "border-rose-500 focus-visible:ring-rose-500" : ""
-                        )} 
-                        value={watch(`items.${index}.quantity`) ?? 1}
-                        onChange={(e) => {
-                          const digitsOnly = e.target.value.replace(/\D/g, "");
-                          const num = digitsOnly === "" ? 1 : Math.max(1, parseInt(digitsOnly, 10));
-                          setValue(`items.${index}.quantity`, num, { shouldValidate: true, shouldDirty: true });
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+") {
+                      <div className="flex items-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-7 rounded-r-none border-r-0 px-0 shrink-0 text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                          onClick={() => {
+                            const current = Number(watch(`items.${index}.quantity`)) || 1;
+                            const next = Math.max(1, current - 1);
+                            setValue(`items.${index}.quantity`, next, { shouldValidate: true, shouldDirty: true });
+                          }}
+                          disabled={loading || (Number(watch(`items.${index}.quantity`)) || 1) <= 1}
+                          title="Decrease quantity by 1"
+                          aria-label="Decrease quantity by 1"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </Button>
+                        <Input 
+                          type="text" 
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          className={cn(
+                            "h-9 text-xs text-center font-medium rounded-none focus:z-10",
+                            itemErrors?.quantity ? "border-rose-500 focus-visible:ring-rose-500" : ""
+                          )} 
+                          value={watch(`items.${index}.quantity`) ?? 1}
+                          onChange={(e) => {
+                            const digitsOnly = e.target.value.replace(/\D/g, "");
+                            if (digitsOnly === "") {
+                              setValue(`items.${index}.quantity`, "" as any, { shouldValidate: true, shouldDirty: true });
+                            } else {
+                              const num = parseInt(digitsOnly, 10);
+                              setValue(`items.${index}.quantity`, Math.max(1, num), { shouldValidate: true, shouldDirty: true });
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const num = parseInt(e.target.value, 10);
+                            const safe = isNaN(num) || num < 1 ? 1 : num;
+                            setValue(`items.${index}.quantity`, safe, { shouldValidate: true, shouldDirty: true });
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              const current = Number(watch(`items.${index}.quantity`)) || 1;
+                              setValue(`items.${index}.quantity`, current + 1, { shouldValidate: true, shouldDirty: true });
+                            } else if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              const current = Number(watch(`items.${index}.quantity`)) || 1;
+                              setValue(`items.${index}.quantity`, Math.max(1, current - 1), { shouldValidate: true, shouldDirty: true });
+                            } else if (e.key === "." || e.key === "," || e.key === "e" || e.key === "E" || e.key === "-" || e.key === "+") {
+                              e.preventDefault();
+                            }
+                          }}
+                          onPaste={(e) => {
                             e.preventDefault();
-                          }
-                        }}
-                        onPaste={(e) => {
-                          e.preventDefault();
-                          const pasteData = e.clipboardData.getData("text").replace(/\D/g, "");
-                          if (pasteData) {
-                            setValue(`items.${index}.quantity`, Math.max(1, parseInt(pasteData, 10)), { shouldValidate: true, shouldDirty: true });
-                          }
-                        }}
-                      />
+                            const pasteData = e.clipboardData.getData("text").replace(/\D/g, "");
+                            if (pasteData) {
+                              setValue(`items.${index}.quantity`, Math.max(1, parseInt(pasteData, 10)), { shouldValidate: true, shouldDirty: true });
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-7 rounded-l-none border-l-0 px-0 shrink-0 text-slate-600 hover:text-slate-900 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                          onClick={() => {
+                            const current = Number(watch(`items.${index}.quantity`)) || 1;
+                            setValue(`items.${index}.quantity`, current + 1, { shouldValidate: true, shouldDirty: true });
+                          }}
+                          disabled={loading}
+                          title="Increase quantity by 1"
+                          aria-label="Increase quantity by 1"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                       <input 
                         type="hidden" 
                         {...register(`items.${index}.quantity` as const, {
