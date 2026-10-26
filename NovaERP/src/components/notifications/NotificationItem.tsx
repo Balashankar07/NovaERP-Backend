@@ -94,14 +94,16 @@ export const NotificationItemComponent: React.FC<Props> = ({
             {getTypeIcon(notification.type)}
           </div>
           <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-sm font-semibold truncate ${!notification.isRead ? 'text-indigo-950 dark:text-indigo-100' : 'text-slate-800 dark:text-slate-200'}`}>
+            <div className="flex items-start justify-between gap-1.5">
+              <span className={`text-sm font-semibold min-w-0 flex-1 truncate ${!notification.isRead ? 'text-indigo-950 dark:text-indigo-100' : 'text-slate-800 dark:text-slate-200'}`}>
                 {notification.title}
               </span>
-              {getPriorityBadge(notification.priority)}
-              {!notification.isRead && (
-                <span className="h-2 w-2 rounded-full bg-indigo-600 flex-shrink-0" />
-              )}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {getPriorityBadge(notification.priority)}
+                {!notification.isRead && (
+                  <span className="h-2 w-2 rounded-full bg-indigo-600 flex-shrink-0" />
+                )}
+              </div>
             </div>
             <p className="text-xs text-muted-foreground line-clamp-2">
               {notification.message}
