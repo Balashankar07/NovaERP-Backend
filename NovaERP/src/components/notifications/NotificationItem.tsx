@@ -65,10 +65,13 @@ export const NotificationItemComponent: React.FC<Props> = ({
       onMarkRead(notification.id);
     }
     if (notification.actionUrl) {
-      navigate(notification.actionUrl);
       if (onNavigate) {
         onNavigate();
       }
+      // Use setTimeout to allow the dropdown/popover to close before navigating
+      setTimeout(() => {
+        navigate(notification.actionUrl!);
+      }, 0);
     }
   };
 
