@@ -515,7 +515,7 @@ public static class DbSeeder
                  p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View"),
             ["Warranty Executive"] = p => 
                 p.Contains("Warrant") || (p.Contains("Return") && p != "Permissions.Returns.Receive" && p != "Permissions.Returns.Inspect" && p != "Permissions.Returns.Disposition") || p.Contains("Dashboard") || p.Contains("Notifications") || 
-                p == "Permissions.Products.View" || p == "Permissions.Reports.Warranty" || p == "Permissions.Reports.View"
+                p == "Permissions.Products.View" || p == "Permissions.Reports.Warranty" || p == "Permissions.Reports.View" || p == "Permissions.Shipments.View"
         };
 
         foreach (var (targetRoleName, permFilter) in roleDefinitions)
@@ -940,6 +940,147 @@ public static class DbSeeder
             };
 
             await context.BOMs.AddRangeAsync(bom1, bom2, bom3, bom4, bom5);
+            await context.SaveChangesAsync();
+        }
+
+        // ==========================
+        // Seed Commercial Warranty Demo Delivery (TRK-20261026-9142 & SO-20261026-0001)
+        // ==========================
+        var iotProduct = await context.Products.FirstOrDefaultAsync(p => p.Name == "Nova Pro IoT Gateway Controller" || p.SKU == "SKU-FG-IOT-001");
+        if (iotProduct == null)
+        {
+            var electronicsCat = await context.ProductCategories.FirstOrDefaultAsync(c => c.Name == "Electronics") ?? await context.ProductCategories.FirstAsync();
+            var novaBrand = await context.Brands.FirstOrDefaultAsync(b => b.Name == "Sony" || b.Name == "Nova Electronics") ?? await context.Brands.FirstAsync();
+            var unitPcs = await context.Units.FirstOrDefaultAsync(u => u.Abbreviation == "pcs") ?? await context.Units.FirstAsync();
+
+            iotProduct = new Product
+            {
+                ProductNumber = "PRD-FG-001",
+                ProductCode = "FG-IOT-001",
+                SKU = "SKU-FG-IOT-001",
+                Name = "Nova Pro IoT Gateway Controller",
+                Description = "Industrial IoT Telemetry Controller with 4G & RS485 Modbus",
+                CategoryId = electronicsCat.Id,
+                BrandId = novaBrand.Id,
+                UnitId = unitPcs.Id,
+                Type = ProductType.FinishedGood,
+                CostPrice = 110.00m,
+                SellingPrice = 185.00m,
+                MinimumStock = 5,
+                MaximumStock = 100,
+                ReorderLevel = 10,
+                IsActive = true
+            };
+            await context.Products.AddAsync(iotProduct);
+            await context.SaveChangesAsync();
+        }
+
+        var defaultDistributor = await context.Distributors.FirstOrDefaultAsync() ?? new Distributor
+        {
+            CompanyName = "Global Distribution Corp",
+            ContactPerson = "John Sales",
+            Phone = "+15550199",
+            Email = "distributor@global.com",
+            Address = "100 Logistics Blvd, Suite 200",
+            IsActive = true
+        };
+        if (defaultDistributor.Id == Guid.Empty)
+        {
+            await context.Distributors.AddAsync(defaultDistributor);
+            await context.SaveChangesAsync();
+        }
+
+        var so2026 = await context.SalesOrders
+            .Include(s => s.SalesOrderItems)
+            .FirstOrDefaultAsync(s => s.OrderNumber == "SO-20261026-0001");
+
+        if (so2026 == null)
+        {
+            so2026 = new SalesOrder
+            {
+                OrderNumber = "SO-20261026-0001",
+                DistributorId = defaultDistributor.Id,
+                OrderDate = DateTime.SpecifyKind(new DateTime(2026, 10, 26, 3, 56, 20), DateTimeKind.Utc),
+                RequiredDeliveryDate = DateTime.SpecifyKind(new DateTime(2026, 10, 26, 12, 0, 0), DateTimeKind.Utc),
+                Status = SalesOrderStatus.Completed,
+                Currency = "USD",
+                Subtotal = 370.00m,
+                TaxAmount = 0m,
+                TotalAmount = 370.00m,
+                ShippingAddress = "100 Logistics Blvd, Suite 200",
+                Remarks = "Commercial Delivery for Nova Pro IoT Gateway Controller",
+                SalesOrderItems = new List<SalesOrderItem>
+                {
+                    new SalesOrderItem
+                    {
+                        ProductId = iotProduct.Id,
+                        Quantity = 2m,
+                        UnitPrice = 185.00m,
+                        TotalPrice = 370.00m,
+                        Unit = "pcs"
+                    }
+                }
+            };
+            await context.SalesOrders.AddAsync(so2026);
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            so2026.Status = SalesOrderStatus.Completed;
+            if (!so2026.SalesOrderItems.Any(i => i.ProductId == iotProduct.Id))
+            {
+                so2026.SalesOrderItems.Add(new SalesOrderItem
+                {
+                    ProductId = iotProduct.Id,
+                    Quantity = 2m,
+                    UnitPrice = 185.00m,
+                    TotalPrice = 370.00m,
+                    Unit = "pcs"
+                });
+            }
+            await context.SaveChangesAsync();
+        }
+
+        var targetShipment9142 = await context.Shipments
+            .Include(s => s.ShipmentItems)
+            .FirstOrDefaultAsync(s => s.TrackingNumber == "TRK-20261026-9142");
+
+        if (targetShipment9142 == null)
+        {
+            targetShipment9142 = new Shipment
+            {
+                TrackingNumber = "TRK-20261026-9142",
+                SalesOrderId = so2026.Id,
+                CourierName = "FedEx Express",
+                DispatchDate = DateTime.SpecifyKind(new DateTime(2026, 10, 26, 8, 0, 0), DateTimeKind.Utc),
+                DeliveryDate = DateTime.SpecifyKind(new DateTime(2026, 10, 26, 10, 30, 0), DateTimeKind.Utc),
+                Status = ShipmentStatus.Delivered,
+                ShipmentItems = new List<ShipmentItem>
+                {
+                    new ShipmentItem
+                    {
+                        ProductId = iotProduct.Id,
+                        Quantity = 2,
+                        DeliveredQuantity = 2
+                    }
+                }
+            };
+            await context.Shipments.AddAsync(targetShipment9142);
+            await context.SaveChangesAsync();
+        }
+        else
+        {
+            targetShipment9142.Status = ShipmentStatus.Delivered;
+            targetShipment9142.DeliveryDate ??= DateTime.SpecifyKind(new DateTime(2026, 10, 26, 10, 30, 0), DateTimeKind.Utc);
+            if (!targetShipment9142.ShipmentItems.Any(si => si.ProductId == iotProduct.Id))
+            {
+                targetShipment9142.ShipmentItems.Add(new ShipmentItem
+                {
+                    ProductId = iotProduct.Id,
+                    Quantity = 2,
+                    DeliveredQuantity = 2
+                });
+            }
             await context.SaveChangesAsync();
         }
     }

@@ -43,38 +43,88 @@ public class WarrantyService : IWarrantyService
         };
     }
 
+    public async Task<List<EligibleShipmentDto>> GetEligibleShipmentsAsync()
+    {
+        var deliveredShipments = await _unitOfWork.Shipments.GetDeliveredShipmentsWithDetailsAsync();
+        var result = new List<EligibleShipmentDto>();
+
+        foreach (var s in deliveredShipments)
+        {
+            var items = new List<EligibleShipmentItemDto>();
+            foreach (var si in s.ShipmentItems)
+            {
+                var registeredCount = await _unitOfWork.Warranties.GetCountForProductAndShipmentAsync(si.ProductId, s.Id);
+                items.Add(new EligibleShipmentItemDto
+                {
+                    Id = si.Id,
+                    ProductId = si.ProductId,
+                    ProductName = si.Product?.Name ?? "Product",
+                    ProductCode = si.Product?.ProductCode,
+                    SKU = si.Product?.SKU,
+                    Quantity = si.Quantity,
+                    RegisteredWarrantyCount = registeredCount,
+                    RemainingEligibleQuantity = Math.Max(0m, si.Quantity - registeredCount)
+                });
+            }
+
+            result.Add(new EligibleShipmentDto
+            {
+                Id = s.Id,
+                TrackingNumber = s.TrackingNumber,
+                CourierName = s.CourierName,
+                DeliveryDate = s.DeliveryDate,
+                OrderNumber = s.SalesOrder?.OrderNumber,
+                CustomerName = s.SalesOrder?.Distributor?.CompanyName,
+                Items = items
+            });
+        }
+
+        return result;
+    }
+
     public async Task<WarrantyDto> CreateWarrantyAsync(CreateWarrantyDto request)
     {
-        // Validate Product
+        // 1. Validate Product
         var product = await _unitOfWork.Products.GetByIdAsync(request.ProductId);
         if (product == null)
             throw new BadRequestException("Invalid Product ID.");
 
-        // Validate Shipment and Ensure it is Delivered
-        var shipment = await _unitOfWork.Shipments.GetByIdAsync(request.ShipmentId);
+        // 2. Validate Serial Number Uniqueness
+        var serialTrimmed = request.SerialNumber?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(serialTrimmed))
+            throw new BadRequestException("Serial number is required.");
+
+        var exists = await _unitOfWork.Warranties.ExistsBySerialNumberAsync(serialTrimmed);
+        if (exists)
+            throw new ConflictException($"Warranty with Serial Number '{serialTrimmed}' already exists.");
+
+        // 3. Validate Shipment with Details and Ensure it is Delivered
+        var shipment = await _unitOfWork.Shipments.GetShipmentWithDetailsAsync(request.ShipmentId);
         if (shipment == null)
             throw new BadRequestException("Invalid Shipment ID.");
         
         if (shipment.Status != ShipmentStatus.Delivered)
             throw new BadRequestException("Warranty can only be created from Delivered Shipments.");
 
+        // 4. Validate Product/Shipment Association
+        var shipmentItem = shipment.ShipmentItems.FirstOrDefault(si => si.ProductId == request.ProductId);
+        if (shipmentItem == null)
+            throw new BadRequestException("The specified product is not part of this delivered shipment.");
+
+        // 5. Validate Dates
         if (request.EndDate < request.StartDate)
             throw new BadRequestException("End Date cannot be before Start Date.");
 
-        var duplicateExists = await _unitOfWork.Warranties.ExistsForProductAndShipmentAsync(request.ProductId, request.ShipmentId);
-        if (duplicateExists)
-            throw new ConflictException("Warranty already exists for this product and shipment.");
-
-        // Check Serial Number Uniqueness
-        var exists = await _unitOfWork.Warranties.ExistsBySerialNumberAsync(request.SerialNumber);
-        if (exists)
-            throw new ConflictException("Warranty with this Serial Number already exists.");
+        // 6. Validate Unit Quantity & Duplicate Registrations
+        var registeredCount = await _unitOfWork.Warranties.GetCountForProductAndShipmentAsync(request.ProductId, request.ShipmentId);
+        if (registeredCount >= shipmentItem.Quantity)
+            throw new ConflictException($"All {shipmentItem.Quantity} unit(s) for product '{shipmentItem.Product?.Name ?? product.Name}' in shipment {shipment.TrackingNumber} already have registered warranties. A warranty already exists for all delivered units.");
 
         var warranty = new Warranty
         {
             ProductId = request.ProductId,
             ShipmentId = request.ShipmentId,
-            SerialNumber = request.SerialNumber,
+            SerialNumber = serialTrimmed,
             WarrantyType = request.WarrantyType,
             StartDate = request.StartDate,
             EndDate = request.EndDate,

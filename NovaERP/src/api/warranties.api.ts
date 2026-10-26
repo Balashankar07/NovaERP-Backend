@@ -1,6 +1,7 @@
 import { api } from "@/lib/api-helper";
 import { API_ENDPOINTS } from "./endpoints";
 import { PagedResult } from "@/types";
+import { WarrantySummaryDto } from "@/types/reports.types";
 
 export interface WarrantyDto {
   id: string;
@@ -43,13 +44,34 @@ export interface CreateWarrantyRequest {
   endDate: string;
 }
 
-import { WarrantySummaryDto } from "@/types/reports.types";
+export interface EligibleShipmentItemDto {
+  id: string;
+  productId: string;
+  productName: string;
+  productCode?: string;
+  sku?: string;
+  quantity: number;
+  registeredWarrantyCount: number;
+  remainingEligibleQuantity: number;
+}
+
+export interface EligibleShipmentDto {
+  id: string;
+  trackingNumber: string;
+  courierName?: string;
+  deliveryDate?: string;
+  orderNumber?: string;
+  customerName?: string;
+  items: EligibleShipmentItemDto[];
+}
 
 export const warrantiesApi = {
   getSummary: () =>
     api.get<WarrantySummaryDto>(API_ENDPOINTS.REPORTS.WARRANTY_SUMMARY),
   getAll: (params?: { pageNumber?: number; pageSize?: number; search?: string }) =>
     api.get<PagedResult<WarrantyDto>>(API_ENDPOINTS.WARRANTIES.BASE, { params }),
+  getEligibleShipments: () =>
+    api.get<EligibleShipmentDto[]>('/Warranties/eligible-shipments'),
   getById: (id: string) =>
     api.get<WarrantyDto>(API_ENDPOINTS.WARRANTIES.BY_ID(id)),
   create: (data: CreateWarrantyRequest) =>

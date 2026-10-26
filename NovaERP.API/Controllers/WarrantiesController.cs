@@ -1,4 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using NovaERP.API.Authorization;
 using NovaERP.API.Extensions;
@@ -32,6 +36,15 @@ public class WarrantiesController : ControllerBase
     {
         var result = await _warrantyService.GetAllWarrantiesAsync(pageNumber, pageSize, search, sortBy, sortOrder);
         return Ok(ApiResponse.SuccessResponse("Warranties retrieved successfully.", result));
+    }
+
+    [HttpGet("eligible-shipments")]
+    [HasPermission("Permissions.Warranties.Create")]
+    [ProducesResponseType(typeof(ApiResponse<List<EligibleShipmentDto>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetEligibleShipments()
+    {
+        var result = await _warrantyService.GetEligibleShipmentsAsync();
+        return Ok(ApiResponse.SuccessResponse("Eligible delivered shipments retrieved successfully.", result));
     }
 
     [HttpGet("{id:guid}")]

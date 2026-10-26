@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { shipmentsApi } from "@/api/shipments.api";
-import { warrantiesApi } from "@/api/warranties.api";
+import { warrantiesApi, EligibleShipmentDto } from "@/api/warranties.api";
 import { ShipmentDto } from "@/types/shipments.types";
 import {
   Dialog,
@@ -67,36 +67,97 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
   const [endDate, setEndDate] = useState<string>(oneYearLaterStr);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Fetch Delivered Shipments
-  const { data: shipmentsData, isLoading: isLoadingShipments } = useQuery({
-    queryKey: ["delivered-shipments-for-warranty"],
-    queryFn: () => shipmentsApi.getAll({ pageSize: 50 }),
+  // Fetch Delivered Shipments Eligible for Warranty
+  const { data: eligibleShipments, isLoading: isLoadingShipments, refetch: refetchShipments } = useQuery<EligibleShipmentDto[]>({
+    queryKey: ["eligible-shipments-for-warranty"],
+    queryFn: async () => {
+      try {
+        const res = await warrantiesApi.getEligibleShipments();
+        if (Array.isArray(res) && res.length > 0) {
+          return res;
+        }
+      } catch {
+        // Continue to fallback
+      }
+
+      // Fallback: fetch via shipmentsApi if dedicated endpoint is unavailable
+      try {
+        const fallback = await shipmentsApi.getAll({ pageSize: 100 });
+        const delivered = (fallback?.items || []).filter(
+          (s: ShipmentDto) => String(s.status).toLowerCase() === "delivered"
+        );
+        return delivered.map((s: ShipmentDto) => ({
+          id: s.id,
+          trackingNumber: s.trackingNumber,
+          courierName: s.courierName,
+          deliveryDate: s.deliveryDate,
+          orderNumber: s.orderNumber,
+          customerName: s.customerName,
+          items: (s.shipmentItems || []).map((i) => ({
+            id: i.id,
+            productId: i.productId,
+            productName: i.productName || i.productCode || "Product",
+            productCode: i.productCode,
+            sku: i.productCode,
+            quantity: i.quantity,
+            registeredWarrantyCount: 0,
+            remainingEligibleQuantity: i.quantity,
+          })),
+        }));
+      } catch {
+        return [];
+      }
+    },
     enabled: open,
-    staleTime: 10000,
+    staleTime: 5000,
   });
 
-  const deliveredShipments: ShipmentDto[] = (shipmentsData?.items || []).filter(
-    (s: ShipmentDto) => String(s.status).toLowerCase() === "delivered"
-  );
+  const deliveredShipments: EligibleShipmentDto[] = eligibleShipments || [];
 
-  // Pre-select shipment when dialog opens
+  // Pre-select shipment when dialog opens or data updates
   useEffect(() => {
     if (open) {
       setErrorMessage(null);
-      if (defaultShipmentId) {
+      if (defaultShipmentId && deliveredShipments.some((s) => s.id === defaultShipmentId)) {
         setSelectedShipmentId(defaultShipmentId);
-      } else if (deliveredShipments.length > 0 && !selectedShipmentId) {
-        setSelectedShipmentId(deliveredShipments[0].id);
+      } else if (deliveredShipments.length > 0 && (!selectedShipmentId || !deliveredShipments.some((s) => s.id === selectedShipmentId))) {
+        // Prefer shipment with remaining eligible items
+        const preferred = deliveredShipments.find((s) => s.items.some((i) => i.remainingEligibleQuantity > 0)) || deliveredShipments[0];
+        setSelectedShipmentId(preferred.id);
       }
     }
-  }, [open, defaultShipmentId, deliveredShipments.length]);
+  }, [open, defaultShipmentId, deliveredShipments]);
 
   const activeShipment = deliveredShipments.find((s) => s.id === selectedShipmentId);
 
-  // Pre-select product when shipment changes
+  // Pre-select product when active shipment changes
   useEffect(() => {
-    if (activeShipment?.shipmentItems && activeShipment.shipmentItems.length > 0) {
-      setSelectedProductId(activeShipment.shipmentItems[0].productId);
+    if (activeShipment?.items && activeShipment.items.length > 0) {
+      const eligibleItem = activeShipment.items.find((i) => i.remainingEligibleQuantity > 0) || activeShipment.items[0];
+      setSelectedProductId(eligibleItem.productId);
+
+      // Pre-fill start date from delivery date if available
+      if (activeShipment.deliveryDate) {
+        try {
+          const d = new Date(activeShipment.deliveryDate);
+          if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            const startStr = `${y}-${m}-${day}`;
+            setStartDate(startStr);
+
+            const dEnd = new Date(d);
+            dEnd.setFullYear(dEnd.getFullYear() + 1);
+            const endY = dEnd.getFullYear();
+            const endM = String(dEnd.getMonth() + 1).padStart(2, "0");
+            const endDay = String(dEnd.getDate()).padStart(2, "0");
+            setEndDate(`${endY}-${endM}-${endDay}`);
+          }
+        } catch {
+          // Keep current dates
+        }
+      }
     } else {
       setSelectedProductId("");
     }
@@ -115,6 +176,8 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
       toast.success("Commercial warranty registered successfully!");
       queryClient.invalidateQueries({ queryKey: ["warranties"] });
       queryClient.invalidateQueries({ queryKey: ["warranty", "summary"] });
+      queryClient.invalidateQueries({ queryKey: ["eligible-shipments-for-warranty"] });
+      refetchShipments();
       onOpenChange(false);
       if (onSuccess) onSuccess();
       // Reset form
@@ -138,7 +201,7 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
       return;
     }
     if (!selectedProductId) {
-      setErrorMessage("Please select a product from the shipment.");
+      setErrorMessage("Please select a product from the delivered shipment.");
       return;
     }
     if (!serialNumber.trim()) {
@@ -193,16 +256,16 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <Truck className="h-3.5 w-3.5 text-indigo-600" />
-              Delivered Shipment
+              Delivered Shipment <span className="text-rose-500">*</span>
             </Label>
             {isLoadingShipments ? (
               <div className="flex items-center gap-2 text-xs text-slate-500 py-1.5">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading delivered shipments...
               </div>
             ) : deliveredShipments.length === 0 ? (
-              <p className="text-xs text-amber-600 dark:text-amber-400">
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-900 dark:text-amber-300 text-xs">
                 No delivered shipments found eligible for warranty registration.
-              </p>
+              </div>
             ) : (
               <Select value={selectedShipmentId} onValueChange={setSelectedShipmentId}>
                 <SelectTrigger className="h-9 text-xs">
@@ -211,7 +274,7 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
                 <SelectContent>
                   {deliveredShipments.map((s) => (
                     <SelectItem key={s.id} value={s.id} className="text-xs">
-                      {s.trackingNumber} {s.orderNumber ? `(${s.orderNumber})` : ""} — {s.courierName}
+                      {s.trackingNumber} {s.orderNumber ? `(${s.orderNumber})` : ""} — {s.courierName || "Delivered"}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -223,29 +286,37 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
               <Package className="h-3.5 w-3.5 text-blue-600" />
-              Product
+              Product <span className="text-rose-500">*</span>
             </Label>
-            {activeShipment?.shipmentItems && activeShipment.shipmentItems.length > 0 ? (
-              <Select value={selectedProductId} onValueChange={setSelectedProductId}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Select product..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeShipment.shipmentItems.map((item) => (
-                    <SelectItem key={item.id} value={item.productId} className="text-xs">
-                      {item.productName || item.productCode || item.productId.substring(0, 8)} (Qty: {item.quantity})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                placeholder="Product ID"
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                className="h-9 text-xs"
-              />
-            )}
+            <Select
+              value={selectedProductId}
+              onValueChange={setSelectedProductId}
+              disabled={!activeShipment || !activeShipment.items || activeShipment.items.length === 0}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue
+                  placeholder={
+                    isLoadingShipments
+                      ? "Loading products..."
+                      : activeShipment?.items?.length
+                      ? "Select product..."
+                      : "No products available for selected shipment"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {activeShipment?.items?.map((item) => (
+                  <SelectItem key={item.id} value={item.productId} className="text-xs">
+                    {item.productName} ({item.productCode || item.sku || item.productId.substring(0, 8)}) — Qty: {item.quantity}
+                    {item.remainingEligibleQuantity !== undefined
+                      ? item.remainingEligibleQuantity > 0
+                        ? ` (${item.remainingEligibleQuantity} eligible)`
+                        : " (Fully registered)"
+                      : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Serial Number */}
@@ -254,7 +325,7 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
               Serial Number <span className="text-rose-500">*</span>
             </Label>
             <Input
-              placeholder="e.g. SN-BTS-20261025-0054"
+              placeholder="e.g. SN-IOT-20261026-0001"
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
               className="h-9 text-xs font-mono"
@@ -330,7 +401,12 @@ export const RegisterWarrantyDialog: React.FC<Props> = ({
               type="submit"
               size="sm"
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              disabled={registerMutation.isPending || deliveredShipments.length === 0}
+              disabled={
+                registerMutation.isPending ||
+                deliveredShipments.length === 0 ||
+                !selectedShipmentId ||
+                !selectedProductId
+              }
             >
               {registerMutation.isPending ? (
                 <>

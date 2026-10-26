@@ -1645,6 +1645,170 @@ public class Program
 				s16AllWarranties.TotalCount >= 1 &&
 				s16AllWarranties.Items.Any((WarrantyDto w) => w.TrackingNumber == "TRK-20261025-2594" && w.SerialNumber == s16TestSerial));
 
+			// =========================================================================
+			// SCENARIO 17: Commercial Warranty Multi-Unit Registration, Eligible Shipments & RBAC Authorization
+			// =========================================================================
+			Console.WriteLine("\n[SCENARIO 17] Commercial Warranty Multi-Unit Registration, Eligible Shipments & RBAC Authorization...");
+			await NovaERP.Infrastructure.Persistence.Seed.DbSeeder.SeedAsync(db, config);
+
+			// 17.1 Warranty Executive RBAC Permissions: View, Create, and Shipments.View
+			Role warrantyExecRole = await db.Roles.Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission).FirstOrDefaultAsync(r => r.Name == "Warranty Executive");
+			var execPerms = warrantyExecRole?.RolePermissions.Select(rp => rp.Permission?.Name).Where(p => p != null).ToHashSet() ?? new HashSet<string?>();
+			bool hasWarrantyCreate = execPerms.Contains("Permissions.Warranties.Create");
+			bool hasWarrantyView = execPerms.Contains("Permissions.Warranties.View");
+			bool hasShipmentsView = execPerms.Contains("Permissions.Shipments.View");
+
+			Assert("17.1 Warranty Executive role has Permissions.Warranties.Create, Permissions.Warranties.View, and Permissions.Shipments.View",
+				hasWarrantyCreate && hasWarrantyView && hasShipmentsView,
+				$"Create: {hasWarrantyCreate}, View: {hasWarrantyView}, Shipments.View: {hasShipmentsView}");
+
+			// 17.2 Unauthorized roles (e.g., Warehouse Manager) do not possess Warranty Create permissions
+			Role warehouseRole = await db.Roles.Include(r => r.RolePermissions).ThenInclude(rp => rp.Permission).FirstOrDefaultAsync(r => r.Name == "Warehouse Manager");
+			bool warehouseHasWarrantyCreate = warehouseRole?.RolePermissions.Any(rp => rp.Permission?.Name == "Permissions.Warranties.Create") ?? false;
+			Assert("17.2 Unauthorized role (Warehouse Manager) strictly lacks Permissions.Warranties.Create",
+				!warehouseHasWarrantyCreate);
+
+			// 17.3 Eligible shipment loading returns TRK-20261026-9142 with remaining capacity for 2 units
+			var eligibleShipments = await s16WarrantyService.GetEligibleShipmentsAsync();
+			var targetEligibleShipment = eligibleShipments.FirstOrDefault(s => s.TrackingNumber == "TRK-20261026-9142");
+
+			Assert("17.3 Delivered shipment TRK-20261026-9142 is present in eligible shipments list",
+				targetEligibleShipment != null && targetEligibleShipment.Items.Any());
+
+			var iotItem = targetEligibleShipment?.Items.FirstOrDefault(i => i.ProductName.Contains("Nova Pro IoT Gateway Controller") || i.SKU == "FG-IOT-001");
+			Assert("17.4 Eligible shipment item resolves 'Nova Pro IoT Gateway Controller' with Quantity = 2",
+				iotItem != null && iotItem.Quantity == 2);
+
+			// 17.5 Product mismatch rejection: registering a product not on TRK-20261026-9142 is strictly rejected
+			Product unrelatedProduct = await db.Products.FirstAsync(p => p.Id != iotItem!.ProductId);
+			bool productMismatchRejected = false;
+			try
+			{
+				await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = unrelatedProduct.Id,
+					ShipmentId = targetEligibleShipment!.Id,
+					SerialNumber = "SN-IOT-MISMATCH-0001",
+					WarrantyType = "Standard Commercial",
+					StartDate = DateTime.UtcNow,
+					EndDate = DateTime.UtcNow.AddYears(1)
+				});
+			}
+			catch (BadRequestException ex) when (ex.Message.Contains("not part of this delivered shipment"))
+			{
+				productMismatchRejected = true;
+			}
+			Assert("17.5 Warranty registration strictly rejects products not associated with the delivered shipment",
+				productMismatchRejected);
+
+			// 17.6 Unit 1 Registration: Register first unit (SN-IOT-20261026-0001) successfully
+			string serialUnit1 = "SN-IOT-20261026-0001";
+			var existingW1 = await db.Warranties.FirstOrDefaultAsync(w => w.SerialNumber == serialUnit1);
+			WarrantyDto w1;
+			if (existingW1 == null)
+			{
+				w1 = await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = iotItem!.ProductId,
+					ShipmentId = targetEligibleShipment!.Id,
+					SerialNumber = serialUnit1,
+					WarrantyType = "Standard Commercial",
+					StartDate = targetEligibleShipment.DeliveryDate ?? DateTime.UtcNow,
+					EndDate = (targetEligibleShipment.DeliveryDate ?? DateTime.UtcNow).AddYears(1)
+				});
+			}
+			else
+			{
+				w1 = await s16WarrantyService.GetWarrantyByIdAsync(existingW1.Id);
+			}
+
+			Assert("17.6 Unit 1 of 2 registered successfully with Active status and valid warranty dates",
+				w1.Status == WarrantyStatus.Active &&
+				w1.SerialNumber == serialUnit1 &&
+				w1.ShipmentId == targetEligibleShipment!.Id);
+
+			// 17.7 Unit 2 Registration: Register second unit (SN-IOT-20261026-0002) successfully
+			string serialUnit2 = "SN-IOT-20261026-0002";
+			var existingW2 = await db.Warranties.FirstOrDefaultAsync(w => w.SerialNumber == serialUnit2);
+			WarrantyDto w2;
+			if (existingW2 == null)
+			{
+				w2 = await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = iotItem!.ProductId,
+					ShipmentId = targetEligibleShipment!.Id,
+					SerialNumber = serialUnit2,
+					WarrantyType = "Standard Commercial",
+					StartDate = targetEligibleShipment.DeliveryDate ?? DateTime.UtcNow,
+					EndDate = (targetEligibleShipment.DeliveryDate ?? DateTime.UtcNow).AddYears(1)
+				});
+			}
+			else
+			{
+				w2 = await s16WarrantyService.GetWarrantyByIdAsync(existingW2.Id);
+			}
+
+			Assert("17.7 Unit 2 of 2 registered successfully with Active status",
+				w2.Status == WarrantyStatus.Active &&
+				w2.SerialNumber == serialUnit2 &&
+				w2.ShipmentId == targetEligibleShipment!.Id);
+
+			// 17.8 Unit 3 Rejection: Registering beyond delivered quantity of 2 units is rejected with ConflictException
+			bool overQuantityRejected = false;
+			try
+			{
+				await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = iotItem!.ProductId,
+					ShipmentId = targetEligibleShipment!.Id,
+					SerialNumber = "SN-IOT-20261026-0003",
+					WarrantyType = "Standard Commercial",
+					StartDate = DateTime.UtcNow,
+					EndDate = DateTime.UtcNow.AddYears(1)
+				});
+			}
+			catch (ConflictException ex) when (ex.Message.Contains("already have registered warranties") || ex.Message.Contains("already exists"))
+			{
+				overQuantityRejected = true;
+			}
+			Assert("17.8 Registering a 3rd warranty unit exceeding shipment delivered quantity (2) is strictly rejected",
+				overQuantityRejected);
+
+			// 17.9 Duplicate serial number rejection
+			bool duplicateSerialRejected = false;
+			try
+			{
+				await s16WarrantyService.CreateWarrantyAsync(new CreateWarrantyDto
+				{
+					ProductId = iotItem!.ProductId,
+					ShipmentId = targetEligibleShipment!.Id,
+					SerialNumber = serialUnit1,
+					WarrantyType = "Standard Commercial",
+					StartDate = DateTime.UtcNow,
+					EndDate = DateTime.UtcNow.AddYears(1)
+				});
+			}
+			catch (ConflictException ex) when (ex.Message.Contains("already exists"))
+			{
+				duplicateSerialRejected = true;
+			}
+			Assert("17.9 Duplicate warranty registration with existing Serial Number is strictly blocked",
+				duplicateSerialRejected);
+
+			// 17.10 Eligible shipments reflects 0 remaining quantity after all units are registered
+			var updatedEligibleShipments = await s16WarrantyService.GetEligibleShipmentsAsync();
+			var updatedTargetShipment = updatedEligibleShipments.FirstOrDefault(s => s.TrackingNumber == "TRK-20261026-9142");
+			var updatedItem = updatedTargetShipment?.Items.FirstOrDefault(i => i.ProductId == iotItem!.ProductId);
+			Assert("17.10 Eligible shipments accurately tracks capacity: 2 registered, 0 remaining",
+				updatedItem != null && updatedItem.RegisteredWarrantyCount == 2 && updatedItem.RemainingEligibleQuantity == 0);
+
+			// 17.11 Commercial Warranties query retrieves both registered warranties linked to TRK-20261026-9142
+			var pagedWarranties = await s16WarrantyService.GetAllWarrantiesAsync(1, 20, "TRK-20261026-9142", null, null);
+			Assert("17.11 Commercial Warranties list displays both warranties linked to TRK-20261026-9142 with complete details",
+				pagedWarranties.TotalCount >= 2 &&
+				pagedWarranties.Items.Any(w => w.SerialNumber == serialUnit1) &&
+				pagedWarranties.Items.Any(w => w.SerialNumber == serialUnit2));
+
 			Console.WriteLine("\n================================================================================");
 			Console.WriteLine($"  TEST RUN COMPLETED: {passedCount} PASSED, {failedCount} FAILED");
 			Console.WriteLine("================================================================================\n");

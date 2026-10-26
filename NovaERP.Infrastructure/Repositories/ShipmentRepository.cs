@@ -1,6 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NovaERP.Application.Interfaces.Repositories;
 using NovaERP.Domain.Entities;
+using NovaERP.Domain.Enums;
 using NovaERP.Infrastructure.Persistence.Context;
 
 namespace NovaERP.Infrastructure.Repositories;
@@ -20,6 +25,19 @@ public class ShipmentRepository : Repository<Shipment>, IShipmentRepository
                 .ThenInclude(so => so!.Distributor)
             .FirstOrDefaultAsync(s => s.Id == id);
     }
+
+    public async Task<List<Shipment>> GetDeliveredShipmentsWithDetailsAsync()
+    {
+        return await _context.Shipments
+            .Where(s => s.Status == ShipmentStatus.Delivered)
+            .Include(s => s.SalesOrder)
+                .ThenInclude(so => so!.Distributor)
+            .Include(s => s.ShipmentItems)
+                .ThenInclude(si => si.Product)
+            .OrderByDescending(s => s.DeliveryDate ?? s.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<int> GetCountAsync()
     {
         return await _context.Shipments.CountAsync();

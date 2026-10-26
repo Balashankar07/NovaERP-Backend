@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using NovaERP.Application.Common.Models;
 using NovaERP.Application.Interfaces.Repositories;
@@ -20,6 +23,11 @@ public class WarrantyRepository : Repository<Warranty>, IWarrantyRepository
     public async Task<bool> ExistsForProductAndShipmentAsync(Guid productId, Guid shipmentId)
     {
         return await _context.Set<Warranty>().AnyAsync(w => w.ProductId == productId && w.ShipmentId == shipmentId);
+    }
+
+    public async Task<int> GetCountForProductAndShipmentAsync(Guid productId, Guid shipmentId)
+    {
+        return await _context.Set<Warranty>().CountAsync(w => w.ProductId == productId && w.ShipmentId == shipmentId);
     }
 
     public override async Task<PagedResult<Warranty>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)

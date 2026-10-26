@@ -8,6 +8,7 @@ public interface IWarrantyService
     // Warranties
     Task<WarrantyDto> GetWarrantyByIdAsync(Guid id);
     Task<PagedResult<WarrantyDto>> GetAllWarrantiesAsync(int pageNumber, int pageSize, string? search, string? sortBy, string? sortOrder);
+    Task<List<EligibleShipmentDto>> GetEligibleShipmentsAsync();
     Task<WarrantyDto> CreateWarrantyAsync(CreateWarrantyDto request);
     Task<WarrantyDto> UpdateWarrantyAsync(Guid id, UpdateWarrantyDto request);
     Task DeleteWarrantyAsync(Guid id);
