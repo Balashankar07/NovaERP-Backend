@@ -37,6 +37,24 @@ public class QualityInspectionConfiguration : IEntityTypeConfiguration<QualityIn
             .IsRequired(false)
             .OnDelete(DeleteBehavior.SetNull);
 
+        builder.HasOne(qi => qi.GoodsReceipt)
+            .WithMany()
+            .HasForeignKey(qi => qi.GoodsReceiptId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(qi => qi.GoodsReceiptItem)
+            .WithMany()
+            .HasForeignKey(qi => qi.GoodsReceiptItemId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.HasOne(qi => qi.SourceWarehouseLocation)
+            .WithMany()
+            .HasForeignKey(qi => qi.SourceWarehouseLocationId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasOne(qi => qi.Product)
             .WithMany()
             .HasForeignKey(qi => qi.ProductId)

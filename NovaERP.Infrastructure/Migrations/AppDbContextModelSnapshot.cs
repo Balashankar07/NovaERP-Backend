@@ -3516,6 +3516,12 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<Guid?>("GoodsReceiptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("GoodsReceiptItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal>("InspectedQuantity")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -3551,6 +3557,9 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
 
+                    b.Property<Guid?>("SourceWarehouseLocationId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Status")
                         .IsConcurrencyToken()
                         .HasColumnType("integer");
@@ -3562,6 +3571,10 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("GoodsReceiptId");
+
+                    b.HasIndex("GoodsReceiptItemId");
 
                     b.HasIndex("InspectionNumber")
                         .IsUnique();
@@ -3575,6 +3588,8 @@ namespace NovaERP.Infrastructure.Migrations
                     b.HasIndex("ProductId");
 
                     b.HasIndex("ProductionExecutionId");
+
+                    b.HasIndex("SourceWarehouseLocationId");
 
                     b.ToTable("QualityInspections", (string)null);
                 });
@@ -5014,6 +5029,11 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsQuarantine")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("LocationCode")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -6446,6 +6466,16 @@ namespace NovaERP.Infrastructure.Migrations
 
             modelBuilder.Entity("NovaERP.Domain.Entities.QualityInspection", b =>
                 {
+                    b.HasOne("NovaERP.Domain.Entities.GoodsReceipt", "GoodsReceipt")
+                        .WithMany()
+                        .HasForeignKey("GoodsReceiptId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("NovaERP.Domain.Entities.GoodsReceiptItem", "GoodsReceiptItem")
+                        .WithMany()
+                        .HasForeignKey("GoodsReceiptItemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("NovaERP.Domain.Entities.User", "Inspector")
                         .WithMany()
                         .HasForeignKey("InspectorId")
@@ -6472,6 +6502,15 @@ namespace NovaERP.Infrastructure.Migrations
                         .HasForeignKey("ProductionExecutionId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("NovaERP.Domain.Entities.WarehouseLocation", "SourceWarehouseLocation")
+                        .WithMany()
+                        .HasForeignKey("SourceWarehouseLocationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("GoodsReceipt");
+
+                    b.Navigation("GoodsReceiptItem");
+
                     b.Navigation("Inspector");
 
                     b.Navigation("OutputWarehouse");
@@ -6481,6 +6520,8 @@ namespace NovaERP.Infrastructure.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("ProductionExecution");
+
+                    b.Navigation("SourceWarehouseLocation");
                 });
 
             modelBuilder.Entity("NovaERP.Domain.Entities.ReplacementOrder", b =>

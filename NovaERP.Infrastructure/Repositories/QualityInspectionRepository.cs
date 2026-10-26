@@ -20,7 +20,13 @@ public class QualityInspectionRepository : IQualityInspectionRepository
         var query = _context.QualityInspections
             .Include(q => q.QualityDefects)
             .Include(q => q.ProductionExecution)
+            .Include(q => q.GoodsReceipt)
+            .Include(q => q.GoodsReceiptItem)
             .Include(q => q.Product)
+            .Include(q => q.Inspector)
+            .Include(q => q.SourceWarehouseLocation)
+            .Include(q => q.OutputWarehouse)
+            .Include(q => q.OutputWarehouseLocation)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -60,6 +66,14 @@ public class QualityInspectionRepository : IQualityInspectionRepository
     {
         return await _context.QualityInspections
             .Include(q => q.QualityDefects)
+            .Include(q => q.GoodsReceipt)
+            .Include(q => q.GoodsReceiptItem)
+            .Include(q => q.ProductionExecution)
+            .Include(q => q.Product)
+            .Include(q => q.Inspector)
+            .Include(q => q.SourceWarehouseLocation)
+            .Include(q => q.OutputWarehouse)
+            .Include(q => q.OutputWarehouseLocation)
             .FirstOrDefaultAsync(q => q.Id == id);
     }
 
@@ -68,14 +82,24 @@ public class QualityInspectionRepository : IQualityInspectionRepository
         return await _context.QualityInspections
             .Include(q => q.QualityDefects)
             .Include(q => q.ProductionExecution)
+            .Include(q => q.GoodsReceipt)
+            .Include(q => q.GoodsReceiptItem)
             .Include(q => q.Product)
             .Include(q => q.Inspector)
+            .Include(q => q.SourceWarehouseLocation)
+            .Include(q => q.OutputWarehouse)
+            .Include(q => q.OutputWarehouseLocation)
             .FirstOrDefaultAsync(q => q.Id == id);
     }
 
     public async Task<bool> ExistsByExecutionIdAsync(Guid executionId)
     {
         return await _context.QualityInspections.AnyAsync(q => q.ProductionExecutionId == executionId && q.Status != Domain.Enums.QualityInspectionStatus.Cancelled);
+    }
+
+    public async Task<bool> ExistsByGoodsReceiptItemIdAsync(Guid goodsReceiptItemId)
+    {
+        return await _context.QualityInspections.AnyAsync(q => q.GoodsReceiptItemId == goodsReceiptItemId && q.Status != Domain.Enums.QualityInspectionStatus.Cancelled);
     }
 
     public async Task<string> GenerateInspectionNumberAsync()

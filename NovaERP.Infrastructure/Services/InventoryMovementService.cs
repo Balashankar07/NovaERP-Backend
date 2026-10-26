@@ -96,6 +96,9 @@ public class InventoryMovementService : IInventoryMovementService
             if (inventory == null)
                 throw new InvalidOperationException($"Insufficient inventory available for Product {productId}.");
 
+            if (IsQuarantineLocation(inventory.WarehouseLocation))
+                throw new InvalidOperationException($"Cannot issue stock from quarantine location {inventory.WarehouseLocation?.LocationName ?? "Quarantine"}. Quality inspection approval required.");
+
             if (inventory.QuantityAvailable < quantity)
                 throw new InvalidOperationException($"Insufficient inventory available for Product {productId}. Required: {quantity}, Available: {inventory.QuantityAvailable}");
 
@@ -124,6 +127,9 @@ public class InventoryMovementService : IInventoryMovementService
         var inventory = await _unitOfWork.Inventories.GetByProductAndLocationAsync(productId, warehouseId, locationId);
         if (inventory == null || inventory.QuantityAvailable < quantity)
             throw new InvalidOperationException($"Insufficient inventory to reserve for Product {productId}. Required: {quantity}, Available: {inventory?.QuantityAvailable ?? 0}");
+
+        if (IsQuarantineLocation(inventory.WarehouseLocation))
+            throw new InvalidOperationException($"Cannot reserve stock from quarantine location {inventory.WarehouseLocation?.LocationName ?? "Quarantine"}.");
 
         inventory.QuantityReserved += quantity;
         inventory.QuantityAvailable = inventory.QuantityOnHand - inventory.QuantityReserved;
@@ -208,6 +214,8 @@ public class InventoryMovementService : IInventoryMovementService
     public async Task TransferAsync(Guid productId, Guid sourceWarehouseId, Guid? sourceLocationId, Guid destWarehouseId, Guid? destLocationId, decimal quantity, string reason, Guid? currentUserId)
     {
         if (quantity <= 0) throw new ArgumentException("Quantity must be greater than zero.", nameof(quantity));
+        if (sourceWarehouseId == destWarehouseId && sourceLocationId == destLocationId)
+            throw new InvalidOperationException("Source and destination warehouse locations must be different for an inventory transfer.");
 
         var sourceInv = await _unitOfWork.Inventories.GetByProductAndLocationAsync(productId, sourceWarehouseId, sourceLocationId);
         if (sourceInv == null || sourceInv.QuantityAvailable < quantity)
@@ -257,7 +265,7 @@ public class InventoryMovementService : IInventoryMovementService
 
         var inventories = await _unitOfWork.Inventories.GetByProductIdAsync(productId);
         var availableInventories = inventories
-            .Where(i => i.QuantityAvailable > 0)
+            .Where(i => i.QuantityAvailable > 0 && !IsQuarantineLocation(i.WarehouseLocation))
             .OrderBy(i => i.CreatedAt)
             .ToList();
 
@@ -342,7 +350,7 @@ public class InventoryMovementService : IInventoryMovementService
 
         var inventories = await _unitOfWork.Inventories.GetByProductIdAsync(productId);
         var availableInventories = inventories
-            .Where(i => i.QuantityAvailable > 0)
+            .Where(i => i.QuantityAvailable > 0 && !IsQuarantineLocation(i.WarehouseLocation))
             .OrderBy(i => i.CreatedAt)
             .ToList();
 
@@ -421,6 +429,14 @@ public class InventoryMovementService : IInventoryMovementService
             reservation.UpdatedAt = DateTime.UtcNow;
             _unitOfWork.InventoryReservations.Update(reservation);
         }
+    }
+
+        private static bool IsQuarantineLocation(WarehouseLocation? location)
+    {
+        if (location == null) return false;
+        return location.IsQuarantine 
+            || string.Equals(location.LocationCode, "QC-QUARANTINE", StringComparison.OrdinalIgnoreCase)
+            || (location.LocationName != null && location.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase));
     }
 
     private void AssertInvariants(Inventory inventory)

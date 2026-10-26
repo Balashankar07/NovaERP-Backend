@@ -42,7 +42,29 @@ public class GoodsReceiptService : IGoodsReceiptService
     public async Task<GoodsReceiptDto?> GetByIdAsync(Guid id)
     {
         var grn = await _unitOfWork.GoodsReceipts.GetGoodsReceiptWithItemsAsync(id);
-        return grn == null ? null : MapToDto(grn);
+        if (grn == null) return null;
+        var dto = MapToDto(grn);
+
+        try
+        {
+            var pagedInspections = await _unitOfWork.QualityInspections.GetAllPagedAsync(1, 100);
+            var grnInspections = pagedInspections.Items.Where(q => q.GoodsReceiptId == id).ToList();
+            foreach (var item in dto.Items)
+            {
+                var qi = grnInspections.FirstOrDefault(q => q.GoodsReceiptItemId == item.Id);
+                if (qi != null)
+                {
+                    item.QualityInspectionId = qi.Id;
+                    item.QualityInspectionStatus = qi.Status.ToString();
+                    item.InspectedQuantity = qi.InspectedQuantity;
+                    item.PassedQuantity = qi.PassedQuantity;
+                    item.FailedQuantity = qi.FailedQuantity;
+                }
+            }
+        }
+        catch { /* Non-critical */ }
+
+        return dto;
     }
 
     public async Task<GoodsReceiptDto> CreateAsync(Guid currentUserId, CreateGoodsReceiptDto dto)
@@ -376,22 +398,88 @@ public class GoodsReceiptService : IGoodsReceiptService
             warehouseId = defaultWarehouse.Id;
         }
 
+        var quarantineLocation = await GetOrCreateQuarantineLocationAsync(warehouseId.Value);
+
         foreach (var item in grn.Items)
         {
             decimal receivedQty = item.ReceivedQuantity - item.RejectedQuantity;
             if (receivedQty > 0)
             {
+                // Receive raw material into quarantine location (non-usable inventory state)
                 await _inventoryMovementService.ReceiveAsync(
                     item.ProductId,
                     warehouseId.Value,
-                    grn.WarehouseLocationId,
+                    quarantineLocation.Id,
                     receivedQty,
                     InventoryReferenceType.GoodsReceipt,
                     grn.Id,
-                    $"Received from GRN: {grn.GRNNumber}",
+                    $"Received into QC Quarantine from GRN: {grn.GRNNumber}",
                     grn.ReceivedBy);
+
+                // Auto-create Quality Inspection for incoming goods receipt line in Draft status
+                var qiNumber = await _unitOfWork.QualityInspections.GenerateInspectionNumberAsync();
+                Guid? destinationLocationId = (grn.WarehouseLocationId.HasValue && grn.WarehouseLocationId.Value != quarantineLocation.Id)
+                    ? grn.WarehouseLocationId
+                    : null;
+
+                var inspection = new QualityInspection
+                {
+                    InspectionNumber = qiNumber,
+                    GoodsReceiptId = grn.Id,
+                    GoodsReceiptItemId = item.Id,
+                    ProductId = item.ProductId,
+                    InspectedQuantity = receivedQty,
+                    PassedQuantity = 0,
+                    FailedQuantity = 0,
+                    Status = QualityInspectionStatus.Draft,
+                    SourceWarehouseLocationId = quarantineLocation.Id,
+                    OutputWarehouseId = warehouseId.Value,
+                    OutputWarehouseLocationId = destinationLocationId,
+                    Remarks = $"Incoming QC Inspection for GRN {grn.GRNNumber}",
+                    CreatedBy = grn.ReceivedBy,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _unitOfWork.QualityInspections.AddAsync(inspection);
             }
         }
+    }
+
+    private async Task<WarehouseLocation> GetOrCreateQuarantineLocationAsync(Guid warehouseId)
+    {
+        var locations = await _unitOfWork.WarehouseLocations.GetByWarehouseIdAsync(warehouseId);
+        var quarantine = locations.FirstOrDefault(l => l.IsQuarantine || string.Equals(l.LocationCode, "QC-QUARANTINE", StringComparison.OrdinalIgnoreCase) || (l.LocationName != null && l.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)));
+        if (quarantine != null)
+        {
+            if (!quarantine.IsQuarantine)
+            {
+                quarantine.IsQuarantine = true;
+                _unitOfWork.WarehouseLocations.Update(quarantine);
+                await _unitOfWork.SaveChangesAsync();
+            }
+            return quarantine;
+        }
+
+        quarantine = new WarehouseLocation
+        {
+            Id = Guid.NewGuid(),
+            WarehouseId = warehouseId,
+            LocationCode = "QC-QUARANTINE",
+            LocationName = "QC Quarantine Area",
+            Zone = "QC",
+            Rack = "Q1",
+            Shelf = "S1",
+            Bin = "B1",
+            Description = "Quarantine storage for incoming raw materials awaiting quality inspection",
+            IsQuarantine = true,
+            IsActive = true,
+            Type = LocationType.Bin,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.WarehouseLocations.AddAsync(quarantine);
+        await _unitOfWork.SaveChangesAsync();
+        return quarantine;
     }
 
     private GoodsReceiptDto MapToDto(GoodsReceipt grn)
@@ -408,6 +496,8 @@ public class GoodsReceiptService : IGoodsReceiptService
             Status = grn.Status.ToString(),
             Remarks = grn.Remarks,
             ReceivedBy = grn.ReceivedBy,
+            WarehouseId = grn.WarehouseId,
+            WarehouseLocationId = grn.WarehouseLocationId,
             IsActive = grn.IsActive,
             CreatedAt = grn.CreatedAt,
             UpdatedAt = grn.UpdatedAt,

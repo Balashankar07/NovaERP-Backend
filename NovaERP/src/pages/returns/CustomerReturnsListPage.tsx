@@ -81,7 +81,9 @@ export const CustomerReturnsListPage: React.FC = () => {
                 <SelectItem value={CustomerReturnStatus.Submitted.toString()}>Submitted</SelectItem>
                 <SelectItem value={CustomerReturnStatus.Approved.toString()}>Approved</SelectItem>
                 <SelectItem value={CustomerReturnStatus.Rejected.toString()}>Rejected</SelectItem>
-                <SelectItem value={CustomerReturnStatus.Completed.toString()}>Completed</SelectItem>
+                <SelectItem value={CustomerReturnStatus.Received.toString()}>Received</SelectItem>
+                <SelectItem value={CustomerReturnStatus.Inspected.toString()}>Inspected</SelectItem>
+                <SelectItem value={CustomerReturnStatus.Closed.toString()}>Closed</SelectItem>
               </SelectContent>
             </Select>
           </div>

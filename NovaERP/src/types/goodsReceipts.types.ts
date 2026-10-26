@@ -15,6 +15,11 @@ export interface GoodsReceiptItemDto {
   receivedQuantity: number;
   rejectedQuantity: number;
   remarks?: string;
+  qualityInspectionId?: string;
+  qualityInspectionStatus?: string;
+  inspectedQuantity?: number;
+  passedQuantity?: number;
+  failedQuantity?: number;
 }
 
 export interface GoodsReceiptDto {
@@ -60,7 +65,8 @@ export interface UpdateGoodsReceiptItemDto {
 }
 
 export interface UpdateGoodsReceiptDto {
+  warehouseId?: string;
+  warehouseLocationId?: string;
   remarks?: string;
-  isActive: boolean;
-  items: UpdateGoodsReceiptItemDto[];
+  items?: UpdateGoodsReceiptItemDto[];
 }

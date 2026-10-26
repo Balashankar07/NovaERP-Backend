@@ -27,6 +27,21 @@ public static class DbSeeder
 
         await context.Database.MigrateAsync();
 
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(@"
+                UPDATE ""Notifications""
+                SET ""Title"" = REPLACE(""Title"", 'Warranty Coverage Active:', 'Warranty Registration Eligible:'),
+                    ""Message"" = 'Shipment ' || COALESCE(s.""TrackingNumber"", 'delivered') || ' delivered. Products are now eligible for commercial warranty registration with valid serial numbers.',
+                    ""ActionUrl"" = '/warranty?tab=warranties&shipmentId=' || ""Notifications"".""EntityId""
+                FROM ""Shipments"" s
+                WHERE ""Notifications"".""EntityType"" = 'Shipment'
+                  AND ""Notifications"".""EntityId""::uuid = s.""Id""
+                  AND ""Notifications"".""Title"" LIKE 'Warranty Coverage Active%';
+            ");
+        }
+        catch { }
+
         // ==========================
         // Seed Company
         // ==========================
@@ -125,6 +140,28 @@ public static class DbSeeder
         }
         await context.SaveChangesAsync();
 
+        // Clean up legacy non-canonical roles and users (e.g. Sales Representative)
+        var salesRepRole = allRoles.FirstOrDefault(r => r.Name == "Sales Representative") ?? 
+                           await context.Roles.FirstOrDefaultAsync(r => r.Name == "Sales Representative");
+        if (salesRepRole != null)
+        {
+            var urList = await context.UserRoles.Where(ur => ur.RoleId == salesRepRole.Id).ToListAsync();
+            context.UserRoles.RemoveRange(urList);
+            var rpList = await context.RolePermissions.Where(rp => rp.RoleId == salesRepRole.Id).ToListAsync();
+            context.RolePermissions.RemoveRange(rpList);
+            context.Roles.Remove(salesRepRole);
+            allRoles.Remove(salesRepRole);
+            await context.SaveChangesAsync();
+        }
+
+        var salesRepUser = await context.Users.FirstOrDefaultAsync(u => u.Email == "salesrep@novaerp.com");
+        if (salesRepUser != null && salesRepUser.IsActive)
+        {
+            salesRepUser.IsActive = false;
+            context.Users.Update(salesRepUser);
+            await context.SaveChangesAsync();
+        }
+
         // ==========================
         // Seed Canonical Roles
         // ==========================
@@ -136,7 +173,6 @@ public static class DbSeeder
             "Warehouse Manager",
             "Quality Engineer",
             "Sales Manager",
-            "Sales Representative",
             "Warranty Executive"
         };
 
@@ -461,11 +497,13 @@ public static class DbSeeder
                 p.Contains("Warehouse") || p.Contains("Inventory") || p.Contains("GoodsReceipt") || 
                 p.Contains("Shipment") || p.Contains("LogisticsDocument") || p.Contains("Dashboard") || p.Contains("Notifications") || 
                 p == "Permissions.Products.View" || p == "Permissions.Reports.Inventory" || p == "Permissions.Reports.View" ||
-                p == "Permissions.SalesOrders.View" || p == "Permissions.SalesOrders.Reserve",
+                p == "Permissions.SalesOrders.View" || p == "Permissions.SalesOrders.Reserve" ||
+                p == "Permissions.Returns.View" || p == "Permissions.Returns.Receive",
             ["Quality Engineer"] = p => 
                 p.Contains("Quality") || p.Contains("NCR") || p.Contains("CAPA") || 
                 p.Contains("Scrap") || p.Contains("Rework") || p.Contains("Dashboard") || p.Contains("Notifications") || 
-                p == "Permissions.Products.View" || p == "Permissions.BOMs.View" || p == "Permissions.Reports.Quality" || p == "Permissions.Reports.View",
+                p == "Permissions.Products.View" || p == "Permissions.BOMs.View" || p == "Permissions.Reports.Quality" || p == "Permissions.Reports.View" ||
+                p == "Permissions.Returns.View" || p == "Permissions.Returns.Inspect" || p == "Permissions.Returns.Disposition",
             ["Sales Manager"] = p => 
                 ((p.Contains("Sales") && p != "Permissions.SalesOrders.Reserve") || 
                  p == "Permissions.Shipments.View" || 
@@ -475,19 +513,8 @@ public static class DbSeeder
                  p == "Permissions.Products.View" || p == "Permissions.ProductCategories.View" || 
                  p == "Permissions.Brands.View" || p == "Permissions.Units.View" || 
                  p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View"),
-            ["Sales Representative"] = p => 
-                (p == "Permissions.SalesOrders.View" || 
-                 p == "Permissions.SalesOrders.Create" || 
-                 p == "Permissions.SalesOrders.Update" || 
-                 p == "Permissions.SalesOrders.Submit" || 
-                 p == "Permissions.Shipments.View" || 
-                 p.Contains("Dashboard") || p.Contains("Notifications") || 
-                 p == "Permissions.Products.View" || p == "Permissions.ProductCategories.View" || 
-                 p == "Permissions.Brands.View" || p == "Permissions.Units.View" || 
-                 p == "Companies.View" || 
-                 p == "Permissions.Reports.Sales" || p == "Permissions.Reports.View"),
             ["Warranty Executive"] = p => 
-                p.Contains("Warrant") || p.Contains("Return") || p.Contains("Dashboard") || p.Contains("Notifications") || 
+                p.Contains("Warrant") || (p.Contains("Return") && p != "Permissions.Returns.Receive" && p != "Permissions.Returns.Inspect" && p != "Permissions.Returns.Disposition") || p.Contains("Dashboard") || p.Contains("Notifications") || 
                 p == "Permissions.Products.View" || p == "Permissions.Reports.Warranty" || p == "Permissions.Reports.View"
         };
 
@@ -520,6 +547,23 @@ public static class DbSeeder
             }
         }
 
+        // Segregation of Duties: ensure Sales Manager explicitly does NOT have Permissions.SalesOrders.Reserve
+        var salesMgrRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Sales Manager");
+        if (salesMgrRole != null)
+        {
+            var reservePerm = allPermsDict.Values.FirstOrDefault(p => p.Name == "Permissions.SalesOrders.Reserve");
+            if (reservePerm != null)
+            {
+                var invalidRolePerm = await context.RolePermissions
+                    .FirstOrDefaultAsync(rp => rp.RoleId == salesMgrRole.Id && rp.PermissionId == reservePerm.Id);
+                if (invalidRolePerm != null)
+                {
+                    context.RolePermissions.Remove(invalidRolePerm);
+                    await context.SaveChangesAsync();
+                }
+            }
+        }
+
         // ==========================
         // Seed Canonical Users (all 7 roles)
         // ==========================
@@ -534,7 +578,6 @@ public static class DbSeeder
                 ("warehouse@novaerp.com", "Warehouse", "Manager", "Warehouse Manager", "+91 9999999993", "Warehouse@123"),
                 ("quality@novaerp.com", "Quality", "Engineer", "Quality Engineer", "+91 9999999994", "Quality@123"),
                 ("sales@novaerp.com", "Sales", "Manager", "Sales Manager", "+91 9999999995", "Sales@123"),
-                ("salesrep@novaerp.com", "Sales", "Representative", "Sales Representative", "+91 9999999997", "Salesrep@123"),
                 ("warranty@novaerp.com", "Warranty", "Executive", "Warranty Executive", "+91 9999999996", "Warranty@123")
             };
 

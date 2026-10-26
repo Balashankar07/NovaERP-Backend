@@ -13,17 +13,29 @@ export interface QualityDefect {
 export interface QualityInspection {
     id: string;
     inspectionNumber: string;
-    productionExecutionId: string;
+    productionExecutionId?: string;
+    productionExecutionNumber?: string;
+    goodsReceiptId?: string;
+    goodsReceiptNumber?: string;
+    goodsReceiptItemId?: string;
+    inspectionType?: 'Production' | 'IncomingGRN' | string;
+    sourceWarehouseLocationId?: string;
+    sourceWarehouseLocationName?: string;
     productId: string;
+    productName?: string;
+    productCode?: string;
     inspectedQuantity: number;
     passedQuantity: number;
     failedQuantity: number;
     status: QualityInspectionStatus;
     inspectorId?: string;
+    inspectorName?: string;
     inspectionDate?: string;
     remarks?: string;
     outputWarehouseId?: string;
+    outputWarehouseName?: string;
     outputWarehouseLocationId?: string;
+    outputWarehouseLocationName?: string;
     qualityDefects: QualityDefect[];
 }
 

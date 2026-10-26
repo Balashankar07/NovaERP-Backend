@@ -9,6 +9,7 @@ public interface IQualityInspectionRepository
     Task<QualityInspection?> GetByIdAsync(Guid id);
     Task<QualityInspection?> GetByIdWithDetailsAsync(Guid id);
     Task<bool> ExistsByExecutionIdAsync(Guid executionId);
+    Task<bool> ExistsByGoodsReceiptItemIdAsync(Guid goodsReceiptItemId);
     Task<string> GenerateInspectionNumberAsync();
     
     Task AddAsync(QualityInspection inspection);

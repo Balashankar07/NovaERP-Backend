@@ -30,6 +30,14 @@ const getStatusBadge = (status: ShipmentStatus) => {
   }
 };
 
+const getTodayLocalDateString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export function ShipmentDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -43,7 +51,8 @@ export function ShipmentDetailsPage() {
   // Delivery Dialog State (Proof of Delivery / POD)
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [receivedBy, setReceivedBy] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState(new Date().toISOString().split("T")[0]);
+  const [deliveryDate, setDeliveryDate] = useState(() => getTodayLocalDateString());
+  const [deliveryDateError, setDeliveryDateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) loadShipment();
@@ -84,6 +93,18 @@ export function ShipmentDetailsPage() {
   const confirmDeliver = async () => {
     if (!shipment) return;
     
+    const todayLocal = getTodayLocalDateString();
+    if (!deliveryDate || deliveryDate < todayLocal) {
+      setDeliveryDateError("Actual delivery date cannot be in the past.");
+      toast.error("Actual delivery date cannot be in the past.");
+      return;
+    }
+
+    if (!receivedBy.trim()) {
+      toast.error("Received By / Signee Name is required.");
+      return;
+    }
+
     const payload: DeliverShipmentDto = {
       deliveredItems: shipment.shipmentItems.map(i => ({
         shipmentItemId: i.id,
@@ -168,7 +189,11 @@ export function ShipmentDetailsPage() {
             {isDispatched && (
               <PermissionButton
                 permission="Permissions.Shipments.Deliver"
-                onClick={() => setIsDeliverDialogOpen(true)}
+                onClick={() => {
+                  setDeliveryDate(getTodayLocalDateString());
+                  setDeliveryDateError(null);
+                  setIsDeliverDialogOpen(true);
+                }}
                 disabled={actionLoading}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 text-xs"
               >
@@ -331,7 +356,10 @@ export function ShipmentDetailsPage() {
       {isDeliverDialogOpen && (
         <Modal
           isOpen={isDeliverDialogOpen}
-          onClose={() => setIsDeliverDialogOpen(false)}
+          onClose={() => {
+            setIsDeliverDialogOpen(false);
+            setDeliveryDateError(null);
+          }}
           title="Confirm Freight Delivery (POD)"
           size="md"
         >
@@ -344,10 +372,25 @@ export function ShipmentDetailsPage() {
               <Label className="text-xs font-semibold text-slate-700">Actual Delivery Date *</Label>
               <Input
                 type="date"
+                min={getTodayLocalDateString()}
                 value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
-                className="h-9 text-xs"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDeliveryDate(val);
+                  const todayLocal = getTodayLocalDateString();
+                  if (val && val < todayLocal) {
+                    setDeliveryDateError("Actual delivery date cannot be in the past.");
+                  } else {
+                    setDeliveryDateError(null);
+                  }
+                }}
+                className={`h-9 text-xs ${deliveryDateError ? "border-red-500 focus-visible:ring-red-500" : ""}`}
               />
+              {deliveryDateError && (
+                <p className="text-xs font-medium text-red-600 mt-1">
+                  {deliveryDateError}
+                </p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -375,7 +418,10 @@ export function ShipmentDetailsPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsDeliverDialogOpen(false)}
+                onClick={() => {
+                  setIsDeliverDialogOpen(false);
+                  setDeliveryDateError(null);
+                }}
                 disabled={actionLoading}
               >
                 Cancel
@@ -383,7 +429,7 @@ export function ShipmentDetailsPage() {
               <Button
                 size="sm"
                 onClick={confirmDeliver}
-                disabled={actionLoading}
+                disabled={actionLoading || !!deliveryDateError || !deliveryDate || deliveryDate < getTodayLocalDateString() || !receivedBy.trim()}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {actionLoading ? "Recording POD..." : "Confirm & Save POD"}

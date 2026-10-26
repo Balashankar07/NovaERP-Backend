@@ -46,6 +46,7 @@ export interface SalesOrderDto {
   createdAt?: string;
   updatedAt?: string;
   createdByName?: string;
+  approvedByName?: string;
   items: SalesOrderItemDto[];
 }
 

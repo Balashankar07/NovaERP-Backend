@@ -36,6 +36,9 @@ public class WarehouseLocationConfiguration : IEntityTypeConfiguration<Warehouse
         builder.Property(x => x.Description)
             .HasMaxLength(500);
 
+        builder.Property(x => x.IsQuarantine)
+            .HasDefaultValue(false);
+
         builder.HasOne(x => x.ParentLocation)
             .WithMany(x => x.ChildLocations)
             .HasForeignKey(x => x.ParentLocationId)

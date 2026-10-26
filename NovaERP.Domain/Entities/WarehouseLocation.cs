@@ -20,6 +20,7 @@ public class WarehouseLocation : AuditableEntity
     public string? Shelf { get; set; }
     public string? Bin { get; set; }
     public string? Description { get; set; }
+    public bool IsQuarantine { get; set; } = false;
     public bool IsActive { get; set; } = true;
 
     // Navigation

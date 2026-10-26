@@ -150,6 +150,7 @@ export const NotificationBell: React.FC = () => {
                 key={item.id}
                 notification={item}
                 onMarkRead={(id) => markReadMutation.mutate(id)}
+                onNavigate={() => setIsOpen(false)}
                 compact
               />
             ))

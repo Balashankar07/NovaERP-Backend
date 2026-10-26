@@ -42,7 +42,7 @@ export function QualityInspectionsListPage() {
     refresh
   } = useCrudTable<QualityInspection>({
     fetchFn: qualityApi.getAll,
-    defaultSortBy: "InspectionDate",
+    defaultSortBy: "CreatedAt",
     defaultSortOrder: "desc"
   });
 
@@ -73,7 +73,7 @@ export function QualityInspectionsListPage() {
           <TableCell colSpan={8} className="h-64">
             <EmptyState 
               title="No inspections found" 
-              description={queryParams.search ? "Try adjusting your search query." : "Quality inspections will appear here once production execution completes."}
+              description={queryParams.search ? "Try adjusting your search query." : "Quality inspections will appear here when goods receipts arrive or production completes."}
               icon={<ShieldCheck className="w-8 h-8 text-slate-400" />}
             />
           </TableCell>
@@ -85,21 +85,61 @@ export function QualityInspectionsListPage() {
       return data.items.map((inspection) => (
         <TableRow key={inspection.id} className="hover:bg-slate-50/50">
           <TableCell className="font-medium text-slate-900">{inspection.inspectionNumber}</TableCell>
-          <TableCell>{(inspection as any).productName || (inspection as any).productCode || inspection.productId || "—"}</TableCell>
-          <TableCell>{(inspection as any).executionNumber || (inspection as any).productionExecutionNumber || inspection.productionExecutionId || "—"}</TableCell>
           <TableCell>
-            {inspection.inspectionDate ? new Date(inspection.inspectionDate).toLocaleDateString() : "—"}
+            <div className="font-medium text-slate-900">{(inspection as any).productName || (inspection as any).productCode || inspection.productId || "—"}</div>
+            {(inspection as any).productCode && (inspection as any).productName && (
+              <div className="text-xs text-slate-500 font-mono">{(inspection as any).productCode}</div>
+            )}
           </TableCell>
-          <TableCell className="text-right">{inspection.inspectedQuantity}</TableCell>
+          <TableCell>
+            {(inspection as any).goodsReceiptNumber ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                GRN: {(inspection as any).goodsReceiptNumber}
+              </span>
+            ) : (inspection as any).productionExecutionNumber ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                WO: {(inspection as any).productionExecutionNumber}
+              </span>
+            ) : (
+              <span className="text-slate-400 text-xs">—</span>
+            )}
+          </TableCell>
+          <TableCell>
+            {inspection.inspectionDate ? new Date(inspection.inspectionDate).toLocaleDateString() : "Pending"}
+          </TableCell>
+          <TableCell className="text-right">
+            <span className="font-medium">{inspection.inspectedQuantity}</span>
+            {inspection.status === 'Passed' && (
+              <span className="block text-xs text-emerald-600 font-medium">✓ {inspection.passedQuantity} passed</span>
+            )}
+            {inspection.status === 'PartiallyPassed' && (
+              <span className="block text-xs text-amber-600 font-medium">{inspection.passedQuantity} passed / {inspection.failedQuantity} failed</span>
+            )}
+            {inspection.status === 'Failed' && (
+              <span className="block text-xs text-rose-600 font-medium">✕ {inspection.failedQuantity} rejected</span>
+            )}
+          </TableCell>
           <TableCell>
             <StatusBadge 
-              status={inspection.status} 
+              status={
+                inspection.status === 'Draft' ? 'Awaiting QC' :
+                inspection.status === 'InProgress' ? 'In Progress' :
+                inspection.status === 'Passed' ? 'Accepted' :
+                inspection.status === 'PartiallyPassed' ? 'Partially Accepted' :
+                inspection.status === 'Failed' ? 'Rejected / Blocked' :
+                inspection.status
+              } 
               customStyles={{
-                Draft: "bg-slate-100 text-slate-700",
-                InProgress: "bg-blue-100 text-blue-700",
-                Passed: "bg-green-100 text-green-700",
-                PartiallyPassed: "bg-amber-100 text-amber-700",
-                Failed: "bg-rose-100 text-rose-700",
+                'Awaiting QC': "bg-slate-100 text-slate-700 border-slate-200",
+                'In Progress': "bg-blue-100 text-blue-700 border-blue-200",
+                'Accepted': "bg-green-100 text-green-700 border-green-200",
+                'Partially Accepted': "bg-amber-100 text-amber-700 border-amber-200",
+                'Rejected / Blocked': "bg-rose-100 text-rose-700 border-rose-200",
+                Draft: "bg-slate-100 text-slate-700 border-slate-200",
+                InProgress: "bg-blue-100 text-blue-700 border-blue-200",
+                Passed: "bg-green-100 text-green-700 border-green-200",
+                PartiallyPassed: "bg-amber-100 text-amber-700 border-amber-200",
+                Failed: "bg-rose-100 text-rose-700 border-rose-200",
                 Cancelled: "bg-slate-100 text-slate-500"
               }}
             />
@@ -131,10 +171,10 @@ export function QualityInspectionsListPage() {
     <PageContainer>
       <PageHeader
         title="Quality Control"
-        description="Manage and track product quality inspections."
+        description="Manage and track raw material and production quality inspections."
         actions={
           <Button variant="outline" size="sm" className="h-9" onClick={refresh} title="Refresh Data">
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4 mr-1" /> Refresh
           </Button>
         }
       />
@@ -161,24 +201,24 @@ export function QualityInspectionsListPage() {
                   onSort={toggleSort}
                   className="w-[150px] pl-4"
                 />
-                <TableHead className="w-[150px]">Product</TableHead>
-                <TableHead className="w-[150px]">Execution</TableHead>
+                <TableHead className="w-[180px]">Product</TableHead>
+                <TableHead className="w-[140px]">Origin / Ref</TableHead>
                 <SortableHeader
                   field="InspectionDate"
                   label="Date"
                   currentSortBy={queryParams.sortBy}
                   currentSortOrder={queryParams.sortOrder}
                   onSort={toggleSort}
-                  className="w-[120px]"
+                  className="w-[110px]"
                 />
-                <TableHead className="w-[120px] text-right">Inspected Qty</TableHead>
+                <TableHead className="w-[140px] text-right">Quantities</TableHead>
                 <SortableHeader
                   field="Status"
                   label="Status"
                   currentSortBy={queryParams.sortBy}
                   currentSortOrder={queryParams.sortOrder}
                   onSort={toggleSort}
-                  className="w-[120px]"
+                  className="w-[140px]"
                 />
                 <TableHead className="text-right pr-6 w-[80px]">Actions</TableHead>
               </TableRow>

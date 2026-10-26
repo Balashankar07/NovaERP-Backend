@@ -8,6 +8,8 @@ public class QualityInspection : AuditableEntity
 {
     public string InspectionNumber { get; set; } = string.Empty;
     public Guid? ProductionExecutionId { get; set; }
+    public Guid? GoodsReceiptId { get; set; }
+    public Guid? GoodsReceiptItemId { get; set; }
     public Guid ProductId { get; set; }
     
     public decimal InspectedQuantity { get; set; }
@@ -29,6 +31,10 @@ public class QualityInspection : AuditableEntity
     public WarehouseLocation? OutputWarehouseLocation { get; set; }
 
     public ProductionExecution? ProductionExecution { get; set; }
+    public GoodsReceipt? GoodsReceipt { get; set; }
+    public GoodsReceiptItem? GoodsReceiptItem { get; set; }
+    public Guid? SourceWarehouseLocationId { get; set; }
+    public WarehouseLocation? SourceWarehouseLocation { get; set; }
     public Product? Product { get; set; }
     public User? Inspector { get; set; }
     

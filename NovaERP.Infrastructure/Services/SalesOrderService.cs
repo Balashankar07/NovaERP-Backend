@@ -40,7 +40,27 @@ public class SalesOrderService : ISalesOrderService
         bool isDistributor = _currentUserService.Role?.Contains("Distributor", StringComparison.OrdinalIgnoreCase) ?? false;
         var order = await _unitOfWork.SalesOrders.GetSalesOrderWithDetailsAsync(id, _currentUserService.UserId, isDistributor);
         if (order == null) throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
-        return MapToDto(order);
+        var dto = MapToDto(order);
+
+        if (order.CreatedBy.HasValue)
+        {
+            var creator = await _unitOfWork.Users.GetByIdAsync(order.CreatedBy.Value);
+            if (creator != null)
+            {
+                dto.CreatedByName = $"{creator.FirstName} {creator.LastName}".Trim();
+            }
+        }
+
+        if (order.Status >= SalesOrderStatus.Approved && order.UpdatedBy.HasValue)
+        {
+            var approver = await _unitOfWork.Users.GetByIdAsync(order.UpdatedBy.Value);
+            if (approver != null)
+            {
+                dto.ApprovedByName = $"{approver.FirstName} {approver.LastName}".Trim();
+            }
+        }
+
+        return dto;
     }
 
     public async Task<SalesOrderDto> CreateAsync(CreateSalesOrderDto dto, Guid? currentUserId)
@@ -211,13 +231,32 @@ public class SalesOrderService : ISalesOrderService
         if (order == null) throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
         if (order.Status != SalesOrderStatus.Draft) throw new BadRequestException("Only Draft orders can be submitted.");
 
+        var submitterId = currentUserId ?? _currentUserService.UserId;
         order.Status = SalesOrderStatus.PendingApproval;
-        order.UpdatedBy = currentUserId;
+        order.UpdatedBy = submitterId;
         order.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.SalesOrders.Update(order);
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("StatusChange", "SalesOrder", id.ToString(), oldValues: SalesOrderStatus.Draft.ToString(), newValues: SalesOrderStatus.PendingApproval.ToString());
+
+        try
+        {
+            bool isSalesManager = _currentUserService.Role?.Contains("Sales Manager", StringComparison.OrdinalIgnoreCase) ?? false;
+            string targetRole = isSalesManager ? "Super Admin" : "Sales Manager";
+
+            await _notificationService.NotifyRoleUsersAsync(
+                targetRole,
+                NotificationType.ApprovalRequired,
+                $"Sales Order {order.OrderNumber} Submitted for Approval",
+                $"Sales Order {order.OrderNumber} is awaiting commercial sign-off (4-Eyes Principle).",
+                NotificationPriority.Normal,
+                "SalesOrder", id.ToString(),
+                $"/sales/orders/{id}",
+                $"so-submitted-{id}"
+            );
+        }
+        catch { /* Non-critical */ }
 
         return await GetSalesOrderByIdAsync(order.Id);
     }
@@ -228,10 +267,18 @@ public class SalesOrderService : ISalesOrderService
         if (order == null) throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
         if (order.Status != SalesOrderStatus.PendingApproval) throw new BadRequestException("Only PendingApproval orders can be approved.");
 
-        // Commercial Sign-Off: Authorized commercial leaders (Sales Manager, Super Admin) approve sales orders.
-        // Segregation of Duties (SoD) is strictly enforced between Sales (commercial) and Warehouse (inventory allocation & logistics dispatch).
+        var approverId = currentUserId ?? _currentUserService.UserId;
+        bool isSuperAdmin = _currentUserService.Role?.Contains("Super Admin", StringComparison.OrdinalIgnoreCase) ?? false;
+
+        // Segregation of Duties (SoD) & 4-Eyes Principle:
+        // A user cannot approve a Sales Order that they created themselves (unless Super Admin executive override).
+        if (!isSuperAdmin && order.CreatedBy.HasValue && approverId != Guid.Empty && order.CreatedBy.Value == approverId)
+        {
+            throw new BadRequestException("Segregation of Duties (SoD) Violation: You cannot approve a Sales Order that you created yourself (4-Eyes Principle). An independent approver (such as Super Admin or an authorized colleague) must review and approve this commercial order.");
+        }
+
         order.Status = SalesOrderStatus.Approved;
-        order.UpdatedBy = currentUserId;
+        order.UpdatedBy = approverId;
         order.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.SalesOrders.Update(order);
@@ -274,8 +321,17 @@ public class SalesOrderService : ISalesOrderService
         if (order == null) throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
         if (order.Status != SalesOrderStatus.PendingApproval) throw new BadRequestException("Only PendingApproval orders can be rejected.");
 
+        var approverId = currentUserId ?? _currentUserService.UserId;
+        bool isSuperAdmin = _currentUserService.Role?.Contains("Super Admin", StringComparison.OrdinalIgnoreCase) ?? false;
+
+        // Segregation of Duties (SoD) & 4-Eyes Principle:
+        if (!isSuperAdmin && order.CreatedBy.HasValue && approverId != Guid.Empty && order.CreatedBy.Value == approverId)
+        {
+            throw new BadRequestException("Segregation of Duties (SoD) Violation: You cannot reject an order as an approver that you created yourself. Use Cancel instead.");
+        }
+
         order.Status = SalesOrderStatus.Rejected;
-        order.UpdatedBy = currentUserId;
+        order.UpdatedBy = approverId;
         order.UpdatedAt = DateTime.UtcNow;
 
         _unitOfWork.SalesOrders.Update(order);
@@ -291,6 +347,14 @@ public class SalesOrderService : ISalesOrderService
         if (order == null) throw new KeyNotFoundException(nameof(SalesOrder) + " not found");
         if (order.Status != SalesOrderStatus.Approved) throw new BadRequestException("Only Approved orders can be reserved.");
 
+        // Segregation of Duties (SoD): Commercial sales personnel cannot allocate physical warehouse inventory.
+        bool isSalesRole = _currentUserService.Role?.Contains("Sales", StringComparison.OrdinalIgnoreCase) ?? false;
+        bool isSuperAdmin = _currentUserService.Role?.Contains("Super Admin", StringComparison.OrdinalIgnoreCase) ?? false;
+        if (isSalesRole && !isSuperAdmin)
+        {
+            throw new BadRequestException("Segregation of Duties (SoD) Violation: Commercial sales personnel cannot allocate physical warehouse inventory. Only an authorized Warehouse Manager can reserve stock from warehouse storage bins.");
+        }
+
         await _unitOfWork.BeginTransactionAsync();
         try
         {
@@ -302,7 +366,7 @@ public class SalesOrderService : ISalesOrderService
             }
 
             order.Status = SalesOrderStatus.Reserved;
-            order.UpdatedBy = currentUserId;
+            order.UpdatedBy = currentUserId ?? _currentUserService.UserId;
             order.UpdatedAt = DateTime.UtcNow;
 
             _unitOfWork.SalesOrders.Update(order);
@@ -310,6 +374,22 @@ public class SalesOrderService : ISalesOrderService
             await _unitOfWork.CommitTransactionAsync();
             
             await _auditLogger.LogAsync("Reserve", "SalesOrder", id.ToString(), oldValues: SalesOrderStatus.Approved.ToString(), newValues: SalesOrderStatus.Reserved.ToString());
+
+            // Notify Sales Manager that warehouse has allocated physical inventory
+            try
+            {
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Sales Manager",
+                    NotificationType.StatusChange,
+                    $"Sales Order {order.OrderNumber} Stock Allocated",
+                    $"Warehouse has successfully allocated physical inventory for Sales Order {order.OrderNumber}. The order is ready for freight dispatch.",
+                    NotificationPriority.Normal,
+                    "SalesOrder", id.ToString(),
+                    $"/sales/orders/{id}",
+                    $"so-reserved-{id}"
+                );
+            }
+            catch { /* Non-critical */ }
         }
         catch(InvalidOperationException ex)
         {

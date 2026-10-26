@@ -12,4 +12,9 @@ public class GoodsReceiptItemDto
     public decimal ReceivedQuantity { get; set; }
     public decimal RejectedQuantity { get; set; }
     public string? Remarks { get; set; }
+    public Guid? QualityInspectionId { get; set; }
+    public string? QualityInspectionStatus { get; set; }
+    public decimal InspectedQuantity { get; set; }
+    public decimal PassedQuantity { get; set; }
+    public decimal FailedQuantity { get; set; }
 }

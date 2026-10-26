@@ -12,7 +12,7 @@ public class UpdateProductionPlanDto
     public Guid BOMId { get; set; }
 
     [Required]
-    [Range(0.01, double.MaxValue, ErrorMessage = "PlannedQuantity must be greater than zero.")]
+    [Range(0.01, 100000, ErrorMessage = "Planned quantity must be between 1 and 100,000 units.")]
     public decimal PlannedQuantity { get; set; }
 
     [Required]

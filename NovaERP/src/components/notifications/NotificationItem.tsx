@@ -24,10 +24,16 @@ import { useNavigate } from 'react-router-dom';
 interface Props {
   notification: NotificationTypeItem;
   onMarkRead?: (id: string) => void;
+  onNavigate?: () => void;
   compact?: boolean;
 }
 
-export const NotificationItemComponent: React.FC<Props> = ({ notification, onMarkRead, compact = false }) => {
+export const NotificationItemComponent: React.FC<Props> = ({ 
+  notification, 
+  onMarkRead, 
+  onNavigate,
+  compact = false 
+}) => {
   const navigate = useNavigate();
 
   const getTypeIcon = (type: NotificationType) => {
@@ -60,7 +66,15 @@ export const NotificationItemComponent: React.FC<Props> = ({ notification, onMar
     }
     if (notification.actionUrl) {
       navigate(notification.actionUrl);
+      if (onNavigate) {
+        onNavigate();
+      }
     }
+  };
+
+  const handleViewClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleClick();
   };
 
   return (
@@ -94,9 +108,13 @@ export const NotificationItemComponent: React.FC<Props> = ({ notification, onMar
                 <Clock className="h-3 w-3" /> {new Date(notification.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
               {notification.actionUrl && (
-                <span className="text-indigo-600 dark:text-indigo-400 font-medium flex items-center gap-0.5 hover:underline">
+                <button
+                  type="button"
+                  onClick={handleViewClick}
+                  className="text-indigo-600 dark:text-indigo-400 font-semibold inline-flex items-center gap-0.5 hover:underline cursor-pointer bg-transparent border-0 p-0 text-[11px]"
+                >
                   View <ExternalLink className="h-2.5 w-2.5" />
-                </span>
+                </button>
               )}
             </div>
           </div>
@@ -107,7 +125,10 @@ export const NotificationItemComponent: React.FC<Props> = ({ notification, onMar
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-muted-foreground hover:text-emerald-600 flex-shrink-0"
-            onClick={() => onMarkRead(notification.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onMarkRead(notification.id);
+            }}
             title="Mark as read"
           >
             <Check className="h-4 w-4" />

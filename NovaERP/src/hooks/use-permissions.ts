@@ -13,23 +13,31 @@ export function getDefaultRouteForUser(user: CurrentUser | null): string {
     return ROUTES.DASHBOARD;
   }
 
-  // Permission-based & role-based default routing for operational roles
-  if (user.role === "Procurement Manager" || user.permissions?.includes("Permissions.PurchaseRequests.View") || user.permissions?.includes("Permissions.PurchaseOrders.View")) {
+  // 1. Primary Role-based routing (ensures canonical roles land on their dedicated dashboards)
+  if (user.role === "Procurement Manager") return ROUTES.DASHBOARD_PROCUREMENT;
+  if (user.role === "Production Manager") return ROUTES.DASHBOARD_PRODUCTION;
+  if (user.role === "Warehouse Manager") return ROUTES.DASHBOARD_WAREHOUSE;
+  if (user.role === "Quality Engineer") return ROUTES.DASHBOARD_QUALITY;
+  if (user.role === "Sales Manager") return ROUTES.DASHBOARD_SALES;
+  if (user.role === "Warranty Executive") return ROUTES.DASHBOARD_WARRANTY;
+
+  // 2. Permission-based fallback for custom/composite roles
+  if (user.permissions?.includes("Permissions.PurchaseRequests.View") || user.permissions?.includes("Permissions.PurchaseOrders.View")) {
     return ROUTES.DASHBOARD_PROCUREMENT;
   }
-  if (user.role === "Production Manager" || user.permissions?.includes("Permissions.ProductionOrders.View") || user.permissions?.includes("Permissions.ProductionExecution.View")) {
+  if (user.permissions?.includes("Permissions.ProductionOrders.View") || user.permissions?.includes("Permissions.ProductionExecution.View")) {
     return ROUTES.DASHBOARD_PRODUCTION;
   }
-  if (user.role === "Warehouse Manager" || user.permissions?.includes("Permissions.Inventory.Adjust") || user.permissions?.includes("Permissions.GoodsReceipts.Receive")) {
+  if (user.permissions?.includes("Permissions.Inventory.Adjust") || user.permissions?.includes("Permissions.GoodsReceipts.Receive")) {
     return ROUTES.DASHBOARD_WAREHOUSE;
   }
-  if (user.role === "Quality Engineer" || user.permissions?.includes("Permissions.QualityInspection.Complete") || user.permissions?.includes("Permissions.QualityInspection.View")) {
+  if (user.permissions?.includes("Permissions.QualityInspection.Complete") || user.permissions?.includes("Permissions.QualityInspection.View")) {
     return ROUTES.DASHBOARD_QUALITY;
   }
-  if (user.role === "Sales Manager" || user.permissions?.includes("Permissions.SalesOrders.Approve") || user.permissions?.includes("Permissions.SalesOrders.View")) {
+  if (user.permissions?.includes("Permissions.SalesOrders.Approve") || user.permissions?.includes("Permissions.SalesOrders.View")) {
     return ROUTES.DASHBOARD_SALES;
   }
-  if (user.role === "Warranty Executive" || user.permissions?.includes("Permissions.Warranties.Claim") || user.permissions?.includes("Permissions.Warranties.View")) {
+  if (user.permissions?.includes("Permissions.Warranties.Claim") || user.permissions?.includes("Permissions.Warranties.View")) {
     return ROUTES.DASHBOARD_WARRANTY;
   }
   if (user.permissions?.includes("Permissions.Inventory.View")) {

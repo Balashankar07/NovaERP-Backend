@@ -23,6 +23,8 @@ public class SalesOrderDto
     public Guid? UpdatedBy { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public string? CreatedByName { get; set; }
+    public string? ApprovedByName { get; set; }
     
     public List<SalesOrderItemDto> Items { get; set; } = new List<SalesOrderItemDto>();
 }

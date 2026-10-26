@@ -4,18 +4,20 @@ import { PagedResult } from "@/types";
 
 export interface WarrantyDto {
   id: string;
-  warrantyNumber: string;
+  warrantyNumber?: string;
   salesOrderId?: string;
   productId: string;
   productName?: string;
   productCode?: string;
+  shipmentId?: string;
+  trackingNumber?: string;
   customerName?: string;
   customerEmail?: string;
   serialNumber?: string;
   warrantyType: string;
   startDate: string;
   endDate: string;
-  status: string;
+  status: string | number;
   notes?: string;
   createdAt?: string;
 }
@@ -32,6 +34,15 @@ export interface WarrantyClaimDto {
   createdAt?: string;
 }
 
+export interface CreateWarrantyRequest {
+  productId: string;
+  shipmentId: string;
+  serialNumber: string;
+  warrantyType: string;
+  startDate: string;
+  endDate: string;
+}
+
 import { WarrantySummaryDto } from "@/types/reports.types";
 
 export const warrantiesApi = {
@@ -41,6 +52,8 @@ export const warrantiesApi = {
     api.get<PagedResult<WarrantyDto>>(API_ENDPOINTS.WARRANTIES.BASE, { params }),
   getById: (id: string) =>
     api.get<WarrantyDto>(API_ENDPOINTS.WARRANTIES.BY_ID(id)),
+  create: (data: CreateWarrantyRequest) =>
+    api.post<WarrantyDto>(API_ENDPOINTS.WARRANTIES.BASE, data),
   close: (id: string) =>
     api.put<WarrantyDto>(API_ENDPOINTS.WARRANTIES.CLOSE(id)),
 };

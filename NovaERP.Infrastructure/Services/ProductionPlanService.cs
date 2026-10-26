@@ -1,404 +1,830 @@
+using Microsoft.EntityFrameworkCore;
+using NovaERP.Infrastructure.Persistence.Context;
 using NovaERP.Application.Common.Exceptions;
+
 using NovaERP.Application.Common.Models;
+
 using NovaERP.Application.Features.ProductionPlans.DTOs;
+
 using NovaERP.Application.DTOs.Notifications;
+
 using NovaERP.Application.Interfaces.Repositories;
+
 using NovaERP.Application.Interfaces.Services;
+
 using NovaERP.Domain.Entities;
+
 using NovaERP.Domain.Enums;
+
+
 
 namespace NovaERP.Infrastructure.Services;
 
+
+
 public class ProductionPlanService : IProductionPlanService
+
 {
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
     private readonly INotificationService _notificationService;
+    private readonly AppDbContext _context;
 
-    public ProductionPlanService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, INotificationService notificationService)
+    public ProductionPlanService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, INotificationService notificationService, AppDbContext context)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
         _notificationService = notificationService;
+        _context = context;
     }
 
+
+
     public async Task<PagedResult<ProductionPlanDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
+
     {
+
         var result = await _unitOfWork.ProductionPlans.GetAllPagedAsync(pageNumber, pageSize, search, sortBy, sortOrder);
+
         return new PagedResult<ProductionPlanDto>
+
         {
+
             Items = result.Items.Select(MapToDto).ToList(),
+
             TotalCount = result.TotalCount,
+
             PageNumber = result.PageNumber,
+
             PageSize = result.PageSize
+
         };
+
     }
+
+
 
     public async Task<ProductionPlanDto?> GetByIdAsync(Guid id)
     {
         var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
-        return plan == null ? null : MapToDto(plan);
-    }
+        if (plan == null) return null;
 
-    public async Task<ProductionPlanDto> CreateAsync(CreateProductionPlanDto dto, Guid? currentUserId)
-    {
-        if (dto.PlannedQuantity <= 0)
-            throw new BadRequestException("PlannedQuantity must be greater than zero.");
+        await EnsureRequirementsPopulatedAsync(plan);
 
-        var product = await _unitOfWork.Products.GetByIdAsync(dto.ProductId);
-        if (product == null || !product.IsActive)
-            throw new BadRequestException("Product must exist and be active.");
+        // Deduplicate in memory and recalculate real-time usable inventory availability
+        plan.Requirements = plan.Requirements.GroupBy(r => r.ProductId).Select(g => g.First()).ToList();
 
-        if (dto.PlannedEndDate < dto.PlannedStartDate)
-            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
-
-        // Get selected BOM for the product
-        var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
-        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow.AddMinutes(5))
-            throw new BadRequestException("Product must have a valid, active, and effective BOM to create a Production Plan.");
-
-        await _unitOfWork.BeginTransactionAsync();
-
-        try
-        {
-            var plan = new ProductionPlan
-            {
-                PlanNumber = await _unitOfWork.ProductionPlans.GeneratePlanNumberAsync(),
-                ProductId = dto.ProductId,
-                PlannedQuantity = dto.PlannedQuantity,
-                PlannedStartDate = DateTime.SpecifyKind(dto.PlannedStartDate, DateTimeKind.Utc),
-                PlannedEndDate = DateTime.SpecifyKind(dto.PlannedEndDate, DateTimeKind.Utc),
-                Priority = dto.Priority,
-                Status = ProductionPlanStatus.Draft,
-                Remarks = dto.Remarks,
-                BOMId = bom.Id,
-                CreatedBy = currentUserId
-            };
-
-            // Generate Requirements (MRP calculation)
-            foreach (var item in bom.BOMItems)
-            {
-                var baseQty = item.Quantity * dto.PlannedQuantity;
-                var wasteQty = baseQty * (item.WastePercentage / 100);
-                var requiredQty = Math.Round(baseQty + wasteQty, 2);
-                
-                // Retrieve inventory availability (across all warehouses)
-                var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
-                var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
-
-                var shortage = requiredQty > availableQty ? requiredQty - availableQty : 0;
-
-                plan.Requirements.Add(new ProductionRequirement
-                {
-                    ProductId = item.RawMaterialProductId,
-                    RequiredQuantity = requiredQty,
-                    AvailableQuantity = availableQty,
-                    ShortageQuantity = shortage,
-                    UnitId = item.UnitId
-                });
-            }
-
-            await _unitOfWork.ProductionPlans.AddAsync(plan);
-            await _unitOfWork.SaveChangesAsync();
-
-            await _auditLogger.LogAsync("Create", "ProductionPlan", plan.Id.ToString(), newValues: $"PlanNumber: {plan.PlanNumber}, ProductId: {plan.ProductId}, Quantity: {plan.PlannedQuantity}");
-
-            await _unitOfWork.CommitTransactionAsync();
-
-            var createdPlan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(plan.Id);
-            return MapToDto(createdPlan!);
-        }
-        catch
-        {
-            await _unitOfWork.RollbackTransactionAsync();
-            throw;
-        }
-    }
-
-    public async Task<ProductionPlanDto> UpdateAsync(Guid id, UpdateProductionPlanDto dto, Guid? currentUserId)
-    {
-        if (dto.PlannedQuantity <= 0)
-            throw new BadRequestException("PlannedQuantity must be greater than zero.");
-
-        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
-        if (plan == null)
-            throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
-
-        if (plan.Status != ProductionPlanStatus.Draft)
-            throw new BadRequestException("Only Draft plans can be edited.");
-
-        var product = await _unitOfWork.Products.GetByIdAsync(dto.ProductId);
-        if (product == null || !product.IsActive)
-            throw new BadRequestException("Product must exist and be active.");
-
-        if (dto.PlannedEndDate < dto.PlannedStartDate)
-            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
-
-        var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
-        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow.AddMinutes(5))
-            throw new BadRequestException("Product must have a valid, active, and effective BOM to create/update a Production Plan.");
-
-        await _unitOfWork.BeginTransactionAsync();
-
-        try
-        {
-            var oldValues = $"ProductId: {plan.ProductId}, Quantity: {plan.PlannedQuantity}";
-
-            plan.ProductId = dto.ProductId;
-            plan.PlannedQuantity = dto.PlannedQuantity;
-            plan.PlannedStartDate = dto.PlannedStartDate;
-            plan.PlannedEndDate = dto.PlannedEndDate;
-            plan.Priority = dto.Priority;
-            plan.Remarks = dto.Remarks;
-            plan.BOMId = bom.Id;
-            plan.UpdatedBy = currentUserId;
-            plan.UpdatedAt = DateTime.UtcNow;
-
-            // Recalculate requirements
-            plan.Requirements.Clear();
-
-            foreach (var item in bom.BOMItems)
-            {
-                var baseQty = item.Quantity * dto.PlannedQuantity;
-                var wasteQty = baseQty * (item.WastePercentage / 100);
-                var requiredQty = Math.Round(baseQty + wasteQty, 2);
-                var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
-                var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
-                var shortage = requiredQty > availableQty ? requiredQty - availableQty : 0;
-
-                plan.Requirements.Add(new ProductionRequirement
-                {
-                    ProductionPlanId = plan.Id,
-                    ProductId = item.RawMaterialProductId,
-                    RequiredQuantity = requiredQty,
-                    AvailableQuantity = availableQty,
-                    ShortageQuantity = shortage,
-                    UnitId = item.UnitId
-                });
-            }
-
-            _unitOfWork.ProductionPlans.Update(plan);
-            await _unitOfWork.SaveChangesAsync();
-
-            var newValues = $"ProductId: {plan.ProductId}, Quantity: {plan.PlannedQuantity}";
-            await _auditLogger.LogAsync("Update", "ProductionPlan", plan.Id.ToString(), oldValues: oldValues, newValues: newValues);
-
-            await _unitOfWork.CommitTransactionAsync();
-
-            var updatedPlan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(plan.Id);
-            return MapToDto(updatedPlan!);
-        }
-        catch
-        {
-            await _unitOfWork.RollbackTransactionAsync();
-            throw;
-        }
-    }
-
-    public async Task<bool> DeleteAsync(Guid id, Guid? currentUserId)
-    {
-        var plan = await _unitOfWork.ProductionPlans.GetByIdAsync(id);
-        if (plan == null) return false;
-
-        if (plan.Status != ProductionPlanStatus.Draft)
-            throw new BadRequestException("Only Draft plans can be deleted.");
-
-        await _unitOfWork.BeginTransactionAsync();
-        try
-        {
-            _unitOfWork.ProductionPlans.Delete(plan);
-            await _unitOfWork.SaveChangesAsync();
-
-            await _auditLogger.LogAsync("Delete", "ProductionPlan", plan.Id.ToString(), oldValues: $"PlanNumber: {plan.PlanNumber}");
-
-            await _unitOfWork.CommitTransactionAsync();
-            return true;
-        }
-        catch
-        {
-            await _unitOfWork.RollbackTransactionAsync();
-            throw;
-        }
-    }
-
-    public async Task<ProductionPlanDto> ReleaseAsync(Guid id, Guid? currentUserId)
-    {
-        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
-        if (plan == null)
-            throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
-
-        if (plan.Status != ProductionPlanStatus.Draft)
-            throw new BadRequestException($"Cannot release plan because its status is {plan.Status}.");
-
-        await _unitOfWork.BeginTransactionAsync();
-        try
-        {
-            var shortagesList = new List<object>();
-
-            // Re-calculate shortages on release to ensure up-to-date data.
-            foreach (var req in plan.Requirements)
-            {
-                var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
-                var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
-                var shortage = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
-
-                req.AvailableQuantity = availableQty;
-                req.ShortageQuantity = shortage;
-
-                if (shortage > 0)
-                {
-                    shortagesList.Add(new
-                    {
-                        componentId = req.ProductId,
-                        componentName = req.Product?.Name ?? "Unknown",
-                        required = req.RequiredQuantity,
-                        available = availableQty,
-                        shortage = shortage
-                    });
-                }
-            }
-
-            if (shortagesList.Any())
-            {
-                throw new MaterialShortageException("Production cannot be released because required materials are insufficient.", shortagesList);
-            }
-
-            var oldValues = $"Status: {plan.Status}";
-            plan.Status = ProductionPlanStatus.Released;
-            plan.UpdatedBy = currentUserId;
-            plan.UpdatedAt = DateTime.UtcNow;
-
-            _unitOfWork.ProductionPlans.Update(plan);
-            await _unitOfWork.SaveChangesAsync();
-
-            var newValues = $"Status: {plan.Status}";
-            await _auditLogger.LogAsync("StatusChange", "ProductionPlan", plan.Id.ToString(), oldValues: oldValues, newValues: newValues);
-
-            // Notify Production Manager and Warehouse Manager about the released plan
-            try
-            {
-                await _notificationService.NotifyRoleUsersAsync(
-                    "Production Manager",
-                    NotificationType.ProductionAlert,
-                    $"Production Plan Released: {plan.PlanNumber}",
-                    $"Production Plan {plan.PlanNumber} has been released and is ready for execution.",
-                    NotificationPriority.Normal,
-                    "ProductionPlan", plan.Id.ToString(),
-                    $"/production/plans/{plan.Id}",
-                    $"pp-released-{plan.Id}"
-                );
-                
-                await _notificationService.NotifyRoleUsersAsync(
-                    "Warehouse Manager",
-                    NotificationType.LogisticsAlert,
-                    $"Materials Required for {plan.PlanNumber}",
-                    $"Production Plan {plan.PlanNumber} is released. Please prepare raw materials for the shop floor.",
-                    NotificationPriority.Normal,
-                    "ProductionPlan", plan.Id.ToString(),
-                    $"/inventory",
-                    $"pp-materials-{plan.Id}"
-                );
-            }
-            catch { /* Non-critical */ }
-
-            await _unitOfWork.CommitTransactionAsync();
-            return MapToDto(plan);
-        }
-        catch
-        {
-            await _unitOfWork.RollbackTransactionAsync();
-            throw;
-        }
-    }
-
-    public async Task<NovaERP.Application.DTOs.Procurement.PurchaseRequestDto> GeneratePurchaseRequestAsync(Guid id, Guid? currentUserId)
-    {
-        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
-        if (plan == null)
-            throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
-
-        if (plan.Status != ProductionPlanStatus.Draft)
-            throw new BadRequestException("Purchase Requests can only be generated from Draft Production Plans.");
-
-        var shortages = new List<NovaERP.Application.DTOs.Procurement.CreatePurchaseRequestItemDto>();
-        
         foreach (var req in plan.Requirements)
         {
             var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
-            var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
-            var shortage = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
-            
-            if (shortage > 0)
-            {
-                shortages.Add(new NovaERP.Application.DTOs.Procurement.CreatePurchaseRequestItemDto
-                {
-                    ProductId = req.ProductId,
-                    RequestedQuantity = shortage,
-                    Remarks = $"Auto-generated for Production Plan {plan.PlanNumber}"
-                });
-            }
+            var availableQty = inventoryRecords
+                .Where(i => i.WarehouseLocation == null || (!i.WarehouseLocation.IsQuarantine && i.WarehouseLocation.IsActive && !i.WarehouseLocation.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)))
+                .Sum(i => i.QuantityAvailable);
+            req.AvailableQuantity = availableQty;
+            req.ShortageQuantity = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
         }
 
+        return MapToDto(plan);
+    }
+
+    public async Task<ProductionPlanDto> CreateAsync(CreateProductionPlanDto dto, Guid? currentUserId)
+
+    {
+
+        if (dto.PlannedQuantity <= 0 || dto.PlannedQuantity > 100000)
+
+            throw new BadRequestException("Planned quantity must be between 1 and 100,000 units.");
+
+
+
+        var product = await _unitOfWork.Products.GetByIdAsync(dto.ProductId);
+
+        if (product == null || !product.IsActive)
+
+            throw new BadRequestException("Product must exist and be active.");
+
+
+
+        if (dto.PlannedEndDate < dto.PlannedStartDate)
+
+            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
+
+
+
+        // Get selected BOM for the product
+
+        var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
+
+        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow.AddMinutes(5))
+
+            throw new BadRequestException("Product must have a valid, active, and effective BOM to create a Production Plan.");
+
+
+
+        await _unitOfWork.BeginTransactionAsync();
+
+
+
+        try
+
+        {
+
+            var plan = new ProductionPlan
+
+            {
+
+                PlanNumber = await _unitOfWork.ProductionPlans.GeneratePlanNumberAsync(),
+
+                ProductId = dto.ProductId,
+
+                PlannedQuantity = dto.PlannedQuantity,
+
+                PlannedStartDate = DateTime.SpecifyKind(dto.PlannedStartDate, DateTimeKind.Utc),
+
+                PlannedEndDate = DateTime.SpecifyKind(dto.PlannedEndDate, DateTimeKind.Utc),
+
+                Priority = dto.Priority,
+
+                Status = ProductionPlanStatus.Draft,
+
+                Remarks = dto.Remarks,
+
+                BOMId = bom.Id,
+
+                CreatedBy = currentUserId
+
+            };
+
+
+
+            // Generate Requirements (MRP calculation)
+
+            foreach (var item in bom.BOMItems)
+
+            {
+
+                var baseQty = item.Quantity * dto.PlannedQuantity;
+
+                var wasteQty = baseQty * (item.WastePercentage / 100);
+
+                var requiredQty = Math.Round(baseQty + wasteQty, 2);
+
+                
+
+                // Retrieve inventory availability (across all warehouses, excluding quarantined/inactive locations)
+
+                var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
+
+                var availableQty = inventoryRecords
+
+                    .Where(i => i.WarehouseLocation == null || (!i.WarehouseLocation.IsQuarantine && i.WarehouseLocation.IsActive && !i.WarehouseLocation.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)))
+
+                    .Sum(i => i.QuantityAvailable);
+
+
+
+                var shortage = requiredQty > availableQty ? requiredQty - availableQty : 0;
+
+
+
+                plan.Requirements.Add(new ProductionRequirement
+
+                {
+
+                    ProductId = item.RawMaterialProductId,
+
+                    RequiredQuantity = requiredQty,
+
+                    AvailableQuantity = availableQty,
+
+                    ShortageQuantity = shortage,
+
+                    UnitId = item.UnitId
+
+                });
+
+            }
+
+
+
+            await _unitOfWork.ProductionPlans.AddAsync(plan);
+
+            await _unitOfWork.SaveChangesAsync();
+
+
+
+            await _auditLogger.LogAsync("Create", "ProductionPlan", plan.Id.ToString(), newValues: $"PlanNumber: {plan.PlanNumber}, ProductId: {plan.ProductId}, Quantity: {plan.PlannedQuantity}");
+
+
+
+            await _unitOfWork.CommitTransactionAsync();
+
+
+
+            var createdPlan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(plan.Id);
+
+            return MapToDto(createdPlan!);
+
+        }
+
+        catch
+
+        {
+
+            await _unitOfWork.RollbackTransactionAsync();
+
+            throw;
+
+        }
+
+    }
+
+
+
+    public async Task<ProductionPlanDto> UpdateAsync(Guid id, UpdateProductionPlanDto dto, Guid? currentUserId)
+
+    {
+
+        if (dto.PlannedQuantity <= 0 || dto.PlannedQuantity > 100000)
+
+            throw new BadRequestException("Planned quantity must be between 1 and 100,000 units.");
+
+
+
+        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
+
+        if (plan == null)
+
+            throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
+
+
+
+        if (plan.Status != ProductionPlanStatus.Draft)
+
+            throw new BadRequestException("Only Draft plans can be edited.");
+
+
+
+        var product = await _unitOfWork.Products.GetByIdAsync(dto.ProductId);
+
+        if (product == null || !product.IsActive)
+
+            throw new BadRequestException("Product must exist and be active.");
+
+
+
+        if (dto.PlannedEndDate < dto.PlannedStartDate)
+
+            throw new BadRequestException("Planned End Date cannot be earlier than Planned Start Date.");
+
+
+
+        var bom = await _unitOfWork.BOMs.GetByIdAsync(dto.BOMId);
+
+        if (bom == null || bom.ProductId != dto.ProductId || !bom.IsActive || bom.EffectiveDate > DateTime.UtcNow.AddMinutes(5))
+
+            throw new BadRequestException("Product must have a valid, active, and effective BOM to create/update a Production Plan.");
+
+
+
+        await _unitOfWork.BeginTransactionAsync();
+
+
+
+        try
+
+        {
+
+            var oldValues = $"ProductId: {plan.ProductId}, Quantity: {plan.PlannedQuantity}";
+
+
+
+            plan.ProductId = dto.ProductId;
+
+            plan.PlannedQuantity = dto.PlannedQuantity;
+
+            plan.PlannedStartDate = dto.PlannedStartDate;
+
+            plan.PlannedEndDate = dto.PlannedEndDate;
+
+            plan.Priority = dto.Priority;
+
+            plan.Remarks = dto.Remarks;
+
+            plan.BOMId = bom.Id;
+
+            plan.UpdatedBy = currentUserId;
+
+            plan.UpdatedAt = DateTime.UtcNow;
+
+
+
+            // Recalculate requirements
+
+            plan.Requirements.Clear();
+
+
+
+            foreach (var item in bom.BOMItems)
+
+            {
+
+                var baseQty = item.Quantity * dto.PlannedQuantity;
+
+                var wasteQty = baseQty * (item.WastePercentage / 100);
+
+                var requiredQty = Math.Round(baseQty + wasteQty, 2);
+
+                var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
+
+                var availableQty = inventoryRecords
+
+                    .Where(i => i.WarehouseLocation == null || (!i.WarehouseLocation.IsQuarantine && i.WarehouseLocation.IsActive && !i.WarehouseLocation.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)))
+
+                    .Sum(i => i.QuantityAvailable);
+
+                var shortage = requiredQty > availableQty ? requiredQty - availableQty : 0;
+
+
+
+                plan.Requirements.Add(new ProductionRequirement
+
+                {
+
+                    ProductionPlanId = plan.Id,
+
+                    ProductId = item.RawMaterialProductId,
+
+                    RequiredQuantity = requiredQty,
+
+                    AvailableQuantity = availableQty,
+
+                    ShortageQuantity = shortage,
+
+                    UnitId = item.UnitId
+
+                });
+
+            }
+
+
+
+            _unitOfWork.ProductionPlans.Update(plan);
+
+            await _unitOfWork.SaveChangesAsync();
+
+
+
+            var newValues = $"ProductId: {plan.ProductId}, Quantity: {plan.PlannedQuantity}";
+
+            await _auditLogger.LogAsync("Update", "ProductionPlan", plan.Id.ToString(), oldValues: oldValues, newValues: newValues);
+
+
+
+            await _unitOfWork.CommitTransactionAsync();
+
+
+
+            var updatedPlan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(plan.Id);
+
+            return MapToDto(updatedPlan!);
+
+        }
+
+        catch
+
+        {
+
+            await _unitOfWork.RollbackTransactionAsync();
+
+            throw;
+
+        }
+
+    }
+
+
+
+    public async Task<bool> DeleteAsync(Guid id, Guid? currentUserId)
+
+    {
+
+        var plan = await _unitOfWork.ProductionPlans.GetByIdAsync(id);
+
+        if (plan == null) return false;
+
+
+
+        if (plan.Status != ProductionPlanStatus.Draft)
+
+            throw new BadRequestException("Only Draft plans can be deleted.");
+
+
+
+        await _unitOfWork.BeginTransactionAsync();
+
+        try
+
+        {
+
+            _unitOfWork.ProductionPlans.Delete(plan);
+
+            await _unitOfWork.SaveChangesAsync();
+
+
+
+            await _auditLogger.LogAsync("Delete", "ProductionPlan", plan.Id.ToString(), oldValues: $"PlanNumber: {plan.PlanNumber}");
+
+
+
+            await _unitOfWork.CommitTransactionAsync();
+
+            return true;
+
+        }
+
+        catch
+
+        {
+
+            await _unitOfWork.RollbackTransactionAsync();
+
+            throw;
+
+        }
+
+    }
+
+
+
+    public async Task<ProductionPlanDto> ReleaseAsync(Guid id, Guid? currentUserId)
+
+    {
+
+        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
+
+        if (plan == null)
+
+            throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
+
+
+
+        if (plan.Status != ProductionPlanStatus.Draft)
+
+            throw new BadRequestException($"Cannot release plan because its status is {plan.Status}.");
+
+
+
+        await EnsureRequirementsPopulatedAsync(plan);
+
+        await _unitOfWork.BeginTransactionAsync();
+
+        try
+
+        {
+
+            var shortagesList = new List<object>();
+
+
+
+            // Re-calculate shortages on release to ensure up-to-date data.
+
+            foreach (var req in plan.Requirements)
+
+            {
+
+                var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
+
+                var availableQty = inventoryRecords
+
+                    .Where(i => i.WarehouseLocation == null || (!i.WarehouseLocation.IsQuarantine && i.WarehouseLocation.IsActive && !i.WarehouseLocation.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)))
+
+                    .Sum(i => i.QuantityAvailable);
+
+                var shortage = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
+
+
+
+                req.AvailableQuantity = availableQty;
+
+                req.ShortageQuantity = shortage;
+
+
+
+                if (shortage > 0)
+
+                {
+
+                    shortagesList.Add(new
+
+                    {
+
+                        componentId = req.ProductId,
+
+                        componentName = req.Product?.Name ?? "Unknown",
+
+                        required = req.RequiredQuantity,
+
+                        available = availableQty,
+
+                        shortage = shortage
+
+                    });
+
+                }
+
+            }
+
+
+
+            if (shortagesList.Any())
+
+            {
+
+                throw new MaterialShortageException("Production cannot be released because required materials are insufficient.", shortagesList);
+
+            }
+
+
+
+            var oldValues = $"Status: {plan.Status}";
+
+            plan.Status = ProductionPlanStatus.Released;
+
+            plan.UpdatedBy = currentUserId;
+
+            plan.UpdatedAt = DateTime.UtcNow;
+
+
+
+            _unitOfWork.ProductionPlans.Update(plan);
+
+            await _unitOfWork.SaveChangesAsync();
+
+
+
+            var newValues = $"Status: {plan.Status}";
+
+            await _auditLogger.LogAsync("StatusChange", "ProductionPlan", plan.Id.ToString(), oldValues: oldValues, newValues: newValues);
+
+
+
+            // Notify Production Manager and Warehouse Manager about the released plan
+
+            try
+
+            {
+
+                await _notificationService.NotifyRoleUsersAsync(
+
+                    "Production Manager",
+
+                    NotificationType.ProductionAlert,
+
+                    $"Production Plan Released: {plan.PlanNumber}",
+
+                    $"Production Plan {plan.PlanNumber} has been released and is ready for execution.",
+
+                    NotificationPriority.Normal,
+
+                    "ProductionPlan", plan.Id.ToString(),
+
+                    $"/production/plans/{plan.Id}",
+
+                    $"pp-released-{plan.Id}"
+
+                );
+
+                
+
+                await _notificationService.NotifyRoleUsersAsync(
+
+                    "Warehouse Manager",
+
+                    NotificationType.LogisticsAlert,
+
+                    $"Materials Required for {plan.PlanNumber}",
+
+                    $"Production Plan {plan.PlanNumber} is released. Please prepare raw materials for the shop floor.",
+
+                    NotificationPriority.Normal,
+
+                    "ProductionPlan", plan.Id.ToString(),
+
+                    $"/inventory",
+
+                    $"pp-materials-{plan.Id}"
+
+                );
+
+            }
+
+            catch { /* Non-critical */ }
+
+
+
+            await _unitOfWork.CommitTransactionAsync();
+
+            return MapToDto(plan);
+
+        }
+
+        catch
+
+        {
+
+            await _unitOfWork.RollbackTransactionAsync();
+
+            throw;
+
+        }
+
+    }
+
+
+
+    public async Task<NovaERP.Application.DTOs.Procurement.PurchaseRequestDto> GeneratePurchaseRequestAsync(Guid id, Guid? currentUserId)
+
+    {
+
+        var plan = await _unitOfWork.ProductionPlans.GetWithRequirementsAsync(id);
+
+        if (plan == null)
+
+            throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
+
+
+
+        if (plan.Status != ProductionPlanStatus.Draft)
+
+            throw new BadRequestException("Purchase Requests can only be generated from Draft Production Plans.");
+
+
+
+        await EnsureRequirementsPopulatedAsync(plan);
+
+        var shortages = new List<NovaERP.Application.DTOs.Procurement.CreatePurchaseRequestItemDto>();
+
+        
+
+        foreach (var req in plan.Requirements)
+
+        {
+
+            var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
+
+            var availableQty = inventoryRecords
+                .Where(i => i.WarehouseLocation == null || (!i.WarehouseLocation.IsQuarantine && i.WarehouseLocation.IsActive && !i.WarehouseLocation.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)))
+                .Sum(i => i.QuantityAvailable);
+
+            var shortage = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
+
+            
+
+            if (shortage > 0)
+
+            {
+
+                shortages.Add(new NovaERP.Application.DTOs.Procurement.CreatePurchaseRequestItemDto
+
+                {
+
+                    ProductId = req.ProductId,
+
+                    RequestedQuantity = shortage,
+
+                    Remarks = $"Auto-generated for Production Plan {plan.PlanNumber}"
+
+                });
+
+            }
+
+        }
+
+
+
         if (!shortages.Any())
+
             throw new BadRequestException("No material shortages found. Purchase Request is not required.");
 
 
+
+
+
         var pr = new PurchaseRequest
+
         {
+
             RequestNumber = await _unitOfWork.PurchaseRequests.GeneratePRNumberAsync(),
+
             RequestedBy = "System", // Or get from currentUser if we had user service here
+
             Department = "Production",
+
             RequestDate = DateTime.UtcNow,
+
             RequiredByDate = plan.PlannedStartDate.AddDays(-1), // Require 1 day before prod
+
             Priority = PurchaseRequestPriority.High,
+
             Reason = $"Shortages for Production Plan {plan.PlanNumber}",
+
             Status = PurchaseRequestStatus.Draft,
+
             Source = PurchaseRequestSource.ProductionShortage,
+
             SourceReferenceId = plan.Id
+
         };
 
+
+
         foreach (var s in shortages)
+
         {
+
             var p = await _unitOfWork.Products.GetByIdAsync(s.ProductId);
+
             pr.Items.Add(new PurchaseRequestItem
+
             {
+
                 ProductId = s.ProductId,
+
                 Product = p,
+
                 RequestedQuantity = s.RequestedQuantity,
+
                 ApprovedQuantity = 0,
+
                 ConvertedQuantity = 0,
+
                 Remarks = s.Remarks
+
             });
+
         }
 
+
+
         await _unitOfWork.PurchaseRequests.AddAsync(pr);
+
         await _unitOfWork.SaveChangesAsync();
+
+
 
         await _auditLogger.LogAsync("Create", "PurchaseRequest", pr.Id.ToString(), newValues: $"Source: ProductionPlan {plan.Id}");
 
+
+
         // Now map to DTO
+
         return new NovaERP.Application.DTOs.Procurement.PurchaseRequestDto
+
         {
+
             Id = pr.Id,
+
             RequestNumber = pr.RequestNumber,
+
             RequestedBy = pr.RequestedBy,
+
             Department = pr.Department,
+
             RequestDate = pr.RequestDate,
+
             RequiredByDate = pr.RequiredByDate,
+
             Priority = pr.Priority,
+
             Reason = pr.Reason,
+
             Status = pr.Status,
+
             Source = pr.Source,
+
             SourceReferenceId = pr.SourceReferenceId,
+
             Items = pr.Items.Select(i => new NovaERP.Application.DTOs.Procurement.PurchaseRequestItemDto
+
             {
+
                 Id = i.Id,
+
                 ProductId = i.ProductId,
+
                 ProductName = i.Product?.Name ?? "",
+
                 RequestedQuantity = i.RequestedQuantity
+
             }).ToList()
+
         };
+
     }
+
+
 
     public async Task<List<ProductionRequirementDto>> GetRequirementsAsync(Guid id)
     {
@@ -406,11 +832,17 @@ public class ProductionPlanService : IProductionPlanService
         if (plan == null)
             throw new KeyNotFoundException($"ProductionPlan with ID {id} not found.");
 
+        await EnsureRequirementsPopulatedAsync(plan);
+
         var dtos = new List<ProductionRequirementDto>();
-        foreach (var req in plan.Requirements)
+        var distinctReqs = plan.Requirements.GroupBy(r => r.ProductId).Select(g => g.First()).ToList();
+
+        foreach (var req in distinctReqs)
         {
             var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(req.ProductId);
-            var availableQty = inventoryRecords.Sum(i => i.QuantityAvailable);
+            var availableQty = inventoryRecords
+                .Where(i => i.WarehouseLocation == null || (!i.WarehouseLocation.IsQuarantine && i.WarehouseLocation.IsActive && !i.WarehouseLocation.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)))
+                .Sum(i => i.QuantityAvailable);
             var shortage = req.RequiredQuantity > availableQty ? req.RequiredQuantity - availableQty : 0;
 
             var dto = MapRequirementToDto(req);
@@ -422,39 +854,171 @@ public class ProductionPlanService : IProductionPlanService
         return dtos;
     }
 
-    private static ProductionPlanDto MapToDto(ProductionPlan p) => new()
+    private async Task EnsureRequirementsPopulatedAsync(ProductionPlan plan)
     {
+        bool hasChanges = false;
+
+        // 1. Resolve BOM if unlinked or missing
+        BOM? bom = null;
+        if (plan.BOMId.HasValue)
+        {
+            bom = await _unitOfWork.BOMs.GetByIdAsync(plan.BOMId.Value);
+        }
+
+        if (bom == null)
+        {
+            bom = await _unitOfWork.BOMs.GetActiveByProductIdAsync(plan.ProductId);
+            if (bom != null)
+            {
+                if (!plan.BOMId.HasValue || plan.BOMId != bom.Id)
+                {
+                    plan.BOMId = bom.Id;
+                    _context.Entry(plan).Property(p => p.BOMId).IsModified = true;
+                    hasChanges = true;
+                }
+            }
+        }
+
+        // 2. Populate requirements if empty
+        var hasExistingReqs = (plan.Requirements != null && plan.Requirements.Any()) ||
+                              await _context.ProductionRequirements.AnyAsync(r => r.ProductionPlanId == plan.Id);
+
+        if (!hasExistingReqs && bom != null && bom.BOMItems != null && bom.BOMItems.Any())
+        {
+            plan.Requirements ??= new List<ProductionRequirement>();
+
+            foreach (var item in bom.BOMItems)
+            {
+                var baseQty = item.Quantity * plan.PlannedQuantity;
+                var wasteQty = baseQty * (item.WastePercentage / 100);
+                var requiredQty = Math.Round(baseQty + wasteQty, 2);
+
+                var inventoryRecords = await _unitOfWork.Inventories.GetByProductIdAsync(item.RawMaterialProductId);
+                var availableQty = inventoryRecords
+                    .Where(i => i.WarehouseLocation == null || (!i.WarehouseLocation.IsQuarantine && i.WarehouseLocation.IsActive && !i.WarehouseLocation.LocationName.Contains("Quarantine", StringComparison.OrdinalIgnoreCase)))
+                    .Sum(i => i.QuantityAvailable);
+
+                var shortage = requiredQty > availableQty ? requiredQty - availableQty : 0;
+
+                var rawProduct = item.RawMaterialProduct ?? await _unitOfWork.Products.GetByIdAsync(item.RawMaterialProductId);
+                var unit = item.Unit ?? await _unitOfWork.Units.GetByIdAsync(item.UnitId);
+
+                var req = new ProductionRequirement
+                {
+                    Id = Guid.NewGuid(),
+                    ProductionPlanId = plan.Id,
+                    ProductId = item.RawMaterialProductId,
+                    RequiredQuantity = requiredQty,
+                    AvailableQuantity = availableQty,
+                    ShortageQuantity = shortage,
+                    UnitId = item.UnitId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _context.ProductionRequirements.AddAsync(req);
+
+                // Set navigation for DTO mapping
+                req.Product = rawProduct!;
+                req.Unit = unit;
+                if (!plan.Requirements.Any(r => r.ProductId == req.ProductId))
+                {
+                    plan.Requirements.Add(req);
+                }
+                hasChanges = true;
+            }
+        }
+
+        // Ensure navigation properties are loaded on existing requirements if needed
+        if (plan.Requirements != null)
+        {
+            foreach (var req in plan.Requirements)
+            {
+                if (req.Product == null)
+                {
+                    req.Product = (await _unitOfWork.Products.GetByIdAsync(req.ProductId))!;
+                }
+                if (req.Unit == null && req.UnitId.HasValue)
+                {
+                    req.Unit = await _unitOfWork.Units.GetByIdAsync(req.UnitId.Value);
+                }
+            }
+        }
+
+        if (hasChanges)
+        {
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    private static ProductionPlanDto MapToDto(ProductionPlan p) => new()
+
+    {
+
         Id = p.Id,
+
         PlanNumber = p.PlanNumber,
+
         ProductId = p.ProductId,
+
         BOMId = p.BOMId,
+
         ProductCode = p.Product?.ProductCode ?? string.Empty,
+
         ProductName = p.Product?.Name ?? string.Empty,
+
         PlannedQuantity = p.PlannedQuantity,
+
         PlannedStartDate = p.PlannedStartDate,
+
         PlannedEndDate = p.PlannedEndDate,
+
         Priority = p.Priority.ToString(),
+
         Status = p.Status.ToString(),
+
         Remarks = p.Remarks,
+
         CreatedBy = p.CreatedBy,
+
         CreatedAt = p.CreatedAt,
+
         UpdatedBy = p.UpdatedBy,
+
         UpdatedAt = p.UpdatedAt,
+
         Requirements = p.Requirements?.Select(MapRequirementToDto).ToList() ?? new List<ProductionRequirementDto>()
+
     };
 
+
+
     private static ProductionRequirementDto MapRequirementToDto(ProductionRequirement r) => new()
+
     {
+
         Id = r.Id,
+
         ProductionPlanId = r.ProductionPlanId,
+
         ProductId = r.ProductId,
+
         ProductCode = r.Product?.ProductCode ?? string.Empty,
+
         ProductName = r.Product?.Name ?? string.Empty,
+
         UnitId = r.UnitId,
+
         UnitName = r.Unit?.Name,
+
         RequiredQuantity = r.RequiredQuantity,
+
         AvailableQuantity = r.AvailableQuantity,
+
         ShortageQuantity = r.ShortageQuantity,
+
         CreatedAt = r.CreatedAt
+
     };
+
 }
+

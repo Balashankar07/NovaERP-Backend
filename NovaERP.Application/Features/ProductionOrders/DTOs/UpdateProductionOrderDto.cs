@@ -5,7 +5,7 @@ namespace NovaERP.Application.Features.ProductionOrders.DTOs;
 
 public class UpdateProductionOrderDto
 {
-    [Range(0.01, double.MaxValue, ErrorMessage = "PlannedQuantity must be greater than zero.")]
+    [Range(0.01, 100000, ErrorMessage = "Planned quantity must be between 1 and 100,000 units.")]
     public decimal PlannedQuantity { get; set; }
 
     public DateTime? PlannedStartDate { get; set; }

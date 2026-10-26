@@ -85,6 +85,9 @@ public class WarrantyService : IWarrantyService
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("Create", "Warranty", warranty.Id.ToString());
 
+        warranty.Product = product;
+        warranty.Shipment = shipment;
+
         return MapToDto(warranty);
     }
 
@@ -236,7 +239,10 @@ public class WarrantyService : IWarrantyService
     {
         Id = warranty.Id,
         ProductId = warranty.ProductId,
+        ProductName = warranty.Product?.Name,
+        ProductCode = warranty.Product?.ProductCode,
         ShipmentId = warranty.ShipmentId,
+        TrackingNumber = warranty.Shipment?.TrackingNumber,
         SerialNumber = warranty.SerialNumber,
         WarrantyType = warranty.WarrantyType,
         StartDate = warranty.StartDate,

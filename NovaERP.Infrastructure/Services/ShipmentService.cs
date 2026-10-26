@@ -314,11 +314,11 @@ public class ShipmentService : IShipmentService
             await _notificationService.NotifyRoleUsersAsync(
                 "Warranty Executive",
                 NotificationType.WarrantyAlert,
-                $"Warranty Coverage Active: {soNum}",
-                $"Shipment {shipment.TrackingNumber} delivered. Customer products are now active under warranty coverage.",
+                $"Warranty Registration Eligible: {soNum}",
+                $"Shipment {shipment.TrackingNumber} delivered. Products are now eligible for commercial warranty registration with valid serial numbers.",
                 NotificationPriority.Normal,
                 "Shipment", shipment.Id.ToString(),
-                $"/warranty",
+                $"/warranty?tab=warranties&shipmentId={shipment.Id}",
                 $"ship-delivered-warranty-{shipment.Id}"
             );
         }

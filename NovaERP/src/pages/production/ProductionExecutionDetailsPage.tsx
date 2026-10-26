@@ -139,7 +139,7 @@ export const ProductionExecutionDetailsPage = () => {
   const hasMaterials = materials.length > 0;
   const materialsConsumed = hasMaterials
     ? materials.every((m: any) => (m.consumedQuantity || 0) >= (m.requiredQuantity || 0))
-    : true;
+    : false;
 
   return (
     <PageContainer className="max-w-5xl mx-auto pb-12">

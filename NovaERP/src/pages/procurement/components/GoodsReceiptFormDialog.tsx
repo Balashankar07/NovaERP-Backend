@@ -285,23 +285,25 @@ export function GoodsReceiptFormDialog({
             </Select>
           </div>
 
-          {/* Location */}
+          {/* Target Usable Storage Location */}
           <div className="space-y-2">
-            <Label>Location (Optional)</Label>
+            <Label>Target Putaway Location (Optional)</Label>
             <Select
               value={warehouseLocationId}
               onValueChange={setWarehouseLocationId}
               disabled={!warehouseId}
             >
               <SelectTrigger>
-                <SelectValue placeholder="Select Location" />
+                <SelectValue placeholder="Select Destination Bin (after QC)" />
               </SelectTrigger>
               <SelectContent>
-                {locations.map(loc => (
-                  <SelectItem key={loc.id} value={loc.id}>
-                    {loc.locationName || loc.name}
-                  </SelectItem>
-                ))}
+                {locations
+                  .filter(loc => !loc.isQuarantine && !loc.locationCode?.toLowerCase().includes("quarantine") && !loc.locationName?.toLowerCase().includes("quarantine"))
+                  .map(loc => (
+                    <SelectItem key={loc.id} value={loc.id}>
+                      {loc.locationName || loc.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
