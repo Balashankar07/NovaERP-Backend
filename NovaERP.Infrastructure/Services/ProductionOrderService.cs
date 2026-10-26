@@ -798,6 +798,9 @@ public class ProductionOrderService : IProductionOrderService
 
                 var prodName = order.Product?.Name ?? "Finished Goods";
 
+                // Sales Manager is notified exclusively from Quality Manager upon quality inspection approval
+                if (false)
+
                 await _notificationService.NotifyRoleUsersAsync(
 
                     "Sales Manager",

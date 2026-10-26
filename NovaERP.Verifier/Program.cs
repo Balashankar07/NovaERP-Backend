@@ -2052,6 +2052,26 @@ public class Program
 				finishedProductNotif != null && !string.IsNullOrEmpty(finishedProductNotif.ActionUrl) && finishedProductNotif.ActionUrl.StartsWith("/quality"),
 				$"Title: {finishedProductNotif?.Title}, ActionUrl: {finishedProductNotif?.ActionUrl}");
 
+			// 19.4 Sales Manager receives notification exclusively from Quality Manager upon inspection approval
+			User smUser = await db.Users.FirstOrDefaultAsync(u => u.Email == "sales@novaerp.com");
+			Assert("19.4 Sales Manager user exists in database", smUser != null);
+
+			var smQualityNotifs = await db.Notifications
+				.Where(n => n.RecipientUserId == smUser!.Id && n.EntityType == "QualityInspection")
+				.OrderByDescending(n => n.CreatedAt)
+				.ToListAsync();
+
+			Assert("19.5 Sales Manager receives Quality Approved notification for certified finished goods",
+				smQualityNotifs.Count > 0 && smQualityNotifs.Any(n => n.Title.Contains("Quality Approved") || n.ActionUrl == "/sales/orders"),
+				$"Total QA notifications for Sales Manager: {smQualityNotifs.Count}");
+
+			// 19.6 Sales Manager has NO premature notifications from ProductionOrder
+			bool smHasPrematureProductionNotif = await db.Notifications
+				.AnyAsync(n => n.RecipientUserId == smUser!.Id && n.EntityType == "ProductionOrder" && n.Title.StartsWith("Production Completed:"));
+
+			Assert("19.6 Sales Manager has NO premature notifications from ProductionOrder (notified from Quality Manager only)",
+				!smHasPrematureProductionNotif);
+
 			Console.WriteLine("\n================================================================================");
 			Console.WriteLine($"  TEST RUN COMPLETED: {passedCount} PASSED, {failedCount} FAILED");
 			Console.WriteLine("================================================================================\n");

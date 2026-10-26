@@ -1251,5 +1251,63 @@ public static class DbSeeder
             }
             await context.SaveChangesAsync();
         }
+
+        // Remove premature production-completed notifications sent to Sales Managers
+        var prematureNotifs = await context.Notifications
+            .Where(n => n.EntityType == "ProductionOrder" && n.Title.StartsWith("Production Completed:") &&
+                        context.UserRoles.Any(ur => ur.UserId == n.RecipientUserId && ur.Role != null && ur.Role.Name == "Sales Manager"))
+            .ToListAsync();
+        if (prematureNotifs.Any())
+        {
+            context.Notifications.RemoveRange(prematureNotifs);
+            await context.SaveChangesAsync();
+        }
+
+        // Seed/Backfill Quality Approved notifications for Sales Managers (from Quality Manager only)
+        var salesRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Sales Manager");
+        if (salesRole != null)
+        {
+            var salesUsers = await context.UserRoles
+                .Where(ur => ur.RoleId == salesRole.Id)
+                .Select(ur => ur.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            var passedProductionInspections = await context.QualityInspections
+                .Include(qi => qi.Product)
+                .Where(qi => !qi.GoodsReceiptId.HasValue && qi.PassedQuantity > 0 && 
+                             (qi.Status == QualityInspectionStatus.Passed || qi.Status == QualityInspectionStatus.PartiallyPassed))
+                .OrderByDescending(qi => qi.CreatedAt)
+                .Take(20)
+                .ToListAsync();
+
+            foreach (var qi in passedProductionInspections)
+            {
+                var prodName = qi.Product?.Name ?? "Finished Goods";
+                foreach (var sUserId in salesUsers)
+                {
+                    var dedupKey = $"qi-sales-passed-{qi.Id}:{sUserId}";
+                    if (!await context.Notifications.AnyAsync(n => n.DeduplicationKey == dedupKey || (n.RecipientUserId == sUserId && n.EntityId == qi.Id.ToString() && n.EntityType == "QualityInspection")))
+                    {
+                        var notif = new Notification
+                        {
+                            RecipientUserId = sUserId,
+                            Type = NotificationType.QualityAlert,
+                            Title = $"Quality Approved: {prodName}",
+                            Message = $"{qi.PassedQuantity} units of {prodName} passed quality inspection ({qi.InspectionNumber}) and released to WH-FG. Ready for sales order allocation.",
+                            Priority = NotificationPriority.High,
+                            EntityType = "QualityInspection",
+                            EntityId = qi.Id.ToString(),
+                            ActionUrl = "/sales/orders",
+                            DeduplicationKey = dedupKey,
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await context.Notifications.AddAsync(notif);
+                    }
+                }
+            }
+            await context.SaveChangesAsync();
+        }
     }
 }

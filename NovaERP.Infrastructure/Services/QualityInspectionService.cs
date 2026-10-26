@@ -804,6 +804,29 @@ public class QualityInspectionService : IQualityInspectionService
 
 
 
+            // Notify Sales Manager when finished goods pass quality inspection and are released to usable stock
+            if (!inspection.GoodsReceiptId.HasValue && inspection.PassedQuantity > 0)
+            {
+                try
+                {
+                    var product = await _unitOfWork.Products.GetByIdAsync(inspection.ProductId);
+                    var prodName = product?.Name ?? "Finished Goods";
+
+                    await _notificationService.NotifyRoleUsersAsync(
+                        "Sales Manager",
+                        NotificationType.QualityAlert,
+                        $"Quality Approved: {prodName}",
+                        $"{inspection.PassedQuantity} units of {prodName} passed quality inspection ({inspection.InspectionNumber}) and released to WH-FG. Ready for sales order allocation.",
+                        NotificationPriority.High,
+                        "QualityInspection",
+                        inspection.Id.ToString(),
+                        "/sales/orders",
+                        $"qi-sales-passed-{inspection.Id}"
+                    );
+                }
+                catch { /* Non-critical */ }
+            }
+
             return await GetQualityInspectionByIdAsync(id);
 
         }
