@@ -837,6 +837,17 @@ public class ProductionOrderService : IProductionOrderService
                     $"/production/orders/{order.Id}",
 
                     $"po-completed-wh-{order.Id}"
+                );
+
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Quality Engineer",
+                    NotificationType.QualityAlert,
+                    $"Product Finished: {order.ProductionOrderNumber}",
+                    $"{completedQuantity} units of {prodName} finished production under Order {order.ProductionOrderNumber}. Quality verification required.",
+                    NotificationPriority.High,
+                    "ProductionOrder", order.Id.ToString(),
+                    $"/quality",
+                    $"po-completed-qa-{order.Id}"
 
                 );
 

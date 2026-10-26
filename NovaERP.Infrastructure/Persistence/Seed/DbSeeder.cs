@@ -1201,5 +1201,55 @@ public static class DbSeeder
             await context.Warranties.AddAsync(seedWarranty);
             await context.SaveChangesAsync();
         }
+
+        // Seed/Backfill Quality Inspection notifications for Quality Engineers
+        var qualityRole = await context.Roles.FirstOrDefaultAsync(r => r.Name == "Quality Engineer");
+        if (qualityRole != null)
+        {
+            var qualityUsers = await context.UserRoles
+                .Where(ur => ur.RoleId == qualityRole.Id)
+                .Select(ur => ur.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            var recentInspections = await context.QualityInspections
+                .Include(qi => qi.Product)
+                .Include(qi => qi.ProductionExecution)
+                .OrderByDescending(qi => qi.CreatedAt)
+                .Take(20)
+                .ToListAsync();
+
+            foreach (var qi in recentInspections)
+            {
+                var prodName = qi.Product?.Name ?? "Manufactured Product";
+                var woRef = qi.ProductionExecution?.ExecutionNumber != null 
+                    ? $" (WO: {qi.ProductionExecution.ExecutionNumber})" 
+                    : "";
+
+                foreach (var qUserId in qualityUsers)
+                {
+                    var dedupKey = $"qi-notif-{qi.Id}:{qUserId}";
+                    if (!await context.Notifications.AnyAsync(n => n.DeduplicationKey == dedupKey || (n.RecipientUserId == qUserId && n.EntityId == qi.Id.ToString() && n.EntityType == "QualityInspection")))
+                    {
+                        var notif = new Notification
+                        {
+                            RecipientUserId = qUserId,
+                            Type = NotificationType.QualityAlert,
+                            Title = $"Product Finished - Quality Inspection Required: {qi.InspectionNumber}",
+                            Message = $"Production completed for {qi.InspectedQuantity} units of {prodName}{woRef}. Quality inspection {qi.InspectionNumber} is awaiting verification.",
+                            Priority = NotificationPriority.High,
+                            EntityType = "QualityInspection",
+                            EntityId = qi.Id.ToString(),
+                            ActionUrl = $"/quality/{qi.Id}",
+                            DeduplicationKey = dedupKey,
+                            IsRead = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        await context.Notifications.AddAsync(notif);
+                    }
+                }
+            }
+            await context.SaveChangesAsync();
+        }
     }
 }

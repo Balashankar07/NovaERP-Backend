@@ -2029,6 +2029,29 @@ public class Program
 				concurrentResults.All(r => r == concurrentResults[0]),
 				$"Sample: {concurrentResults[0]}");
 
+			// =========================================================================
+			// SCENARIO 19: Product Finished Quality Alert Notifications
+			// =========================================================================
+			Console.WriteLine("\n[SCENARIO 19] Product Finished Quality Alert Notifications...");
+			
+			// 19.1 Verify Quality Engineer receives QualityAlert notification when product is finished in production
+			User qeUser = await db.Users.FirstOrDefaultAsync(u => u.Email == "quality@novaerp.com");
+			Assert("19.1 Quality Engineer user exists in database", qeUser != null);
+
+			var qeNotifications = await db.Notifications
+				.Where(n => n.RecipientUserId == qeUser!.Id && n.Type == NotificationType.QualityAlert)
+				.OrderByDescending(n => n.CreatedAt)
+				.ToListAsync();
+
+			Assert("19.2 Quality Engineer has QualityAlert notifications for finished products",
+				qeNotifications.Count > 0,
+				$"Total QualityAlert notifications: {qeNotifications.Count}");
+
+			var finishedProductNotif = qeNotifications.FirstOrDefault(n => n.Title.Contains("Quality Inspection Required") || n.Title.Contains("Product Finished"));
+			Assert("19.3 Finished product notification has valid inspection action URL and High priority",
+				finishedProductNotif != null && !string.IsNullOrEmpty(finishedProductNotif.ActionUrl) && finishedProductNotif.ActionUrl.StartsWith("/quality"),
+				$"Title: {finishedProductNotif?.Title}, ActionUrl: {finishedProductNotif?.ActionUrl}");
+
 			Console.WriteLine("\n================================================================================");
 			Console.WriteLine($"  TEST RUN COMPLETED: {passedCount} PASSED, {failedCount} FAILED");
 			Console.WriteLine("================================================================================\n");

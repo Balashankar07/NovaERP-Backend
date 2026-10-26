@@ -13,12 +13,14 @@ public class ProductionExecutionService : IProductionExecutionService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogger _auditLogger;
     private readonly IInventoryMovementService _inventoryMovementService;
+    private readonly INotificationService _notificationService;
 
-    public ProductionExecutionService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService)
+    public ProductionExecutionService(IUnitOfWork unitOfWork, IAuditLogger auditLogger, IInventoryMovementService inventoryMovementService, INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _auditLogger = auditLogger;
         _inventoryMovementService = inventoryMovementService;
+        _notificationService = notificationService;
     }
 
     public async Task<PagedResult<ProductionExecutionDto>> GetAllAsync(int pageNumber = 1, int pageSize = 10, string? search = null, string? sortBy = null, string? sortOrder = null)
@@ -249,9 +251,10 @@ public class ProductionExecutionService : IProductionExecutionService
         execution.UpdatedBy = currentUserId;
         execution.UpdatedAt = DateTime.UtcNow;
 
+        QualityInspection? inspection = null;
         if (dto.ProducedQuantity > 0 || dto.RejectedQuantity > 0)
         {
-            var inspection = new QualityInspection
+            inspection = new QualityInspection
             {
                 InspectionNumber = await _unitOfWork.QualityInspections.GenerateInspectionNumberAsync() ?? $"QI-{DateTime.UtcNow:yyyyMMdd}-{Guid.NewGuid().ToString().Substring(0, 4).ToUpper()}",
                 ProductionExecutionId = execution.Id,
@@ -278,6 +281,45 @@ public class ProductionExecutionService : IProductionExecutionService
         
         await _unitOfWork.SaveChangesAsync();
         await _auditLogger.LogAsync("StatusChange", "ProductionExecution", execution.Id.ToString(), oldValues: "Started", newValues: "Completed");
+
+        try
+        {
+            var product = await _unitOfWork.Products.GetByIdAsync(order.ProductId);
+            var prodName = product?.Name ?? "Manufactured Product";
+
+            if (inspection != null)
+            {
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Quality Engineer",
+                    NotificationType.QualityAlert,
+                    $"Product Finished - Quality Inspection Required: {inspection.InspectionNumber}",
+                    $"Production execution {execution.ExecutionNumber} completed for {dto.ProducedQuantity} units of {prodName}. Quality inspection {inspection.InspectionNumber} is awaiting verification.",
+                    NotificationPriority.High,
+                    "QualityInspection",
+                    inspection.Id.ToString(),
+                    $"/quality/{inspection.Id}",
+                    $"qi-exec-{execution.Id}"
+                );
+            }
+            else
+            {
+                await _notificationService.NotifyRoleUsersAsync(
+                    "Quality Engineer",
+                    NotificationType.QualityAlert,
+                    $"Product Finished: {prodName}",
+                    $"Production execution {execution.ExecutionNumber} completed for {dto.ProducedQuantity} units of {prodName}. Quality verification required.",
+                    NotificationPriority.Normal,
+                    "ProductionExecution",
+                    execution.Id.ToString(),
+                    $"/quality",
+                    $"pe-exec-{execution.Id}"
+                );
+            }
+        }
+        catch
+        {
+            // Non-critical notification failure should not block execution completion
+        }
 
         return MapToDto(execution);
     }

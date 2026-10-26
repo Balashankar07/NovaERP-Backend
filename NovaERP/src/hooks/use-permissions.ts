@@ -92,6 +92,44 @@ export function usePermissions() {
         }
       }
 
+      // UX HOTFIX: Allow Quality Engineer full quality and notification permissions without needing to relog to refresh token.
+      if (user.role === "Quality Engineer") {
+        const qualityPerms = [
+          "Permissions.QualityInspection.View",
+          "Permissions.QualityInspection.Create",
+          "Permissions.QualityInspection.Update",
+          "Permissions.QualityInspection.Delete",
+          "Permissions.QualityInspection.Start",
+          "Permissions.QualityInspection.Complete",
+          "Permissions.QualityInspection.Cancel",
+          "Permissions.Quality.NCR.View",
+          "Permissions.Quality.NCR.Create",
+          "Permissions.Quality.NCR.Update",
+          "Permissions.Quality.CAPA.View",
+          "Permissions.Quality.CAPA.Create",
+          "Permissions.Quality.Disposition.View",
+          "Permissions.Quality.Disposition.Create",
+          "Permissions.Quality.Rework.View",
+          "Permissions.Quality.Scrap.View",
+          "Permissions.Notifications.View",
+          "Permissions.Notifications.MarkRead",
+          "Permissions.Notifications.ManagePreferences",
+          "Permissions.Products.View",
+          "Permissions.Reports.Quality",
+          "Permissions.Reports.View"
+        ];
+        if (Array.isArray(permission)) {
+          if (permission.some((p) => qualityPerms.includes(p))) return true;
+        } else if (qualityPerms.includes(permission)) {
+          return true;
+        }
+      }
+
+      // Universal notification access for all authenticated users
+      if (permission === "Permissions.Notifications.View" || permission === "Permissions.Notifications.MarkRead") {
+        return true;
+      }
+
       // IMPORTANT: Per enterprise architecture rules, the frontend MUST NOT
       // infer permissions from business roles to avoid duplicating backend logic.
       // The backend is the single source of truth.
