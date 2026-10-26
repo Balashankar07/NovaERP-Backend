@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,7 +28,7 @@ import { CreateProductionPlanDto } from "@/types/production.types";
 const formSchema = z.object({
   productId: z.string().min(1, "Product is required"),
   bomId: z.string().min(1, "BOM is required"),
-  plannedQuantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+  plannedQuantity: z.coerce.number().min(1, "Quantity must be at least 1").max(100000, "Planned quantity cannot exceed 100,000 units"),
   plannedStartDate: z.string().min(1, "Start date is required"),
   plannedEndDate: z.string().min(1, "End date is required"),
 }).refine((data) => {
